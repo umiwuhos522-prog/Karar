@@ -5,7 +5,7 @@ const fs = require('fs');
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
 const bot = new Telegraf(TOKEN);
 
-// الكوكيز
+// الكوكيز الأساسية
 const rawCookies = [
     { "domain": ".netflix.com", "name": "netflix-sans-normal-3-loaded", "value": "true", "path": "/", "sameSite": "Lax" },
     { "domain": ".netflix.com", "name": "SecureNetflixId", "value": "v%3D3%26mac%3DAQEAEQABABQ6aF0HZ8DsqIo_PhF7ZqIn4Pnkr9eRfa8.%26dt%3D1783653781333", "path": "/", "sameSite": "Strict", "secure": true },
@@ -26,40 +26,37 @@ async function takeScreenshot(page, ctx, caption) {
 async function runBrowser(ctx, email) {
     let browser;
     try {
-        // تشغيل المتصفح بخصائص تمويه (بدون camoufox)
         browser = await chromium.launch({ 
             headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'] 
+            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
         });
         
-        const context = await browser.newContext({
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-        });
-        
+        const context = await browser.newContext();
         await context.addCookies(rawCookies);
         const page = await context.newPage();
+
+        await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'networkidle' });
         
-        // إخفاء أن المتصفح يتم التحكم به بواسطة بوت
-        await page.addInitScript(() => {
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        });
+        // 1. إغلاق رسالة الكوكيز المزعجة إذا ظهرت
+        try {
+            const rejectBtn = page.locator('button:has-text("Reject")');
+            if (await rejectBtn.isVisible()) await rejectBtn.click();
+        } catch (e) {}
 
-        await page.goto('https://www.netflix.com/iq-en/login?serverState=Bgjru%2BvcAxK1AapIBJLLmHm4oDPemeREfZrfJF0tyEhjXYgZwR79d8QKCaThZSSqCguL%2F6IyygJYqySE0i0EpUgSL3IXD6Z71UE1Rj9mXIvDXuU6ObrvB26ROPtLjo3KZC%2F%2BV3d88OWaROCwJPsS1eAkBHcSDvAozz6oA8iWO13S9mUrwBMnK72UPioQlZ8YaoezC9aD1178Pjfpggly0qTyNZUczFrPHQTAp%2FOCNiIhZE6KT4tSJEDBUNW%2FRhwYBiIOCgygNHAeqqHxVQlRJKw%3D', { waitUntil: 'networkidle' });
-        await takeScreenshot(page, ctx, "الخطوة 1: تم الدخول.");
-
+        // 2. إدخال الإيميل مع مسح أي إيميل قديم
         const emailInput = page.locator('input[name="userLoginId"]');
         await emailInput.click();
         await page.keyboard.press('Control+A');
         await page.keyboard.press('Backspace');
-        await emailInput.type(email, { delay: 150 });
-        await takeScreenshot(page, ctx, "الخطوة 2: تم إدخال الإيميل.");
+        await emailInput.fill(email); // استخدام fill بدلاً من type لضمان المسح
+        await takeScreenshot(page, ctx, "الخطوة 2: تم إدخال الإيميل الجديد.");
 
+        // 3. الضغط على Continue
         const continueBtn = page.locator('button[type="submit"]');
-        await page.waitForTimeout(2000); 
         await continueBtn.click({ force: true });
         
-        await page.waitForTimeout(5000);
-        await takeScreenshot(page, ctx, "الخطوة 3: تم الضغط على Continue.");
+        await page.waitForTimeout(3000);
+        await takeScreenshot(page, ctx, "الخطوة 3: تمت العملية بنجاح.");
 
         await browser.close();
     } catch (err) {
@@ -68,11 +65,11 @@ async function runBrowser(ctx, email) {
     }
 }
 
-bot.command('start', (ctx) => ctx.reply("أرسل الإيميل الآن."));
+bot.command('start', (ctx) => ctx.reply("أهلاً بك! أرسل الإيميل الآن."));
 
 bot.on('text', (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
-    ctx.reply("⏳ جاري المعالجة...");
+    ctx.reply("⏳ جاري التنفيذ...");
     runBrowser(ctx, ctx.message.text);
 });
 
