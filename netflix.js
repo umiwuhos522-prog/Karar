@@ -5,14 +5,17 @@ const fs = require('fs');
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
 const bot = new Telegraf(TOKEN);
 
+// الكوكيز الجديدة المحدثة
 const cookies = [
-    { "domain": ".netflix.com", "expirationDate": 1791437690.300262, "hostOnly": false, "httpOnly": false, "name": "netflix-sans-normal-3-loaded", "path": "/", "sameSite": "Lax", "secure": false, "value": "true" },
-    { "domain": ".netflix.com", "expirationDate": 1799205781.715754, "hostOnly": false, "httpOnly": false, "name": "SecureNetflixId", "path": "/", "sameSite": "Strict", "secure": true, "value": "v%3D3%26mac%3DAQEAEQABABQ6aF0HZ8DsqIo_PhF7ZqIn4Pnkr9eRfa8.%26dt%3D1783653781333" },
-    { "domain": ".netflix.com", "expirationDate": 1783740185.228777, "hostOnly": false, "httpOnly": true, "name": "gsid", "path": "/", "sameSite": "Lax", "secure": true, "value": "e1335f92-02b6-43d9-a5dd-c979841186f3" },
-    { "domain": ".netflix.com", "expirationDate": 1799205781.71589, "hostOnly": false, "httpOnly": false, "name": "NetflixId", "path": "/", "sameSite": "Lax", "secure": true, "value": "v%3D3%26ct%3DBgjHlOvcAxK7AQ6aWc332xABBe3_4TFi_GhYz6bu_SppiID9W173968rwXGgBZ5FOguy1o_nypEEzJFpJgmH0c87meJqBoXmkDG-3fRhPBkFJTw4N7FdSlN0L-D1Ihh-QS3KpejkBqY-jawZSvsTk7_j4UywDGYUdSSEksmaOJUWffx0dkqHTtce0mtk26U5ed1HqmdrMIXbF4_wTrJay86xSzumhWvu6NCztzpwtR73CSf9ei3-8Zhv4lR_akcGOLIpWaUYBiIOCgzRZAUwFliOAy-sUmU." },
-    { "domain": ".netflix.com", "expirationDate": 1783672490.302061, "hostOnly": false, "httpOnly": false, "name": "flwssn", "path": "/", "sameSite": "Lax", "secure": false, "value": "0c34d834-9769-4f10-8fbe-8ec245d9746f" },
-    { "domain": ".netflix.com", "expirationDate": 1791437690.301787, "hostOnly": false, "httpOnly": false, "name": "netflix-sans-bold-3-loaded", "path": "/", "sameSite": "Lax", "secure": false, "value": "true" },
-    { "domain": ".netflix.com", "expirationDate": 1799122686.025479, "hostOnly": false, "httpOnly": false, "name": "nfvdid", "path": "/", "sameSite": "Lax", "secure": false, "value": "BQFmAAEBEE9JRlMuhcd1vZeyOZDGNsBgwt3MrI_af3LayzVVer6glzJvVpf97z33DXpKHBq9u0DnX0WJv5EuD1xSVUtIk9HEqcup0dtQ_aPOeD1ClWFBbYusKTD2yuO_aWV8_hyzEbgC_UGa_bLVoE2bGHdkptD2" }
+    { "name": "netflix-sans-bold-3-loaded", "value": "true", "domain": ".netflix.com", "path": "/", "expirationDate": 1791815251.6186, "httpOnly": false, "secure": false, "sameSite": "Lax" },
+    { "name": "netflix-sans-normal-3-loaded", "value": "true", "domain": ".netflix.com", "path": "/", "expirationDate": 1791815251.61852, "httpOnly": false, "secure": false, "sameSite": "Lax" },
+    { "name": "NetflixId", "value": "v%3D3%26ct%3DBgjHlOvcAxLWAeL6G7gNHjC0RSukL5P5ai7X5N4yBdQENkILmkq-xu5WsvfoU1AgWLFFnSsWCugtuj1j41wEOX_WK3Vzah5U7HzBsLEH13RkpzOfo31E0ei-MMUcSJXkF3AlYW8iijtrWQMM_q3tKc143bwMAyutAnH_WVQzhBy0mNLvVybJzKSi7B8wkzzSgCTQX5E8b7y4RIwj-9Wbg1bcO9IaNaNURmA5e0u2D0r520fZNZ6_SNxabeh6-EFjRgj1bZCjW-dhGMs6Y6qFF8a4A0sJyz2BSAkVgKKmJzEYBiIOCgzTPeesDAJEJgHpsBw.", "domain": ".netflix.com", "path": "/", "expirationDate": 1815574947.900658, "httpOnly": false, "secure": true, "sameSite": "Lax" },
+    { "name": "nfvdid", "value": "BQFmAAEBEE9JRlMuhcd1vZeyOZDGNsBgwt3MrI_af3LayzVVer6glzJvVpf97z33DXpKHBq9u0DnX0WJv5EuD1xSVUtIk9HEqcup0dtQ_aPOeD1ClWFBbYusKTD2yuO_aWV8_hyzEbgC_UGa_bLVoE2bGHdkptD2", "domain": ".netflix.com", "path": "/", "expirationDate": 1799122686.025479, "httpOnly": false, "secure": false, "sameSite": "Lax" },
+    { "name": "nkufi-bold-4-loaded", "value": "true", "domain": ".netflix.com", "path": "/", "expirationDate": 1791815251.618416, "httpOnly": false, "secure": false, "sameSite": "Lax" },
+    { "name": "nkufi-normal-4-loaded", "value": "true", "domain": ".netflix.com", "path": "/", "expirationDate": 1791815251.618218, "httpOnly": false, "secure": false, "sameSite": "Lax" },
+    { "name": "OptanonConsent", "value": "consentId=2ab03ed8-9c9d-4c80-925b-d16af32ad47d&datestamp=Tue+Jul+14+2026+17%3A27%3A33+GMT%2B0300+(Arabian+Standard+Time)&version=202604.2.0&interactionCount=1&isAnonUser=1&prevHadToken=0&crTime=1784032869575&isGpcEnabled=0&browserGpcFlag=0&isDntEnabled=0&isIABGlobal=false&hosts=&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0003%3A1%2CC0004%3A1&AwaitingReconsent=false", "domain": ".netflix.com", "path": "/", "expirationDate": 1815575253, "httpOnly": false, "secure": false, "sameSite": "Lax" },
+    { "name": "OTSessionTracking", "value": "87b6a5c0-0104-4e96-a291-092c11350111", "domain": "www.netflix.com", "path": "/", "expirationDate": 1784119199, "httpOnly": false, "secure": false, "sameSite": "Lax" },
+    { "name": "SecureNetflixId", "value": "v%3D3%26mac%3DAQEAEQABABS8CAhRYEmIuvmNn6BmBWXfWWbnrArwqrc.%26dt%3D1784038947590", "domain": ".netflix.com", "path": "/", "expirationDate": 1815574947.900542, "httpOnly": false, "secure": true, "sameSite": "Strict" }
 ];
 
 async function runBrowser(ctx, email) {
@@ -23,19 +26,17 @@ async function runBrowser(ctx, email) {
         await context.addCookies(cookies);
         const page = await context.newPage();
 
-        await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'networkidle' });
+        await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'domcontentloaded' });
 
-        // حلقة مراقبة: ستستمر في مسح الإيميل الغريب وإعادة كتابة إيميلك حتى يتم الضغط على Continue
+        // نستخدم حلقة حقن قوية لفرض الإيميل
         await page.evaluate(async (email) => {
             const input = document.querySelector('input[name="userLoginId"]');
             const btn = document.querySelector('button[type="submit"]');
             
-            // مراقبة لمدة 10 ثوانٍ
-            for(let i = 0; i < 20; i++) {
-                if (input.value !== email) {
-                    input.value = email;
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                }
+            // استمرار المسح والتعويض لمدة 5 ثوانٍ قبل الضغط
+            for(let i = 0; i < 10; i++) {
+                input.value = email;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
                 await new Promise(r => setTimeout(r, 500));
             }
             btn.click();
