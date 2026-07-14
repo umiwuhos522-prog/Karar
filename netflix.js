@@ -5,7 +5,7 @@ const fs = require('fs');
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
 const bot = new Telegraf(TOKEN);
 
-// الكوكيز
+// الكوكيز مع معالجة حقل sameSite لضمان عدم حدوث خطأ
 const rawCookies = [
     { "domain": ".netflix.com", "name": "netflix-sans-normal-3-loaded", "value": "true", "path": "/", "sameSite": null },
     { "domain": ".netflix.com", "name": "SecureNetflixId", "value": "v%3D3%26mac%3DAQEAEQABABQ6aF0HZ8DsqIo_PhF7ZqIn4Pnkr9eRfa8.%26dt%3D1783653781333", "path": "/", "sameSite": "strict", "secure": true },
@@ -15,6 +15,12 @@ const rawCookies = [
     { "domain": ".netflix.com", "name": "netflix-sans-bold-3-loaded", "value": "true", "path": "/", "sameSite": null },
     { "domain": ".netflix.com", "name": "nfvdid", "value": "BQFmAAEBEE9JRlMuhcd1vZeyOZDGNsBgwt3MrI_af3LayzVVer6glzJvVpf97z33DXpKHBq9u0DnX0WJv5EuD1xSVUtIk9HEqcup0dtQ_aPOeD1ClWFBbYusKTD2yuO_aWV8_hyzEbgC_UGa_bLVoE2bGHdkptD2", "path": "/", "sameSite": null }
 ];
+
+// تصحيح القيم التي تسبب الخطأ
+const cookies = rawCookies.map(cookie => ({
+    ...cookie,
+    sameSite: ['Strict', 'Lax', 'None'].includes(cookie.sameSite) ? cookie.sameSite : 'Lax'
+}));
 
 async function takeScreenshot(page, ctx, caption) {
     const path = `step_${Date.now()}.png`;
@@ -31,18 +37,16 @@ async function runBrowser(ctx, email) {
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/126.0.0.0'
         });
 
-        await context.addCookies(rawCookies);
+        await context.addCookies(cookies);
         const page = await context.newPage();
 
         await page.goto('https://www.netflix.com/iq-en/', { waitUntil: 'networkidle' });
 
-        // 1. الضغط على العرض في الأعلى
         const topBanner = page.getByText('Try 30 days for €0').first();
         await topBanner.click();
         await page.waitForLoadState('networkidle');
         await takeScreenshot(page, ctx, "الخطوة 1: تم الدخول والضغط على العرض.");
 
-        // 2. إغلاق الـ Cookie Popup إذا ظهرت
         try {
             const acceptBtn = page.locator('button:has-text("Accept")');
             if (await acceptBtn.isVisible()) {
@@ -50,7 +54,6 @@ async function runBrowser(ctx, email) {
             }
         } catch (e) {}
 
-        // 3. كتابة الإيميل
         const emailInput = page.locator('input[name="email"]');
         await emailInput.click();
         await page.keyboard.press('Control+A');
@@ -58,7 +61,6 @@ async function runBrowser(ctx, email) {
         await emailInput.type(email, { delay: 200 });
         await takeScreenshot(page, ctx, "الخطوة 2: تم إدخال الإيميل يدوياً.");
 
-        // 4. الضغط على Continue
         const continueBtn = page.locator('button:has-text("Continue")');
         await continueBtn.click();
         
