@@ -1,5 +1,5 @@
 const { Telegraf } = require('telegraf');
-const { Camoufox } = require('camoufox'); // إضافة مكتبة التمويه
+const { chromium } = require('playwright');
 const fs = require('fs');
 
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
@@ -26,16 +26,27 @@ async function takeScreenshot(page, ctx, caption) {
 async function runBrowser(ctx, email) {
     let browser;
     try {
-        // استخدام Camoufox للتمويه
-        browser = await Camoufox.launch({ headless: true });
-        const context = await browser.newContext();
+        // تشغيل المتصفح بخصائص تمويه (بدون camoufox)
+        browser = await chromium.launch({ 
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'] 
+        });
+        
+        const context = await browser.newContext({
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        });
+        
         await context.addCookies(rawCookies);
         const page = await context.newPage();
+        
+        // إخفاء أن المتصفح يتم التحكم به بواسطة بوت
+        await page.addInitScript(() => {
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        });
 
         await page.goto('https://www.netflix.com/iq-en/login?serverState=Bgjru%2BvcAxK1AapIBJLLmHm4oDPemeREfZrfJF0tyEhjXYgZwR79d8QKCaThZSSqCguL%2F6IyygJYqySE0i0EpUgSL3IXD6Z71UE1Rj9mXIvDXuU6ObrvB26ROPtLjo3KZC%2F%2BV3d88OWaROCwJPsS1eAkBHcSDvAozz6oA8iWO13S9mUrwBMnK72UPioQlZ8YaoezC9aD1178Pjfpggly0qTyNZUczFrPHQTAp%2FOCNiIhZE6KT4tSJEDBUNW%2FRhwYBiIOCgygNHAeqqHxVQlRJKw%3D', { waitUntil: 'networkidle' });
-        await takeScreenshot(page, ctx, "الخطوة 1: تم الدخول للرابط.");
+        await takeScreenshot(page, ctx, "الخطوة 1: تم الدخول.");
 
-        // كتابة الإيميل
         const emailInput = page.locator('input[name="userLoginId"]');
         await emailInput.click();
         await page.keyboard.press('Control+A');
@@ -43,9 +54,8 @@ async function runBrowser(ctx, email) {
         await emailInput.type(email, { delay: 150 });
         await takeScreenshot(page, ctx, "الخطوة 2: تم إدخال الإيميل.");
 
-        // الضغط على المتابعة (محدد شامل للزر الأحمر)
         const continueBtn = page.locator('button[type="submit"]');
-        await page.waitForTimeout(2000); // تأخير لضمان استقرار الصفحة
+        await page.waitForTimeout(2000); 
         await continueBtn.click({ force: true });
         
         await page.waitForTimeout(5000);
@@ -58,13 +68,11 @@ async function runBrowser(ctx, email) {
     }
 }
 
-bot.command('start', (ctx) => {
-    ctx.reply("أهلاً بك! أرسل الإيميل الآن.");
-});
+bot.command('start', (ctx) => ctx.reply("أرسل الإيميل الآن."));
 
 bot.on('text', (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
-    ctx.reply("⏳ جاري المعالجة بوضع التمويه...");
+    ctx.reply("⏳ جاري المعالجة...");
     runBrowser(ctx, ctx.message.text);
 });
 
