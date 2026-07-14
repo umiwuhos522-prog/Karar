@@ -16,7 +16,6 @@ const rawCookies = [
     { "domain": ".netflix.com", "name": "nfvdid", "value": "BQFmAAEBEE9JRlMuhcd1vZeyOZDGNsBgwt3MrI_af3LayzVVer6glzJvVpf97z33DXpKHBq9u0DnX0WJv5EuD1xSVUtIk9HEqcup0dtQ_aPOeD1ClWFBbYusKTD2yuO_aWV8_hyzEbgC_UGa_bLVoE2bGHdkptD2", "path": "/", "sameSite": null }
 ];
 
-// تصحيح الكوكيز برمجياً لتجنب خطأ sameSite
 const cookies = rawCookies.map(cookie => ({
     ...cookie,
     sameSite: ['Strict', 'Lax', 'None'].includes(cookie.sameSite) ? cookie.sameSite : 'Lax'
@@ -34,22 +33,25 @@ async function runBrowser(ctx, email) {
         const page = await context.newPage();
 
         await page.goto('https://www.netflix.com/iq-en/', { waitUntil: 'networkidle' });
-        await page.screenshot({ path: 'step1.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('step1.png') }, { caption: "تم الدخول للموقع." });
+        
+        // استخدام محدد دقيق جداً لتجنب تكرار العناصر
+        const emailInputSelector = 'input[data-uia="field-email"]';
+        await page.waitForSelector(emailInputSelector, { state: 'visible' });
+        
+        // مسح الحقل قبل الإدخال لضمان عدم بقاء أي إيميل قديم
+        await page.fill(emailInputSelector, '');
+        await page.fill(emailInputSelector, email);
+        
+        await page.screenshot({ path: 'email_input.png' });
+        await ctx.replyWithPhoto({ source: fs.createReadStream('email_input.png') }, { caption: "تم إدخال الإيميل الجديد بنجاح." });
 
-        const emailInput = page.locator('input[type="email"]');
-        await emailInput.waitFor({ state: 'visible', timeout: 30000 });
-        await emailInput.fill(email);
-        await page.screenshot({ path: 'step2.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('step2.png') }, { caption: "تم وضع الإيميل." });
-
+        // زر التسجيل
         const submitBtn = page.locator('button[data-uia="cta-registration"]');
-        await submitBtn.waitFor({ state: 'visible', timeout: 30000 });
         await submitBtn.click();
 
         await page.waitForTimeout(5000);
-        await page.screenshot({ path: 'step3.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('step3.png') }, { caption: "تمت العملية." });
+        await page.screenshot({ path: 'final.png' });
+        await ctx.replyWithPhoto({ source: fs.createReadStream('final.png') }, { caption: "تمت العملية." });
 
         await browser.close();
     } catch (err) {
