@@ -1,7 +1,7 @@
-# استخدام صورة Playwright الجاهزة التي تحتوي على المتصفح
-FROM mcr.microsoft.com/playwright:v1.44.0-jammy
+# تحديث الصورة لتطابق النسخة التي يطلبها البوت
+FROM mcr.microsoft.com/playwright:v1.61.1-jammy
 
-# إعداد مسار العمل داخل السيرفر
+# إعداد مسار العمل
 WORKDIR /app
 
 # نسخ ملفات تعريف المشروع وتثبيت المكتبات
