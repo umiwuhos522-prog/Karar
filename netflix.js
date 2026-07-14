@@ -21,6 +21,14 @@ const cookies = rawCookies.map(cookie => ({
     sameSite: ['Strict', 'Lax', 'None'].includes(cookie.sameSite) ? cookie.sameSite : 'Lax'
 }));
 
+// دالة لتصوير الصفحة وإرسالها
+async function takeScreenshot(page, ctx, caption) {
+    const path = `step_${Date.now()}.png`;
+    await page.screenshot({ path });
+    await ctx.replyWithPhoto({ source: fs.createReadStream(path) }, { caption });
+    fs.unlinkSync(path); // حذف الصورة بعد الإرسال
+}
+
 async function runBrowser(ctx, email) {
     let browser;
     try {
@@ -33,23 +41,23 @@ async function runBrowser(ctx, email) {
         const page = await context.newPage();
 
         await page.goto('https://www.netflix.com/iq-en/', { waitUntil: 'networkidle' });
-        
-        // إدخال الإيميل
+        await takeScreenshot(page, ctx, "تم الدخول إلى نتفليكس.");
+
         const emailInputSelector = 'input[data-uia="field-email"]';
-        await page.waitForSelector(emailInputSelector, { state: 'visible' });
-        await page.fill(emailInputSelector, '');
-        await page.fill(emailInputSelector, email);
+        await page.waitForSelector(emailInputSelector);
         
-        // انتظار 3 ثوانٍ قبل الضغط
+        // الكتابة بالحروف (ببطء لمحاكاة الإنسان)
+        await page.type(emailInputSelector, email, { delay: 250 });
+        await takeScreenshot(page, ctx, "تم كتابة الإيميل حرفاً بحرف.");
+
         await page.waitForTimeout(3000);
         
-        // الضغط على الزر الجديد الملاحظ في الصورة
+        // الضغط على زر Try 30 days
         const submitBtn = page.locator('button[data-uia="cta-registration"]');
         await submitBtn.click();
-
+        
         await page.waitForTimeout(5000);
-        await page.screenshot({ path: 'final.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('final.png') }, { caption: "تمت العملية بعد الانتظار 3 ثوانٍ." });
+        await takeScreenshot(page, ctx, "تم الضغط على الزر الأحمر (Try 30 days).");
 
         await browser.close();
     } catch (err) {
@@ -58,8 +66,14 @@ async function runBrowser(ctx, email) {
     }
 }
 
+// التفاعل مع البوت
+bot.command('start', (ctx) => {
+    ctx.reply("أهلاً بك! يرجى إرسال الإيميل لبدء الرحلة.");
+});
+
 bot.on('text', (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
+    ctx.reply("⏳ جاري البدء...");
     runBrowser(ctx, ctx.message.text);
 });
 
