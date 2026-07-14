@@ -1,5 +1,5 @@
 const { Telegraf } = require('telegraf');
-const { chromium } = require('playwright');
+const { Camoufox } = require('camoufox'); // إضافة مكتبة التمويه
 const fs = require('fs');
 
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
@@ -26,31 +26,29 @@ async function takeScreenshot(page, ctx, caption) {
 async function runBrowser(ctx, email) {
     let browser;
     try {
-        browser = await chromium.launch({ headless: true });
-        const context = await browser.newContext({
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/126.0.0.0'
-        });
-
+        // استخدام Camoufox للتمويه
+        browser = await Camoufox.launch({ headless: true });
+        const context = await browser.newContext();
         await context.addCookies(rawCookies);
         const page = await context.newPage();
 
-        // فتح الرابط المباشر
         await page.goto('https://www.netflix.com/iq-en/login?serverState=Bgjru%2BvcAxK1AapIBJLLmHm4oDPemeREfZrfJF0tyEhjXYgZwR79d8QKCaThZSSqCguL%2F6IyygJYqySE0i0EpUgSL3IXD6Z71UE1Rj9mXIvDXuU6ObrvB26ROPtLjo3KZC%2F%2BV3d88OWaROCwJPsS1eAkBHcSDvAozz6oA8iWO13S9mUrwBMnK72UPioQlZ8YaoezC9aD1178Pjfpggly0qTyNZUczFrPHQTAp%2FOCNiIhZE6KT4tSJEDBUNW%2FRhwYBiIOCgygNHAeqqHxVQlRJKw%3D', { waitUntil: 'networkidle' });
-        await takeScreenshot(page, ctx, "الخطوة 1: تم الدخول للرابط المباشر.");
+        await takeScreenshot(page, ctx, "الخطوة 1: تم الدخول للرابط.");
 
-        // إدخال الإيميل (استهداف الحقل في صفحة تسجيل الدخول)
+        // كتابة الإيميل
         const emailInput = page.locator('input[name="userLoginId"]');
         await emailInput.click();
         await page.keyboard.press('Control+A');
         await page.keyboard.press('Backspace');
         await emailInput.type(email, { delay: 150 });
-        await takeScreenshot(page, ctx, "الخطوة 2: تم إدخال الإيميل يدوياً.");
+        await takeScreenshot(page, ctx, "الخطوة 2: تم إدخال الإيميل.");
 
-        // الضغط على Continue
-        const continueBtn = page.locator('button[data-uia="login-submit-button"]');
-        await continueBtn.click();
+        // الضغط على المتابعة (محدد شامل للزر الأحمر)
+        const continueBtn = page.locator('button[type="submit"]');
+        await page.waitForTimeout(2000); // تأخير لضمان استقرار الصفحة
+        await continueBtn.click({ force: true });
         
-        await page.waitForTimeout(3000);
+        await page.waitForTimeout(5000);
         await takeScreenshot(page, ctx, "الخطوة 3: تم الضغط على Continue.");
 
         await browser.close();
@@ -61,12 +59,12 @@ async function runBrowser(ctx, email) {
 }
 
 bot.command('start', (ctx) => {
-    ctx.reply("أهلاً بك! أرسل الإيميل الآن وسأقوم بإدخاله في نتفليكس.");
+    ctx.reply("أهلاً بك! أرسل الإيميل الآن.");
 });
 
 bot.on('text', (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
-    ctx.reply("⏳ جاري المعالجة...");
+    ctx.reply("⏳ جاري المعالجة بوضع التمويه...");
     runBrowser(ctx, ctx.message.text);
 });
 
