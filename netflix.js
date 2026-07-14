@@ -8,12 +8,11 @@ puppeteer.use(stealth());
 
 const bot = new Telegraf("7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU");
 
-bot.start((ctx) => ctx.reply("أهلاً بك، أرسل الإيميل الآن للبدء:"));
+bot.start((ctx) => ctx.reply("أهلاً بك، أرسل الإيميل للبدء:"));
 
 bot.on('text', async (ctx) => {
     const email = ctx.message.text;
-    const statusMsg = await ctx.reply("⏳ جاري المحاولة (قد يستغرق الأمر عدة ثوانٍ)...");
-
+    
     let browser;
     try {
         browser = await chromium.launch({ 
@@ -21,44 +20,46 @@ bot.on('text', async (ctx) => {
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
         });
         
-        const context = await browser.newContext({
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
-        });
+        const context = await browser.newContext();
         const page = await context.newPage();
+        
+        await page.addInitScript(() => {
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        });
 
         await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'networkidle' });
-
-        // ضغط Accept إذا وجدت
         try { await page.click('button:has-text("Accept")', { timeout: 3000 }); } catch (e) {}
 
         let success = false;
-        let attempts = 0;
-        const maxAttempts = 10; // عدد محاولات التكرار
+        // سنبدأ الانتظار من 3 ثواني ونزيد في كل محاولة
+        let waitTime = 3000; 
 
-        while (!success && attempts < maxAttempts) {
-            attempts++;
+        for (let i = 1; i <= 8; i++) {
             const emailInput = page.locator('input[name="userLoginId"]');
             await emailInput.fill(email);
-            await page.waitForTimeout(1000);
             await page.click('button[type="submit"]');
             
-            await page.waitForTimeout(3000); // الانتظار لرؤية النتيجة
-
-            // التحقق هل ظهر الخطأ؟
-            const errorElement = await page.locator('text="Something went wrong"').count();
+            // انتظار ديناميكي يتزايد مع كل محاولة
+            await page.waitForTimeout(waitTime); 
             
+            // التقاط صورة بعد كل محاولة
+            await page.screenshot({ path: `attempt_${i}.png` });
+            await ctx.replyWithPhoto({ source: fs.createReadStream(`attempt_${i}.png`) }, { caption: `المحاولة ${i} (انتظار ${waitTime/1000} ثانية)` });
+            
+            // فحص هل ظهر الخطأ؟
+            const errorElement = await page.locator('text="Something went wrong"').count();
             if (errorElement === 0) {
-                success = true; // لا يوجد خطأ
-            } else {
-                await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, `⏳ المحاولة ${attempts} فشلت، جاري إعادة المحاولة...`);
+                success = true;
+                await ctx.reply("✅ تم تجاوز الخطأ بنجاح!");
+                break; 
             }
+            
+            // زيادة وقت الانتظار للمحاولة القادمة
+            waitTime += 1000; 
         }
 
-        await page.screenshot({ path: 'final.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('final.png') });
-        
+        if (!success) await ctx.reply("❌ انتهت المحاولات وما زال الخطأ يظهر.");
         await browser.close();
-        await ctx.deleteMessage(statusMsg.message_id);
     } catch (err) {
         if (browser) await browser.close();
         ctx.reply("❌ حدث خطأ: " + err.message);
