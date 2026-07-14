@@ -15,59 +15,36 @@ const cookies = [
     { "domain": ".netflix.com", "expirationDate": 1799122686.025479, "hostOnly": false, "httpOnly": false, "name": "nfvdid", "path": "/", "sameSite": "Lax", "secure": false, "value": "BQFmAAEBEE9JRlMuhcd1vZeyOZDGNsBgwt3MrI_af3LayzVVer6glzJvVpf97z33DXpKHBq9u0DnX0WJv5EuD1xSVUtIk9HEqcup0dtQ_aPOeD1ClWFBbYusKTD2yuO_aWV8_hyzEbgC_UGa_bLVoE2bGHdkptD2" }
 ];
 
-async function takeScreenshot(page, ctx, caption) {
-    const path = `step_${Date.now()}.png`;
-    await page.screenshot({ path });
-    await ctx.replyWithPhoto({ source: fs.createReadStream(path) }, { caption });
-    fs.unlinkSync(path);
-}
-
 async function runBrowser(ctx, email) {
     let browser;
     try {
-        browser = await chromium.launch({ 
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'] 
-        });
-        
-        const context = await browser.newContext({
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-            viewport: { width: 1280, height: 720 }
-        });
-        
+        browser = await chromium.launch({ headless: true });
+        const context = await browser.newContext();
         await context.addCookies(cookies);
         const page = await context.newPage();
 
-        await page.addInitScript(() => {
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        });
-
         await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'networkidle' });
-        
-        await page.waitForTimeout(2000);
 
-        const emailInput = page.locator('input[name="userLoginId"]');
-        await emailInput.click();
-        await page.keyboard.press('Control+A');
-        await page.keyboard.press('Backspace');
-        await emailInput.type(email, { delay: 250 });
-        
-        // التحقق من القيمة قبل الضغط
-        const valBefore = await emailInput.inputValue();
-        console.log("القيمة قبل الضغط على Continue:", valBefore);
-
-        await takeScreenshot(page, ctx, "القيمة قبل الضغط: " + valBefore);
-
-        const continueBtn = page.locator('button[type="submit"]');
-        await continueBtn.click({ force: true });
+        // حلقة مراقبة: ستستمر في مسح الإيميل الغريب وإعادة كتابة إيميلك حتى يتم الضغط على Continue
+        await page.evaluate(async (email) => {
+            const input = document.querySelector('input[name="userLoginId"]');
+            const btn = document.querySelector('button[type="submit"]');
+            
+            // مراقبة لمدة 10 ثوانٍ
+            for(let i = 0; i < 20; i++) {
+                if (input.value !== email) {
+                    input.value = email;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                await new Promise(r => setTimeout(r, 500));
+            }
+            btn.click();
+        }, email);
         
         await page.waitForTimeout(5000);
-        
-        // التحقق من القيمة بعد الضغط
-        const valAfter = await emailInput.inputValue();
-        console.log("القيمة بعد الضغط على Continue:", valAfter);
-        
-        await takeScreenshot(page, ctx, "القيمة بعد الضغط: " + valAfter);
+        await page.screenshot({ path: 'result.png' });
+        await ctx.replyWithPhoto({ source: fs.createReadStream('result.png') });
+        fs.unlinkSync('result.png');
 
         await browser.close();
     } catch (err) {
@@ -76,11 +53,5 @@ async function runBrowser(ctx, email) {
     }
 }
 
-bot.command('start', (ctx) => ctx.reply("أهلاً بك! أرسل الإيميل الآن."));
-bot.on('text', (ctx) => {
-    if (ctx.message.text.startsWith('/')) return;
-    ctx.reply("⏳ جاري الاختبار وفحص المدخلات...");
-    runBrowser(ctx, ctx.message.text);
-});
-
+bot.on('text', (ctx) => runBrowser(ctx, ctx.message.text));
 bot.launch();
