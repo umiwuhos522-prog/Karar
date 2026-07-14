@@ -5,7 +5,7 @@ const fs = require('fs');
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
 const bot = new Telegraf(TOKEN);
 
-// الكوكيز الجديدة المحدثة
+// الكوكيز المحدثة
 const cookies = [
     { "name": "netflix-sans-bold-3-loaded", "value": "true", "domain": ".netflix.com", "path": "/", "expirationDate": 1791815251.6186, "httpOnly": false, "secure": false, "sameSite": "Lax" },
     { "name": "netflix-sans-normal-3-loaded", "value": "true", "domain": ".netflix.com", "path": "/", "expirationDate": 1791815251.61852, "httpOnly": false, "secure": false, "sameSite": "Lax" },
@@ -18,41 +18,45 @@ const cookies = [
     { "name": "SecureNetflixId", "value": "v%3D3%26mac%3DAQEAEQABABS8CAhRYEmIuvmNn6BmBWXfWWbnrArwqrc.%26dt%3D1784038947590", "domain": ".netflix.com", "path": "/", "expirationDate": 1815574947.900542, "httpOnly": false, "secure": true, "sameSite": "Strict" }
 ];
 
-async function runBrowser(ctx, email) {
-    let browser;
-    try {
-        browser = await chromium.launch({ headless: true });
+let userState = {};
+
+bot.command('start', (ctx) => {
+    ctx.reply("يرجى إرسال الإيميل:");
+    userState[ctx.chat.id] = 'waiting_for_email';
+});
+
+bot.on('text', async (ctx) => {
+    if (userState[ctx.chat.id] === 'waiting_for_email') {
+        const email = ctx.message.text;
+        ctx.reply("⏳ جاري المعالجة...");
+        
+        const browser = await chromium.launch({ headless: true });
         const context = await browser.newContext();
         await context.addCookies(cookies);
         const page = await context.newPage();
-
+        
         await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'domcontentloaded' });
 
-        // نستخدم حلقة حقن قوية لفرض الإيميل
-        await page.evaluate(async (email) => {
-            const input = document.querySelector('input[name="userLoginId"]');
-            const btn = document.querySelector('button[type="submit"]');
-            
-            // استمرار المسح والتعويض لمدة 5 ثوانٍ قبل الضغط
-            for(let i = 0; i < 10; i++) {
-                input.value = email;
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-                await new Promise(r => setTimeout(r, 500));
-            }
-            btn.click();
-        }, email);
+        // الكتابة اليدوية الطبيعية
+        const emailInput = page.locator('input[name="userLoginId"]');
+        await emailInput.click();
+        await emailInput.type(email, { delay: 200 });
         
-        await page.waitForTimeout(5000);
-        await page.screenshot({ path: 'result.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('result.png') });
-        fs.unlinkSync('result.png');
-
+        // الصورة الأولى: بعد الكتابة
+        await page.screenshot({ path: 'step1.png' });
+        await ctx.replyWithPhoto({ source: fs.createReadStream('step1.png') }, { caption: "تمت الكتابة يدوياً." });
+        
+        // الضغط على الاستمرار
+        await page.click('button[type="submit"]');
+        await page.waitForTimeout(4000);
+        
+        // الصورة الثانية: بعد الاستمرار
+        await page.screenshot({ path: 'step2.png' });
+        await ctx.replyWithPhoto({ source: fs.createReadStream('step2.png') }, { caption: "النتيجة بعد الضغط على Continue." });
+        
         await browser.close();
-    } catch (err) {
-        if (browser) await browser.close();
-        await ctx.reply("❌ حدث خطأ: " + err.message);
+        userState[ctx.chat.id] = null;
     }
-}
+});
 
-bot.on('text', (ctx) => runBrowser(ctx, ctx.message.text));
 bot.launch();
