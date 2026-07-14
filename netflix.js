@@ -12,43 +12,62 @@ bot.start((ctx) => ctx.reply("أهلاً بك، أرسل الإيميل الآن
 
 bot.on('text', async (ctx) => {
     const email = ctx.message.text;
-    const statusMsg = await ctx.reply("⏳ جاري المعالجة...");
+    const statusMsg = await ctx.reply("⏳ جاري المعالجة بوضع التخفي الكامل...");
 
     let browser;
     try {
         browser = await chromium.launch({ 
             headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-blink-features=AutomationControlled', // التمويه الأساسي
+                '--disable-features=IsolateOrigins,site-per-process',
+                '--blink-settings=imagesEnabled=true'
+            ]
         });
         
-        const context = await browser.newContext();
+        // إعداد السياق ليبدو كمتصفح ويندوز حقيقي
+        const context = await browser.newContext({
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+            locale: 'en-US',
+            timezoneId: 'America/New_York',
+            permissions: ['geolocation'],
+            geolocation: { latitude: 40.7128, longitude: -74.0060 }
+        });
+
         const page = await context.newPage();
         
+        // مسح آثار الأتمتة من الـ JavaScript
         await page.addInitScript(() => {
             Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+            window.navigator.chrome = { runtime: {} };
         });
 
-        await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'domcontentloaded' });
+        await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'networkidle' });
 
-        // 1. الضغط على Accept إذا ظهرت نافذة الكوكيز
+        // إضافة تأخير بشري قبل التفاعل
+        await page.waitForTimeout(2000);
+
+        // الضغط على Accept للكوكيز
         try {
-            await page.waitForSelector('button:has-text("Accept")', { timeout: 5000 });
-            await page.click('button:has-text("Accept")');
-        } catch (e) {
-            // تجاهل إذا لم تظهر النافذة
-        }
+            await page.click('button:has-text("Accept")', { timeout: 3000 });
+        } catch (e) {}
 
-        // 2. إدخال الإيميل
+        // إدخال الإيميل مع تأخير بين الحروف
         const emailInput = page.locator('input[name="userLoginId"]');
         await emailInput.fill(email);
         
-        // 3. الضغط على استمرار (Continue)
+        // الانتظار قليلاً قبل الضغط للتمويه
+        await page.waitForTimeout(2500); 
+        
+        // الضغط على Continue
         await page.click('button[type="submit"]');
         
-        // 4. انتظار النتيجة والتقاط صورة
-        await page.waitForTimeout(5000);
-        await page.screenshot({ path: 'final.png' });
+        // انتظار أطول قليلاً بعد الضغط لتجاوز فحص الكابتشا
+        await page.waitForTimeout(7000);
         
+        await page.screenshot({ path: 'final.png' });
         await ctx.replyWithPhoto({ source: fs.createReadStream('final.png') });
         
         await browser.close();
