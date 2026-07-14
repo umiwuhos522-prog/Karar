@@ -5,7 +5,7 @@ const fs = require('fs');
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
 const bot = new Telegraf(TOKEN);
 
-// الكوكيز المحدثة
+// الكوكيز كما هي
 const cookies = [
     { "name": "netflix-sans-bold-3-loaded", "value": "true", "domain": ".netflix.com", "path": "/", "expirationDate": 1791815251.6186, "httpOnly": false, "secure": false, "sameSite": "Lax" },
     { "name": "netflix-sans-normal-3-loaded", "value": "true", "domain": ".netflix.com", "path": "/", "expirationDate": 1791815251.61852, "httpOnly": false, "secure": false, "sameSite": "Lax" },
@@ -28,7 +28,7 @@ bot.command('start', (ctx) => {
 bot.on('text', async (ctx) => {
     if (userState[ctx.chat.id] === 'waiting_for_email') {
         const email = ctx.message.text;
-        ctx.reply("⏳ جاري المعالجة...");
+        ctx.reply("⏳ جاري الكتابة ببطء والتأكد من الإدخال...");
         
         const browser = await chromium.launch({ headless: true });
         const context = await browser.newContext();
@@ -37,20 +37,26 @@ bot.on('text', async (ctx) => {
         
         await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'domcontentloaded' });
 
-        // الكتابة اليدوية الطبيعية
         const emailInput = page.locator('input[name="userLoginId"]');
         await emailInput.click();
-        await emailInput.type(email, { delay: 200 });
         
-        // الصورة الأولى: بعد الكتابة
+        // كتابة بطيئة جداً (400ms لكل حرف)
+        await emailInput.type(email, { delay: 400 });
+        
+        // انتظار إضافي للتأكد أن النص اكتمل في الحقل
+        await page.waitForTimeout(4000); 
+
+        // التأكد برمجياً أن الحقل يحتوي على النص الكامل قبل الضغط
+        await page.waitForFunction((expectedEmail) => {
+            return document.querySelector('input[name="userLoginId"]').value === expectedEmail;
+        }, email);
+        
         await page.screenshot({ path: 'step1.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('step1.png') }, { caption: "تمت الكتابة يدوياً." });
+        await ctx.replyWithPhoto({ source: fs.createReadStream('step1.png') }, { caption: "تمت كتابة الإيميل بالكامل." });
         
-        // الضغط على الاستمرار
         await page.click('button[type="submit"]');
         await page.waitForTimeout(4000);
         
-        // الصورة الثانية: بعد الاستمرار
         await page.screenshot({ path: 'step2.png' });
         await ctx.replyWithPhoto({ source: fs.createReadStream('step2.png') }, { caption: "النتيجة بعد الضغط على Continue." });
         
