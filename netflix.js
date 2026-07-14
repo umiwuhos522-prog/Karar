@@ -21,12 +21,11 @@ const cookies = rawCookies.map(cookie => ({
     sameSite: ['Strict', 'Lax', 'None'].includes(cookie.sameSite) ? cookie.sameSite : 'Lax'
 }));
 
-// دالة لتصوير الصفحة وإرسالها
 async function takeScreenshot(page, ctx, caption) {
     const path = `step_${Date.now()}.png`;
     await page.screenshot({ path });
     await ctx.replyWithPhoto({ source: fs.createReadStream(path) }, { caption });
-    fs.unlinkSync(path); // حذف الصورة بعد الإرسال
+    fs.unlinkSync(path);
 }
 
 async function runBrowser(ctx, email) {
@@ -34,7 +33,7 @@ async function runBrowser(ctx, email) {
     try {
         browser = await chromium.launch({ headless: true });
         const context = await browser.newContext({
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/126.0.0.0'
         });
 
         await context.addCookies(cookies);
@@ -45,19 +44,24 @@ async function runBrowser(ctx, email) {
 
         const emailInputSelector = 'input[data-uia="field-email"]';
         await page.waitForSelector(emailInputSelector);
-        
-        // الكتابة بالحروف (ببطء لمحاكاة الإنسان)
-        await page.type(emailInputSelector, email, { delay: 250 });
-        await takeScreenshot(page, ctx, "تم كتابة الإيميل حرفاً بحرف.");
 
-        await page.waitForTimeout(3000);
+        // التعديل هنا: تحديد النص الموجود ومسحه
+        await page.click(emailInputSelector);
+        await page.keyboard.press('Control+A');
+        await page.keyboard.press('Backspace');
+
+        // كتابة الإيميل يدوياً حرفاً بحرف
+        await page.type(emailInputSelector, email, { delay: 200 });
+        await takeScreenshot(page, ctx, "تم مسح أي إيميل قديم وكتابة الإيميل الجديد يدوياً.");
+
+        await page.waitForTimeout(2000);
         
-        // الضغط على زر Try 30 days
+        // الضغط على الزر الأحمر
         const submitBtn = page.locator('button[data-uia="cta-registration"]');
         await submitBtn.click();
         
         await page.waitForTimeout(5000);
-        await takeScreenshot(page, ctx, "تم الضغط على الزر الأحمر (Try 30 days).");
+        await takeScreenshot(page, ctx, "تم الضغط على الزر الأحمر بنجاح.");
 
         await browser.close();
     } catch (err) {
@@ -66,9 +70,8 @@ async function runBrowser(ctx, email) {
     }
 }
 
-// التفاعل مع البوت
 bot.command('start', (ctx) => {
-    ctx.reply("أهلاً بك! يرجى إرسال الإيميل لبدء الرحلة.");
+    ctx.reply("أهلاً بك! يرجى إرسال الإيميل لبدء العملية.");
 });
 
 bot.on('text', (ctx) => {
