@@ -12,37 +12,44 @@ async function runBrowser(ctx, email) {
         const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' });
         
         const page = await context.newPage();
-        await page.goto('https://www.netflix.com/signup/registration', { waitUntil: 'domcontentloaded' });
+        
+        // الخطوة 1: الدخول
+        await page.goto('https://www.netflix.com/signup/registration', { waitUntil: 'networkidle' });
+        await page.screenshot({ path: 'step1.png' });
+        await ctx.replyWithPhoto({ source: fs.createReadStream('step1.png') }, { caption: "الخطوة 1: الصفحة الأولى" });
 
-        // 1. الضغط على زر Next إذا ظهر في صفحة اختيار الخطة
+        // الخطوة 2: محاولة الضغط على Next
         const nextButton = 'button:has-text("Next")';
         if (await page.isVisible(nextButton)) {
             await page.click(nextButton);
-            await page.waitForTimeout(3000); // انتظار التحميل بعد الضغط
+            await page.waitForTimeout(3000);
+            await page.screenshot({ path: 'step2.png' });
+            await ctx.replyWithPhoto({ source: fs.createReadStream('step2.png') }, { caption: "الخطوة 2: بعد الضغط على Next" });
         }
 
-        // 2. إدخال الإيميل بعد الضغط على Next
+        // الخطوة 3: إدخال الإيميل
         const emailSelector = 'input[name="email"]';
         await page.waitForSelector(emailSelector, { timeout: 15000 });
         await page.fill(emailSelector, email);
-        
-        // 3. الضغط على زر المتابعة (سواء كان مكتوباً عليه Continue أو متابعة)
-        await page.click('button[type="submit"]');
-        
-        await page.screenshot({ path: 'final.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('final.png') }, { caption: "تمت العملية! هذه صورة الصفحة الحالية:" });
+        await page.screenshot({ path: 'step3.png' });
+        await ctx.replyWithPhoto({ source: fs.createReadStream('step3.png') }, { caption: "الخطوة 3: تم إدخال الإيميل" });
         
         await browser.close();
+        await ctx.reply("✅ تمت العملية بنجاح.");
+
     } catch (err) {
         if (browser) await browser.close();
-        await ctx.reply("❌ حدث خطأ: " + err.message);
+        // التقاط صورة أخيرة لمعرفة أين توقف بالضبط
+        await page.screenshot({ path: 'error.png' });
+        await ctx.replyWithPhoto({ source: fs.createReadStream('error.png') }, { caption: "❌ توقف البوت هنا:" });
+        await ctx.reply("تفاصيل الخطأ: " + err.message);
     }
 }
 
 bot.on('text', async (ctx) => {
     const email = ctx.message.text;
     if (email.startsWith('/')) return;
-    await ctx.reply("🔄 جاري الضغط على Next وإدخال الإيميل...");
+    await ctx.reply("🔄 جاري التتبع خطوة بخطوة...");
     await runBrowser(ctx, email);
 });
 
