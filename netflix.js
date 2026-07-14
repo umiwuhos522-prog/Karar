@@ -13,43 +13,32 @@ async function runBrowser(ctx, email) {
         
         const page = await context.newPage();
         
-        // الخطوة 1: الدخول
-        await page.goto('https://www.netflix.com/signup/registration', { waitUntil: 'networkidle' });
-        await page.screenshot({ path: 'step1.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('step1.png') }, { caption: "الخطوة 1: الصفحة الأولى" });
-
-        // الخطوة 2: محاولة الضغط على Next
-        const nextButton = 'button:has-text("Next")';
-        if (await page.isVisible(nextButton)) {
-            await page.click(nextButton);
-            await page.waitForTimeout(3000);
-            await page.screenshot({ path: 'step2.png' });
-            await ctx.replyWithPhoto({ source: fs.createReadStream('step2.png') }, { caption: "الخطوة 2: بعد الضغط على Next" });
-        }
-
-        // الخطوة 3: إدخال الإيميل
-        const emailSelector = 'input[name="email"]';
+        // الانتقال للرابط المطلوب الذي أرسلته
+        await page.goto('https://www.netflix.com/iq-en/', { waitUntil: 'networkidle' });
+        
+        // البحث عن خانة الإيميل في الصفحة الرئيسية
+        // Netflix تستخدم معرفات مختلفة للـ input في الصفحة الرئيسية
+        const emailSelector = 'input[type="email"], input[name="email"]';
         await page.waitForSelector(emailSelector, { timeout: 15000 });
         await page.fill(emailSelector, email);
-        await page.screenshot({ path: 'step3.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('step3.png') }, { caption: "الخطوة 3: تم إدخال الإيميل" });
+        
+        // الضغط على زر Get Started
+        await page.click('button[data-uia="cta-registration"]');
+        
+        await page.screenshot({ path: 'final.png' });
+        await ctx.replyWithPhoto({ source: fs.createReadStream('final.png') }, { caption: "تم إدخال الإيميل والضغط على Get Started بنجاح." });
         
         await browser.close();
-        await ctx.reply("✅ تمت العملية بنجاح.");
-
     } catch (err) {
         if (browser) await browser.close();
-        // التقاط صورة أخيرة لمعرفة أين توقف بالضبط
-        await page.screenshot({ path: 'error.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('error.png') }, { caption: "❌ توقف البوت هنا:" });
-        await ctx.reply("تفاصيل الخطأ: " + err.message);
+        await ctx.reply("❌ حدث خطأ: " + err.message);
     }
 }
 
 bot.on('text', async (ctx) => {
     const email = ctx.message.text;
     if (email.startsWith('/')) return;
-    await ctx.reply("🔄 جاري التتبع خطوة بخطوة...");
+    await ctx.reply("🔄 جاري الدخول للرابط المطلوب...");
     await runBrowser(ctx, email);
 });
 
