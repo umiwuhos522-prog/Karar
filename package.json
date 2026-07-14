@@ -1,7 +1,6 @@
 {
   "name": "bot-project",
   "version": "1.0.0",
-  "description": "Netflix Playwright Bot",
   "main": "netflix.js",
   "scripts": {
     "start": "node netflix.js"
