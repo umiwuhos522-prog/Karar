@@ -5,7 +5,6 @@ const fs = require('fs');
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
 const bot = new Telegraf(TOKEN);
 
-// دالة لالتقاط صورة وإرسالها للتليجرام
 async function capture(page, filename, caption, ctx) {
     await page.screenshot({ path: filename });
     await ctx.replyWithPhoto({ source: fs.createReadStream(filename) }, { caption: caption });
@@ -13,51 +12,56 @@ async function capture(page, filename, caption, ctx) {
 
 async function runBrowser(ctx, email) {
     let browser;
+    let attempts = 0;
+    const maxAttempts = 3;
+
     try {
-        // إعداد المتصفح بمحاكاة متصفح حقيقي
-        browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-        const context = await browser.newContext({ 
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' 
-        });
+        browser = await chromium.launch({ args: ['--no-sandbox'] });
+        const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' });
         const page = await context.newPage();
 
-        // 1. الدخول للموقع
-        await page.goto('https://www.netflix.com/iq-en/', { waitUntil: 'domcontentloaded' });
-        await capture(page, 'step1.png', "الخطوة 1: تم فتح الصفحة الرئيسية", ctx);
+        while (attempts < maxAttempts) {
+            attempts++;
+            await page.goto('https://www.netflix.com/iq-en/', { waitUntil: 'domcontentloaded' });
+            
+            const emailInput = 'input[type="email"], input[name="email"]';
+            await page.waitForSelector(emailInput);
+            await page.fill(emailInput, email);
+            await capture(page, 'step1.png', `الخطوة ${attempts}: تم وضع الإيميل`, ctx);
 
-        // 2. البحث عن خانة الإيميل
-        const emailInput = 'input[type="email"], input[name="email"], input[placeholder*="Email"]';
-        await page.waitForSelector(emailInput);
-        await page.fill(emailInput, email);
-        await capture(page, 'step2.png', "الخطوة 2: تم وضع الإيميل", ctx);
+            // محاكاة بشرية: تحريك الماوس قبل الضغط
+            await page.mouse.move(100, 100);
+            await page.waitForTimeout(3000); 
+            await page.mouse.click(500, 500); // ضغط في مكان عشوائي للمحاكاة
 
-        // 3. الانتظار 3 ثوانٍ قبل الضغط (محاكاة بشرية لتجنب الحظر)
-        await ctx.reply("⏳ أنتظر 3 ثوانٍ لتجاوز الحظر...");
-        await page.waitForTimeout(3000); 
-
-        // 4. الضغط على زر المتابعة
-        const submitButton = 'button[type="submit"], button[data-uia="cta-registration"], button:has-text("Get Started"), button:has-text("Next")';
-        await page.click(submitButton);
-        
-        // انتظار النتيجة
-        await page.waitForTimeout(3000);
-        await capture(page, 'step3.png', "الخطوة 3: النتيجة بعد الضغط", ctx);
+            const submitButton = 'button[type="submit"], button[data-uia="cta-registration"]';
+            await page.click(submitButton);
+            
+            await page.waitForTimeout(4000); // انتظار النتيجة
+            
+            // التحقق من وجود رسالة خطأ
+            const content = await page.content();
+            if (content.includes("Something went wrong")) {
+                await ctx.reply(`⚠️ محاولة ${attempts}: ظهر خطأ، سأعيد المحاولة...`);
+                await page.waitForTimeout(5000); // انتظر قليلاً قبل الإعادة
+            } else {
+                await capture(page, 'final.png', "✅ تم تجاوز الصفحة بنجاح!", ctx);
+                break; // نجحنا، نخرج من الحلقة
+            }
+        }
 
         await browser.close();
-        await ctx.reply("✅ تمت العملية، تفقد الصورة أعلاه لرؤية النتيجة.");
-
     } catch (err) {
         if (browser) await browser.close();
-        await ctx.reply("❌ حدث خطأ: " + err.message);
+        await ctx.reply("❌ حدث خطأ تقني: " + err.message);
     }
 }
 
 bot.on('text', async (ctx) => {
     const email = ctx.message.text;
     if (email.startsWith('/')) return;
-    await ctx.reply("🔄 جاري التتبع والتصوير لكل خطوة...");
+    await ctx.reply("🔄 جاري محاولة التسجيل (سأحاول حتى 3 مرات)...");
     await runBrowser(ctx, email);
 });
 
 bot.launch();
-console.log("البوت يعمل الآن...");
