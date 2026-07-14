@@ -2,7 +2,7 @@ const { Telegraf, session } = require('telegraf');
 const axios = require('axios');
 
 // الإعدادات
-const TOKEN = "7932535685:AAFr0UYwYG9y4lpLzD-Y34AbMRB_7UIi-y8";
+const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
 const OWNER_ID = 6491999046;
 
 // الكوكيز بتنسيق Header
