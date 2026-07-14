@@ -5,6 +5,7 @@ const fs = require('fs');
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
 const bot = new Telegraf(TOKEN);
 
+// الكوكيز كما هي
 const cookies = [
     { "domain": ".netflix.com", "expirationDate": 1791437690.300262, "hostOnly": false, "httpOnly": false, "name": "netflix-sans-normal-3-loaded", "path": "/", "sameSite": "Lax", "secure": false, "value": "true" },
     { "domain": ".netflix.com", "expirationDate": 1799205781.715754, "hostOnly": false, "httpOnly": false, "name": "SecureNetflixId", "path": "/", "sameSite": "Strict", "secure": true, "value": "v%3D3%26mac%3DAQEAEQABABQ6aF0HZ8DsqIo_PhF7ZqIn4Pnkr9eRfa8.%26dt%3D1783653781333" },
@@ -15,66 +16,42 @@ const cookies = [
     { "domain": ".netflix.com", "expirationDate": 1799122686.025479, "hostOnly": false, "httpOnly": false, "name": "nfvdid", "path": "/", "sameSite": "Lax", "secure": false, "value": "BQFmAAEBEE9JRlMuhcd1vZeyOZDGNsBgwt3MrI_af3LayzVVer6glzJvVpf97z33DXpKHBq9u0DnX0WJv5EuD1xSVUtIk9HEqcup0dtQ_aPOeD1ClWFBbYusKTD2yuO_aWV8_hyzEbgC_UGa_bLVoE2bGHdkptD2" }
 ];
 
-async function takeScreenshot(page, ctx, caption) {
-    const path = `step_${Date.now()}.png`;
-    await page.screenshot({ path });
-    await ctx.replyWithPhoto({ source: fs.createReadStream(path) }, { caption });
-    fs.unlinkSync(path);
-}
-
 async function runBrowser(ctx, email) {
     let browser;
     try {
-        browser = await chromium.launch({ 
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'] 
-        });
-        
-        const context = await browser.newContext({
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-            viewport: { width: 1280, height: 720 }
-        });
-        
+        browser = await chromium.launch({ headless: true });
+        const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36' });
         await context.addCookies(cookies);
         const page = await context.newPage();
 
-        await page.addInitScript(() => {
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        // حقن الإيميل قبل التحميل لضمان عدم ظهور أي إيميل آخر
+        await page.route('**/login*', (route) => {
+            route.continue();
         });
 
-        await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'networkidle' });
-        
-        // مسح أي نص مسبقاً باستخدام أمر برمجي مباشر
-        await page.evaluate(() => {
+        await page.goto('https://www.netflix.com/iq-en/login');
+
+        // تنفيذ كود إدخال قسري
+        await page.evaluate((email) => {
             const input = document.querySelector('input[name="userLoginId"]');
-            if (input) input.value = '';
-        });
+            input.value = email;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }, email);
 
-        const emailInput = page.locator('input[name="userLoginId"]');
-        await emailInput.click();
-        await emailInput.fill(email); 
+        await page.click('button[type="submit"]');
         
-        await takeScreenshot(page, ctx, "تم إدخال الإيميل الجديد ومسح التلقائي.");
-
-        // البحث عن الزر بالانجليزي وتغيير المحاولة إلى الضغط المباشر
-        const continueBtn = page.locator('button:has-text("Continue")');
-        await continueBtn.click({ force: true });
-        
-        await page.waitForTimeout(5000);
-        await takeScreenshot(page, ctx, "النتيجة النهائية بعد الضغط على Continue.");
+        await page.waitForTimeout(3000);
+        const path = `final.png`;
+        await page.screenshot({ path });
+        await ctx.replyWithPhoto({ source: fs.createReadStream(path) });
+        fs.unlinkSync(path);
 
         await browser.close();
     } catch (err) {
         if (browser) await browser.close();
-        await ctx.reply("❌ حدث خطأ: " + err.message);
+        await ctx.reply("❌ خطأ: " + err.message);
     }
 }
 
-bot.command('start', (ctx) => ctx.reply("أهلاً بك! أرسل الإيميل الآن."));
-bot.on('text', (ctx) => {
-    if (ctx.message.text.startsWith('/')) return;
-    ctx.reply("⏳ جاري التنفيذ بدون بيانات تلقائية...");
-    runBrowser(ctx, ctx.message.text);
-});
-
+bot.on('text', (ctx) => runBrowser(ctx, ctx.message.text));
 bot.launch();
