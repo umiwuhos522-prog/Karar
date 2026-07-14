@@ -13,23 +13,44 @@ bot.use(session());
 async function runBrowser(email) {
     let browser;
     try {
-        // تشغيل المتصفح بإعدادات خفيفة لتناسب Railway
         browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const context = await browser.newContext();
         await context.addCookies(COOKIES);
         
         const page = await context.newPage();
-        await page.goto('https://www.netflix.com/signup/registration');
         
-        // تنفيذ عملية الإدخال
-        await page.fill('input[name="email"]', email);
+        // الانتقال لصفحة التسجيل مع انتظار تحميل الشبكة
+        await page.goto('https://www.netflix.com/signup/registration', { 
+            waitUntil: 'domcontentloaded', 
+            timeout: 60000 
+        });
+
+        // محاولة البحث عن خانة الإيميل بعدة محددات (Selectors)
+        const emailSelectors = ['input[name="email"]', 'input[type="email"]', '#id_email', 'input[data-uia="field-email"]'];
+        let found = false;
+
+        for (const selector of emailSelectors) {
+            try {
+                await page.waitForSelector(selector, { timeout: 10000 });
+                await page.fill(selector, email);
+                found = true;
+                break; 
+            } catch (e) {
+                continue;
+            }
+        }
+
+        if (!found) throw new Error("لم يتم العثور على خانة الإيميل في الصفحة");
+
+        // النقر على زر المتابعة
         await page.click('button[type="submit"]');
         
         await browser.close();
-        return "✅ تم تنفيذ العملية بنجاح عبر المتصفح.";
+        return "✅ تم إدخال الإيميل بنجاح.";
+        
     } catch (err) {
         if (browser) await browser.close();
-        return "❌ فشل المتصفح: " + err.message;
+        return "❌ فشل: " + err.message;
     }
 }
 
