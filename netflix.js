@@ -5,7 +5,6 @@ const fs = require('fs');
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
 const bot = new Telegraf(TOKEN);
 
-// الكوكيز بعد تصحيح قيم sameSite لتكون متوافقة
 const cookies = [
     { "domain": ".netflix.com", "expirationDate": 1791437690.300262, "hostOnly": false, "httpOnly": false, "name": "netflix-sans-normal-3-loaded", "path": "/", "sameSite": "Lax", "secure": false, "value": "true" },
     { "domain": ".netflix.com", "expirationDate": 1799205781.715754, "hostOnly": false, "httpOnly": false, "name": "SecureNetflixId", "path": "/", "sameSite": "Strict", "secure": true, "value": "v%3D3%26mac%3DAQEAEQABABQ6aF0HZ8DsqIo_PhF7ZqIn4Pnkr9eRfa8.%26dt%3D1783653781333" },
@@ -45,21 +44,24 @@ async function runBrowser(ctx, email) {
 
         await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'networkidle' });
         
-        await page.waitForTimeout(2000);
+        // مسح أي نص مسبقاً باستخدام أمر برمجي مباشر
+        await page.evaluate(() => {
+            const input = document.querySelector('input[name="userLoginId"]');
+            if (input) input.value = '';
+        });
 
         const emailInput = page.locator('input[name="userLoginId"]');
         await emailInput.click();
-        await page.keyboard.press('Control+A');
-        await page.keyboard.press('Backspace');
-        await emailInput.type(email, { delay: 250 });
+        await emailInput.fill(email); 
         
-        await takeScreenshot(page, ctx, "تم إدخال الإيميل يدوياً.");
+        await takeScreenshot(page, ctx, "تم إدخال الإيميل الجديد ومسح التلقائي.");
 
-        const continueBtn = page.locator('button[type="submit"]');
+        // البحث عن الزر بالانجليزي وتغيير المحاولة إلى الضغط المباشر
+        const continueBtn = page.locator('button:has-text("Continue")');
         await continueBtn.click({ force: true });
         
         await page.waitForTimeout(5000);
-        await takeScreenshot(page, ctx, "النتيجة النهائية.");
+        await takeScreenshot(page, ctx, "النتيجة النهائية بعد الضغط على Continue.");
 
         await browser.close();
     } catch (err) {
@@ -71,7 +73,7 @@ async function runBrowser(ctx, email) {
 bot.command('start', (ctx) => ctx.reply("أهلاً بك! أرسل الإيميل الآن."));
 bot.on('text', (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
-    ctx.reply("⏳ جاري المحاكاة البشرية...");
+    ctx.reply("⏳ جاري التنفيذ بدون بيانات تلقائية...");
     runBrowser(ctx, ctx.message.text);
 });
 
