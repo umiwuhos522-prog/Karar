@@ -5,7 +5,7 @@ const fs = require('fs');
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
 const bot = new Telegraf(TOKEN);
 
-// الكوكيز المحدثة
+// الكوكيز المعتمدة
 const cookies = [
     { "name": "netflix-sans-bold-3-loaded", "value": "true", "domain": ".netflix.com", "path": "/", "expirationDate": 1791815251.6186, "httpOnly": false, "secure": false, "sameSite": "Lax" },
     { "name": "netflix-sans-normal-3-loaded", "value": "true", "domain": ".netflix.com", "path": "/", "expirationDate": 1791815251.61852, "httpOnly": false, "secure": false, "sameSite": "Lax" },
@@ -21,15 +21,15 @@ const cookies = [
 let userState = {};
 
 bot.command('start', (ctx) => {
-    ctx.reply("يرجى إرسال الإيميل:");
+    ctx.reply("أهلاً بك، يرجى إرسال الإيميل المطلوب تسجيله:");
     userState[ctx.chat.id] = 'waiting_for_email';
 });
 
 bot.on('text', async (ctx) => {
     if (userState[ctx.chat.id] === 'waiting_for_email') {
         const email = ctx.message.text;
-        const msg = await ctx.reply("⏳ جاري المعالجة... يرجى الانتظار.");
-        
+        const statusMsg = await ctx.reply("⏳ جاري المعالجة...");
+
         let browser;
         try {
             browser = await chromium.launch({ headless: true });
@@ -37,26 +37,31 @@ bot.on('text', async (ctx) => {
             await context.addCookies(cookies);
             const page = await context.newPage();
             
-            await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'networkidle' });
+            await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'domcontentloaded' });
 
-            // الكتابة مع الضغط على Enter لإرسال النموذج
+            // 1. كتابة الإيميل
             const emailInput = page.locator('input[name="userLoginId"]');
-            await emailInput.fill(email); 
+            await emailInput.fill(email);
             await page.screenshot({ path: 'step1.png' });
-            await ctx.replyWithPhoto({ source: fs.createReadStream('step1.png') }, { caption: "تمت الكتابة." });
+            await ctx.replyWithPhoto({ source: fs.createReadStream('step1.png') }, { caption: "تمت كتابة الإيميل، جاري الانتظار 3 ثوانٍ..." });
 
+            // 2. الانتظار 3 ثوانٍ كما طلبت
+            await page.waitForTimeout(3000);
+
+            // 3. الضغط على استمرار
             await page.click('button[type="submit"]');
-            await page.waitForTimeout(5000); // انتظر 5 ثواني كاملة
+            await page.waitForTimeout(4000); // انتظر النتيجة
             
+            // 4. النتيجة النهائية
             await page.screenshot({ path: 'step2.png' });
-            await ctx.replyWithPhoto({ source: fs.createReadStream('step2.png') }, { caption: "النتيجة النهائية." });
+            await ctx.replyWithPhoto({ source: fs.createReadStream('step2.png') }, { caption: "تمت محاولة تسجيل الدخول." });
             
             await browser.close();
-            ctx.deleteMessage(msg.message_id);
+            ctx.deleteMessage(statusMsg.message_id);
             userState[ctx.chat.id] = null;
         } catch (err) {
             if (browser) await browser.close();
-            ctx.reply("❌ حدث خطأ تقني: " + err.message);
+            ctx.reply("❌ حدث خطأ: " + err.message);
             userState[ctx.chat.id] = null;
         }
     }
