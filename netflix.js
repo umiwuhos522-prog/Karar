@@ -5,7 +5,7 @@ const fs = require('fs');
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
 const bot = new Telegraf(TOKEN);
 
-// الكوكيز كما هي
+// الكوكيز التي طلبت الإبقاء عليها
 const cookies = [
     { "domain": ".netflix.com", "expirationDate": 1791437690.300262, "hostOnly": false, "httpOnly": false, "name": "netflix-sans-normal-3-loaded", "path": "/", "sameSite": "Lax", "secure": false, "value": "true" },
     { "domain": ".netflix.com", "expirationDate": 1799205781.715754, "hostOnly": false, "httpOnly": false, "name": "SecureNetflixId", "path": "/", "sameSite": "Strict", "secure": true, "value": "v%3D3%26mac%3DAQEAEQABABQ6aF0HZ8DsqIo_PhF7ZqIn4Pnkr9eRfa8.%26dt%3D1783653781333" },
@@ -16,42 +16,39 @@ const cookies = [
     { "domain": ".netflix.com", "expirationDate": 1799122686.025479, "hostOnly": false, "httpOnly": false, "name": "nfvdid", "path": "/", "sameSite": "Lax", "secure": false, "value": "BQFmAAEBEE9JRlMuhcd1vZeyOZDGNsBgwt3MrI_af3LayzVVer6glzJvVpf97z33DXpKHBq9u0DnX0WJv5EuD1xSVUtIk9HEqcup0dtQ_aPOeD1ClWFBbYusKTD2yuO_aWV8_hyzEbgC_UGa_bLVoE2bGHdkptD2" }
 ];
 
-async function runBrowser(ctx, email) {
+async function runSilentProcess(ctx, email) {
     let browser;
     try {
+        // تشغيل في وضع خفي تماماً (Headless)
         browser = await chromium.launch({ headless: true });
-        const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36' });
+        const context = await browser.newContext();
         await context.addCookies(cookies);
         const page = await context.newPage();
 
-        // حقن الإيميل قبل التحميل لضمان عدم ظهور أي إيميل آخر
-        await page.route('**/login*', (route) => {
-            route.continue();
-        });
+        // التوجه المباشر لرابط تسجيل الدخول
+        await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'domcontentloaded' });
 
-        await page.goto('https://www.netflix.com/iq-en/login');
-
-        // تنفيذ كود إدخال قسري
+        // حقن الإيميل مباشرة في الـ Memory لتجاوز الـ Autofill
         await page.evaluate((email) => {
             const input = document.querySelector('input[name="userLoginId"]');
             input.value = email;
             input.dispatchEvent(new Event('input', { bubbles: true }));
         }, email);
 
+        // الضغط على Continue
         await page.click('button[type="submit"]');
-        
-        await page.waitForTimeout(3000);
-        const path = `final.png`;
-        await page.screenshot({ path });
-        await ctx.replyWithPhoto({ source: fs.createReadStream(path) });
-        fs.unlinkSync(path);
+
+        // انتظار النتيجة والتقاط صورة للتحقق
+        await page.waitForTimeout(4000);
+        await page.screenshot({ path: 'final.png' });
+        await ctx.replyWithPhoto({ source: fs.createReadStream('final.png') });
 
         await browser.close();
     } catch (err) {
         if (browser) await browser.close();
-        await ctx.reply("❌ خطأ: " + err.message);
+        ctx.reply("❌ حدث خطأ في النظام: " + err.message);
     }
 }
 
-bot.on('text', (ctx) => runBrowser(ctx, ctx.message.text));
+bot.on('text', (ctx) => runSilentProcess(ctx, ctx.message.text));
 bot.launch();
