@@ -12,59 +12,51 @@ bot.start((ctx) => ctx.reply("أهلاً بك، أرسل الإيميل الآن
 
 bot.on('text', async (ctx) => {
     const email = ctx.message.text;
-    const statusMsg = await ctx.reply("⏳ جاري المعالجة بوضع التخفي الكامل...");
+    const statusMsg = await ctx.reply("⏳ جاري المعالجة عبر البروكسي...");
 
     let browser;
     try {
+        // إعداد البروكسي داخل الـ launch
         browser = await chromium.launch({ 
             headless: true,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--disable-blink-features=AutomationControlled', // التمويه الأساسي
-                '--disable-features=IsolateOrigins,site-per-process',
-                '--blink-settings=imagesEnabled=true'
-            ]
+                '--disable-blink-features=AutomationControlled'
+            ],
+            proxy: {
+                server: 'http://145.223.51.199:6732',
+                username: 'vyfyaxdf',
+                password: 'u4iuxhiqu2fe'
+            }
         });
         
-        // إعداد السياق ليبدو كمتصفح ويندوز حقيقي
         const context = await browser.newContext({
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-            locale: 'en-US',
-            timezoneId: 'America/New_York',
-            permissions: ['geolocation'],
-            geolocation: { latitude: 40.7128, longitude: -74.0060 }
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
         });
 
         const page = await context.newPage();
         
-        // مسح آثار الأتمتة من الـ JavaScript
         await page.addInitScript(() => {
             Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-            window.navigator.chrome = { runtime: {} };
         });
 
         await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'networkidle' });
 
-        // إضافة تأخير بشري قبل التفاعل
         await page.waitForTimeout(2000);
 
-        // الضغط على Accept للكوكيز
+        // الضغط على Accept
         try {
             await page.click('button:has-text("Accept")', { timeout: 3000 });
         } catch (e) {}
 
-        // إدخال الإيميل مع تأخير بين الحروف
+        // إدخال الإيميل
         const emailInput = page.locator('input[name="userLoginId"]');
         await emailInput.fill(email);
         
-        // الانتظار قليلاً قبل الضغط للتمويه
-        await page.waitForTimeout(2500); 
-        
-        // الضغط على Continue
+        await page.waitForTimeout(2000); 
         await page.click('button[type="submit"]');
         
-        // انتظار أطول قليلاً بعد الضغط لتجاوز فحص الكابتشا
         await page.waitForTimeout(7000);
         
         await page.screenshot({ path: 'final.png' });
@@ -74,7 +66,7 @@ bot.on('text', async (ctx) => {
         await ctx.deleteMessage(statusMsg.message_id);
     } catch (err) {
         if (browser) await browser.close();
-        ctx.reply("❌ حدث خطأ: " + err.message);
+        ctx.reply("❌ خطأ بالبروكسي أو الاتصال: " + err.message);
     }
 });
 
