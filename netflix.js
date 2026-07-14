@@ -14,28 +14,35 @@ async function runBrowser(ctx, email) {
         const page = await context.newPage();
         await page.goto('https://www.netflix.com/signup/registration', { waitUntil: 'domcontentloaded' });
 
-        // التقاط صورة فورية
-        await page.screenshot({ path: 'debug.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('debug.png') }, { caption: "هذه الصورة توضح ما يراه المتصفح الآن:" });
+        // 1. الضغط على زر Next إذا ظهر في صفحة اختيار الخطة
+        const nextButton = 'button:has-text("Next")';
+        if (await page.isVisible(nextButton)) {
+            await page.click(nextButton);
+            await page.waitForTimeout(3000); // انتظار التحميل بعد الضغط
+        }
 
-        // محاولة الإدخال
-        await page.fill('input[name="email"]', email);
+        // 2. إدخال الإيميل بعد الضغط على Next
+        const emailSelector = 'input[name="email"]';
+        await page.waitForSelector(emailSelector, { timeout: 15000 });
+        await page.fill(emailSelector, email);
+        
+        // 3. الضغط على زر المتابعة (سواء كان مكتوباً عليه Continue أو متابعة)
         await page.click('button[type="submit"]');
         
+        await page.screenshot({ path: 'final.png' });
+        await ctx.replyWithPhoto({ source: fs.createReadStream('final.png') }, { caption: "تمت العملية! هذه صورة الصفحة الحالية:" });
+        
         await browser.close();
-        await ctx.reply("✅ تم الإدخال بنجاح.");
     } catch (err) {
         if (browser) await browser.close();
-        await ctx.reply("❌ حدث خطأ، الصورة توضح السبب:");
-        await ctx.replyWithPhoto({ source: fs.createReadStream('debug.png') });
-        await ctx.reply("تفاصيل الخطأ: " + err.message);
+        await ctx.reply("❌ حدث خطأ: " + err.message);
     }
 }
 
 bot.on('text', async (ctx) => {
     const email = ctx.message.text;
-    if (email === '/start') return;
-    await ctx.reply("🔄 جاري المعالجة والتقاط صورة...");
+    if (email.startsWith('/')) return;
+    await ctx.reply("🔄 جاري الضغط على Next وإدخال الإيميل...");
     await runBrowser(ctx, email);
 });
 
