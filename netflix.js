@@ -12,53 +12,48 @@ bot.start((ctx) => ctx.reply("أهلاً بك، أرسل الإيميل الآن
 
 bot.on('text', async (ctx) => {
     const email = ctx.message.text;
-    const statusMsg = await ctx.reply("⏳ جاري المعالجة عبر البروكسي...");
+    const statusMsg = await ctx.reply("⏳ جاري المحاولة (قد يستغرق الأمر عدة ثوانٍ)...");
 
     let browser;
     try {
-        // إعداد البروكسي داخل الـ launch
         browser = await chromium.launch({ 
             headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-blink-features=AutomationControlled'
-            ],
-            proxy: {
-                server: 'http://145.223.51.199:6732',
-                username: 'vyfyaxdf',
-                password: 'u4iuxhiqu2fe'
-            }
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
         });
         
         const context = await browser.newContext({
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
         });
-
         const page = await context.newPage();
-        
-        await page.addInitScript(() => {
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        });
 
         await page.goto('https://www.netflix.com/iq-en/login', { waitUntil: 'networkidle' });
 
-        await page.waitForTimeout(2000);
+        // ضغط Accept إذا وجدت
+        try { await page.click('button:has-text("Accept")', { timeout: 3000 }); } catch (e) {}
 
-        // الضغط على Accept
-        try {
-            await page.click('button:has-text("Accept")', { timeout: 3000 });
-        } catch (e) {}
+        let success = false;
+        let attempts = 0;
+        const maxAttempts = 10; // عدد محاولات التكرار
 
-        // إدخال الإيميل
-        const emailInput = page.locator('input[name="userLoginId"]');
-        await emailInput.fill(email);
-        
-        await page.waitForTimeout(2000); 
-        await page.click('button[type="submit"]');
-        
-        await page.waitForTimeout(7000);
-        
+        while (!success && attempts < maxAttempts) {
+            attempts++;
+            const emailInput = page.locator('input[name="userLoginId"]');
+            await emailInput.fill(email);
+            await page.waitForTimeout(1000);
+            await page.click('button[type="submit"]');
+            
+            await page.waitForTimeout(3000); // الانتظار لرؤية النتيجة
+
+            // التحقق هل ظهر الخطأ؟
+            const errorElement = await page.locator('text="Something went wrong"').count();
+            
+            if (errorElement === 0) {
+                success = true; // لا يوجد خطأ
+            } else {
+                await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, `⏳ المحاولة ${attempts} فشلت، جاري إعادة المحاولة...`);
+            }
+        }
+
         await page.screenshot({ path: 'final.png' });
         await ctx.replyWithPhoto({ source: fs.createReadStream('final.png') });
         
@@ -66,7 +61,7 @@ bot.on('text', async (ctx) => {
         await ctx.deleteMessage(statusMsg.message_id);
     } catch (err) {
         if (browser) await browser.close();
-        ctx.reply("❌ خطأ بالبروكسي أو الاتصال: " + err.message);
+        ctx.reply("❌ حدث خطأ: " + err.message);
     }
 });
 
