@@ -5,7 +5,7 @@ const fs = require('fs');
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
 const bot = new Telegraf(TOKEN);
 
-// الكوكيز مع معالجة حقل sameSite
+// الكوكيز الخاصة بك
 const rawCookies = [
     { "domain": ".netflix.com", "name": "netflix-sans-normal-3-loaded", "value": "true", "path": "/", "sameSite": null },
     { "domain": ".netflix.com", "name": "SecureNetflixId", "value": "v%3D3%26mac%3DAQEAEQABABQ6aF0HZ8DsqIo_PhF7ZqIn4Pnkr9eRfa8.%26dt%3D1783653781333", "path": "/", "sameSite": "strict", "secure": true },
@@ -34,24 +34,22 @@ async function runBrowser(ctx, email) {
 
         await page.goto('https://www.netflix.com/iq-en/', { waitUntil: 'networkidle' });
         
-        // استخدام محدد دقيق جداً لتجنب تكرار العناصر
+        // إدخال الإيميل
         const emailInputSelector = 'input[data-uia="field-email"]';
         await page.waitForSelector(emailInputSelector, { state: 'visible' });
-        
-        // مسح الحقل قبل الإدخال لضمان عدم بقاء أي إيميل قديم
         await page.fill(emailInputSelector, '');
         await page.fill(emailInputSelector, email);
         
-        await page.screenshot({ path: 'email_input.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('email_input.png') }, { caption: "تم إدخال الإيميل الجديد بنجاح." });
-
-        // زر التسجيل
+        // انتظار 3 ثوانٍ قبل الضغط
+        await page.waitForTimeout(3000);
+        
+        // الضغط على الزر الجديد الملاحظ في الصورة
         const submitBtn = page.locator('button[data-uia="cta-registration"]');
         await submitBtn.click();
 
         await page.waitForTimeout(5000);
         await page.screenshot({ path: 'final.png' });
-        await ctx.replyWithPhoto({ source: fs.createReadStream('final.png') }, { caption: "تمت العملية." });
+        await ctx.replyWithPhoto({ source: fs.createReadStream('final.png') }, { caption: "تمت العملية بعد الانتظار 3 ثوانٍ." });
 
         await browser.close();
     } catch (err) {
