@@ -5,7 +5,6 @@ const fs = require('fs');
 const TOKEN = "7932535685:AAGvA0gLJI_xXn-nlL5oahKi2xn9YvziQxU";
 const bot = new Telegraf(TOKEN);
 
-// الكوكيز الخاصة بك
 const rawCookies = [
     { "domain": ".netflix.com", "name": "netflix-sans-normal-3-loaded", "value": "true", "path": "/", "sameSite": null },
     { "domain": ".netflix.com", "name": "SecureNetflixId", "value": "v%3D3%26mac%3DAQEAEQABABQ6aF0HZ8DsqIo_PhF7ZqIn4Pnkr9eRfa8.%26dt%3D1783653781333", "path": "/", "sameSite": "strict", "secure": true },
@@ -42,26 +41,24 @@ async function runBrowser(ctx, email) {
         await page.goto('https://www.netflix.com/iq-en/', { waitUntil: 'networkidle' });
         await takeScreenshot(page, ctx, "تم الدخول إلى نتفليكس.");
 
+        // إدخال الإيميل
         const emailInputSelector = 'input[data-uia="field-email"]';
         await page.waitForSelector(emailInputSelector);
-
-        // التعديل هنا: تحديد النص الموجود ومسحه
         await page.click(emailInputSelector);
         await page.keyboard.press('Control+A');
         await page.keyboard.press('Backspace');
-
-        // كتابة الإيميل يدوياً حرفاً بحرف
         await page.type(emailInputSelector, email, { delay: 200 });
-        await takeScreenshot(page, ctx, "تم مسح أي إيميل قديم وكتابة الإيميل الجديد يدوياً.");
+        await takeScreenshot(page, ctx, "تم مسح الإيميل القديم وكتابة الجديد.");
 
-        await page.waitForTimeout(2000);
+        // محاولة الضغط على الزر الأحمر (استهداف الزر داخل الفورم بدقة)
+        const submitBtn = page.locator('form button[data-uia="cta-registration"]');
+        await submitBtn.waitFor({ state: 'visible', timeout: 10000 });
         
-        // الضغط على الزر الأحمر
-        const submitBtn = page.locator('button[data-uia="cta-registration"]');
-        await submitBtn.click();
+        // الضغط مع force للتحايل على أي تداخل
+        await submitBtn.click({ force: true });
         
         await page.waitForTimeout(5000);
-        await takeScreenshot(page, ctx, "تم الضغط على الزر الأحمر بنجاح.");
+        await takeScreenshot(page, ctx, "تم الضغط على الزر الأحمر (Try 30 days).");
 
         await browser.close();
     } catch (err) {
