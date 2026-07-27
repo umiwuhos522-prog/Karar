@@ -2,33 +2,37 @@
 
 #EXTM3U
 
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت نت ضعيف", قناة رقم 7
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت نت ضعيف🇮🇶", قناة رقم 7🇮🇶
 http://Xvip.pro/live/hend0815/08152023/368420.ts
 
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت", قناة رقم 2 
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت🇮🇶", قناة رقم 1🇮🇶 
+http://xvip.pro/live/hend0815/08152023/340323.ts
+
+
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت🇮🇶", قناة رقم 2🇮🇶 
 http://xvip.pro/live/hend0815/08152023/436882.ts
 
 
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت", قناة رقم 3 
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت🇮🇶", قناة رقم 3🇮🇶 
 http://xvip.pro/live/hend0815/08152023/436881.ts
 
 
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت", قناة رقم 4 
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت🇮🇶", قناة رقم 4🇮🇶 
 http://xvip.pro/live/hend0815/08152023/436880.ts
 
 
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت", قناة رقم 5 
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت🇮🇶", قناة رقم 5🇮🇶 
 http://xvip.pro/live/hend0815/08152023/436879.ts
 
 
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت", قناة رقم 8 
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت🇮🇶", قناة رقم 8🇮🇶 
 http://xvip.pro/live/hend0815/08152023/439684.ts
 
 
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت", قناة رقم 6
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت🇮🇶", قناة رقم 6🇮🇶
 http://xvip.pro/live/hend0815/08152023/368361.ts
 
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت", بين سبروت 
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/20/Bein_sport_logo.png" group-title="بين سبورت🇮🇶", بين سبروت🇮🇶 
 http://xvip.pro/live/hend0815/08152023/368361.ts
 
 
