@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { exec } from 'child_process';
 import { GoogleGenAI } from '@google/genai';
+import fs from 'fs';
+import path from 'path';
 
 // ==================== الإعدادات الأساسية ====================
 const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
@@ -29,27 +31,27 @@ async function sendTelegramMessage(message) {
 }
 
 /**
- * استخراج دقة الفيديو وأي بيانات وصفية عبر ffprobe
+ * استخراج دقة الفيديو والتقاط فريم (صورة) من البث المباشر
  */
-function getStreamHeightAndMeta(url) {
+function captureStreamFrameAndMeta(url, outputPath) {
     return new Promise((resolve) => {
-        const cmd = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height,codec_name -of json "${url}"`;
-        exec(cmd, { timeout: 6000 }, (error, stdout) => {
-            if (error) return resolve({ height: 0, width: 0, codec: '' });
+        // 1. أخذ الدقة عبر ffprobe
+        const metaCmd = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of json "${url}"`;
+        exec(metaCmd, { timeout: 6000 }, (metaErr, stdout) => {
+            let height = 0;
             try {
                 const data = JSON.parse(stdout);
                 if (data.streams && data.streams.length > 0) {
-                    const stream = data.streams[0];
-                    return resolve({
-                        height: stream.height || 0,
-                        width: stream.width || 0,
-                        codec: stream.codec_name || ''
-                    });
+                    height = data.streams[0].height || 0;
                 }
-            } catch (e) {
-                return resolve({ height: 0, width: 0, codec: '' });
-            }
-            resolve({ height: 0, width: 0, codec: '' });
+            } catch (e) {}
+
+            // 2. التقاط صورة واحدة من البث عبر ffmpeg
+            const captureCmd = `ffmpeg -y -i "${url}" -vframes 1 -q:v 2 "${outputPath}"`;
+            exec(captureCmd, { timeout: 8000 }, (capErr) => {
+                const hasImage = !capErr && fs.existsSync(outputPath);
+                resolve({ height, imageCaptured: hasImage });
+            });
         });
     });
 }
@@ -91,26 +93,51 @@ async function isValidStream(url) {
 }
 
 /**
- * استخدام Gemini الذكي لتحليل وتحديد اسم القناة وهل هي عربية وتصنيفها
+ * تحليل البث والصورة باستخدام Gemini 2.5 Flash للتعرف البصري الدقيق على القناة ومحتواها
  */
-async function analyzeChannelWithGemini(url, height) {
+async function analyzeChannelWithGeminiVision(url, height, imagePath) {
     const prompt = `
-    You are an expert IPTV stream analyzer. I have an active video stream URL: ${url} with video height ${height}p.
-    Based on common IPTV naming structures and stream patterns for Arab/Middle Eastern television networks (like beIN Sports, MBC, OSN, Rotana, Shahid, SSC, etc.), analyze what kind of channel this typically is or infer its identity based on the URL index/pattern, or provide a smart professional classification.
-    
-    You must respond strictly in valid JSON format with the following keys:
-    - "is_arabic": true or false (Only true if it is an Arabic channel or broadcasting in Arabic)
-    - "channel_name": Professional name of the channel in Arabic (e.g. "beIN Sports 1 HD", "MBC 1", "سبيستون", etc.)
-    - "category": Category in Arabic (e.g. "قنوات الرياضة", "مسلسلات وبرامج", "أطفال وكرتون", "أفلام", "إخبارية", etc.)
-    - "description": Brief description in Arabic.
+    أنك خبير محترف في تحليل قنوات البث المباشر (IPTV). 
+    قم بفرز وتحليل هذه القناة من خلال الصورة المرفقة للبث المباشر ورابط البث (${url}) بدقة ${height}p.
 
-    If you cannot determine the exact channel, give it a smart generic Arabic IPTV title based on its resolution and context, but ensure "is_arabic" is true only if it's clearly an Arabic content stream.
+    المطلوب منك بدقة عالية:
+    1. التعرف على اسم القناة الحقيقي والكامل باللغة العربية (مثل: "beIN Sports 1 HD", "MBC 1", "روتانا سينما", "سبيستون", "MBC اكشن", "الجزيرة الإخبارية"، إلخ).
+    2. التثبت هل القناة موجهة للجمهور العربي أو تبث محتوى عربي/مترجم بالعربية؟ (is_arabic).
+    3. تحديد تصنيف القناة الدقيق جداً باللغة العربية، مثل:
+       - "رياضة" (مباريات، كرة قدم)
+       - "مسلسلات وبرامج"
+       - "أفلام عربية"
+       - "أفلام أجنبية ورعب"
+       - "أطفال وكرتون"
+       - "إخبارية وثائقية"
+       - "إسلامية ودينية"
+
+    يجب أن يكون ردك بصيغة JSON فقط بهذه السطور وبدون أي مقدمات:
+    {
+      "is_arabic": true or false,
+      "channel_name": "اسم القناة بالعربي",
+      "category": "التصنيف الدقيق",
+      "description": "وصف قصير للمحتوى المعروض"
+    }
     `;
 
     try {
+        let contents = [prompt];
+
+        // إذا تم التوصل لصورة البث، نرفعها لـ Gemini ليتعرف عليها بصرياً
+        if (imagePath && fs.existsSync(imagePath)) {
+            const imageBuffer = fs.readFileSync(imagePath);
+            contents.push({
+                inlineData: {
+                    mimeType: 'image/jpeg',
+                    data: imageBuffer.toString('base64')
+                }
+            });
+        }
+
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: prompt,
+            contents: contents,
         });
 
         let text = response.text.trim();
@@ -133,22 +160,22 @@ async function analyzeChannelWithGemini(url, height) {
 }
 
 /**
- * تنسيق القناة بصيغة M3U احترافية
+ * تنسيق القناة بصيغة M3U احترافية وذكية
  */
 function formatM3uEntry(url, channelNameAr, categoryAr, height) {
     const logoUrl = "https://upload.wikimedia.org/wikipedia/commons/d/d7/Bein_sport_ana_logo.png";
     let qualityStr = "";
 
     if (height >= 1080) {
-        qualityStr = "بدقة عالية جداً 1080p";
+        qualityStr = "1080p FHD";
     } else if (height >= 720) {
-        qualityStr = "بدقة عالية 720p";
+        qualityStr = "720p HD";
     } else if (height >= 480) {
-        qualityStr = "بدقة متوسطة 480p";
+        qualityStr = "480p SD";
     } else if (height > 0) {
-        qualityStr = `بدقة ${height}p`;
+        qualityStr = `${height}p`;
     } else {
-        qualityStr = "بدقة غير معروفة";
+        qualityStr = "جودة غير معروفة";
     }
 
     const groupTitle = `⭐ ${categoryAr} | ${qualityStr} ⭐`;
@@ -160,7 +187,7 @@ function formatM3uEntry(url, channelNameAr, categoryAr, height) {
  * دالة التخمين والفحص الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 50) {
-    console.log("[-] بدء فحص القنوات والتحقق منها عبر ذكاء Gemini الاصطناعي...\n");
+    console.log("[-] بدء فحص القنوات والتحقق منها عبر ذكاء Gemini الاصطناعي (البصري)...\n");
     let foundArabic = 0;
 
     for (let i = 0; i < count; i++) {
@@ -172,18 +199,25 @@ async function startScanning(baseUrl, startNum, count = 50) {
         const valid = await isValidStream(testUrl);
 
         if (valid) {
-            console.log("✅ شغال! جاري فحص الجودة والتحليل بالذكاء الاصطناعي...");
-            const { height } = await getStreamHeightAndMeta(testUrl);
+            console.log("✅ شغال! جاري التقاط صورة البث وتحليل القناة بالذكاء الاصطناعي...");
 
-            // استدعاء Gemini لتحليل البث
-            const analysis = await analyzeChannelWithGemini(testUrl, height);
+            const tempImgPath = path.join('/tmp', `frame_${currentNum}.jpg`);
+            const { height } = await captureStreamFrameAndMeta(testUrl, tempImgPath);
+
+            // استدعاء Gemini لتحليل الصورة والبث
+            const analysis = await analyzeChannelWithGeminiVision(testUrl, height, tempImgPath);
+
+            // مسح الصورة المؤقتة بعد التحليل
+            if (fs.existsSync(tempImgPath)) {
+                try { fs.unlinkSync(tempImgPath); } catch (e) {}
+            }
 
             if (analysis.is_arabic) {
                 foundArabic++;
                 const channelName = analysis.channel_name || `قناة عربية ${foundArabic}`;
                 const category = analysis.category || "قنوات عامة";
 
-                console.log(`[+] قناة عربية مكتشفة: ${channelName} [${category}] - الدقة: ${height}p`);
+                console.log(`[+] قناة عربية مكتشفة: ${channelName} [تصنيف: ${category}] - الدقة: ${height}p`);
 
                 const m3uEntry = formatM3uEntry(testUrl, channelName, category, height);
                 await sendTelegramMessage(`<code>${m3uEntry}</code>`);
