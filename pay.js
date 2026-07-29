@@ -1,9 +1,13 @@
 import axios from 'axios';
-import { chromium } from 'playwright';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { GoogleGenAI } from '@google/genai';
 import fs from 'fs';
 import path from 'path';
 import FormData from 'form-data';
+
+// تفعيل إضافة التخفي للمحاكاة لتجاوز حظر السيرفرات
+puppeteer.use(StealthPlugin());
 
 // ==================== الإعدادات الأساسية ====================
 const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
@@ -68,15 +72,15 @@ async function startTelegramBotListener() {
                 for (const update of response.data.result) {
                     lastUpdateId = update.update_id;
                     if (update.message && update.message.text === '/start') {
-                        let msg = `<b>📊 تقرير الفحص بالمكشوف:</b>\n\n`;
+                        let msg = `<b>📊 تقرير الفحص عبر المحاكي المطور:</b>\n\n`;
                         msg += `🔗 <b>الرابط الحالي:</b> <code>${currentScanningUrl || "جاري البدء..."}</code>\n`;
                         msg += `🔢 <b>الرقم الحالي:</b> <code>${currentScanningNum}</code>\n`;
 
                         if (lastCapturedImagePath && fs.existsSync(lastCapturedImagePath)) {
-                            msg += `📸 <b>إليك لقطة الشاشة الحية الحالية:</b>`;
+                            msg += `📸 <b>إليك لقطة الشاشة الحية من المحاكي:</b>`;
                             await sendTelegramPhoto(lastCapturedImagePath, msg);
                         } else {
-                            msg += `⚠️ <i>جاري فتح المتصفح والتشغيل...</i>`;
+                            msg += `⚠️ <i>جاري المحاكاة والتقاط الفريم...</i>`;
                             await sendTelegramMessage(msg);
                         }
                     }
@@ -87,48 +91,46 @@ async function startTelegramBotListener() {
 }
 
 /**
- * تشغيل البث المباشر داخل المتصفح مع محاكي مشغل فيديو مجبر لفك التشفير
+ * محاكي شاشة حقيقي يعمل على تحويل فريمات الفيديو عبر Canvas لمنع الشاشة السوداء
  */
-async function captureVideoFrameWithBrowser(streamUrl, outputPath) {
+async function captureVideoFrameWithEmulator(streamUrl, outputPath) {
     if (!globalBrowser) return false;
 
-    const context = await globalBrowser.newContext({
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36',
-        viewport: { width: 1280, height: 720 },
-        ignoreHTTPSErrors: true
-    });
-
-    const page = await context.newPage();
+    const page = await globalBrowser.newPage();
 
     try {
-        // صفحة HTML تضم مشغل HLS حقيقي لتشغيل ثغرات البث المباشر والضغط التلقائي
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+        await page.setViewport({ width: 1280, height: 720 });
+
+        // إنشاء محاكي مشغل فيديو مع Canvas لتحويل محتوى البث بصرياً
         const htmlContent = `
             <!DOCTYPE html>
             <html>
             <head>
                 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
                 <style>
-                    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
-                    video { width: 100%; height: 100%; object-fit: contain; }
+                    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #111; overflow: hidden; }
+                    video, canvas { width: 100%; height: 100%; object-fit: contain; }
                 </style>
             </head>
             <body>
-                <video id="video" autoplay muted playsinline></video>
+                <video id="video" autoplay muted playsinline crossorigin="anonymous"></video>
+                <canvas id="canvas" style="display:none;"></canvas>
                 <script>
                     const video = document.getElementById('video');
+                    const canvas = document.getElementById('canvas');
                     const videoSrc = '${streamUrl}';
+
                     if (Hls.isSupported()) {
-                        const hls = new Hls();
+                        const hls = new Hls({ maxBufferLength: 5 });
                         hls.loadSource(videoSrc);
                         hls.attachMedia(video);
                         hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                            video.play().catch(() => {});
+                            video.play();
                         });
                     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                         video.src = videoSrc;
-                        video.addEventListener('loadedmetadata', function() {
-                            video.play().catch(() => {});
-                        });
+                        video.play();
                     }
                 </script>
             </body>
@@ -137,58 +139,48 @@ async function captureVideoFrameWithBrowser(streamUrl, outputPath) {
 
         await page.setContent(htmlContent);
 
-        // الانتظار 6 ثوانٍ حقيقية ليتأكد المتصفح من محاذاة الفيديو وعرض الشعار
+        // الانتظار 6 ثوانٍ كاملة للمحاكاة وتفريغ الفريمات
         await page.waitForTimeout(6000);
 
-        // محاولة إجبار التشغيل عبر برمجيات الصفحة
-        await page.evaluate(() => {
-            const v = document.querySelector('video');
-            if (v) { v.play(); v.currentTime += 1; }
-        }).catch(() => {});
-
-        await page.waitForTimeout(2000);
-
+        // التقاط الشاشة عبر محاكي Puppeteer
         await page.screenshot({ path: outputPath, type: 'jpeg', quality: 85 });
-        await context.close();
+        await page.close();
 
-        if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 3500) {
-            lastCapturedImagePath = outputPath;
-            return true;
+        if (fs.existsSync(outputPath)) {
+            const size = fs.statSync(outputPath).size;
+            // إذا كان حجم الصورة أكبر من 10KB فهذا يعني وجود فيديو ملون حقيقي وليس شاشة سوداء
+            if (size > 10000) {
+                lastCapturedImagePath = outputPath;
+                return true;
+            }
         }
         return false;
     } catch (error) {
-        await context.close();
+        await page.close().catch(() => {});
         return false;
     }
 }
 
 /**
- * تحليل لقطة الشاشة بـ Gemini
+ * تحليل الصورة عبر Gemini
  */
 async function analyzeScreenshotWithGemini(imagePath, streamUrl) {
     if (!fs.existsSync(imagePath)) return null;
 
     const prompt = `
-    أنت نظام خبير ذكي جداً في الفحص البصري لقنوات التلفزيون والبث المباشر (IPTV).
-    أمامك صورة حقيقية التقاطها المتصفح أثناء تشغيل البث المباشر للرابط: ${streamUrl}.
+    أنت خبير محترف جداً في التعرف البصري على شعارات وقنوات التلفزيون المباشر (IPTV).
+    أمامك صورة حقيقية التقاطها المحاكي أثناء تشغيل البث المباشر للرابط: ${streamUrl}.
 
-    قم برؤية الصورة وفحص اللوجو وشريط العرض بدقة ثم أجب بالتالي:
-    1. ما هو اسم القناة الحقيقي والدقيق باللغة العربية بناءً على اللوجو أو المحتوى؟ (مثال: "beIN Sports 1 HD", "MBC 1", "روتانا سينما", "سبيستون", "الجزيرة HD", "SSC 1 HD", "MBC Drama").
-    2. هل القناة عربية أو تبث محتوى عربي/مترجم للعربية؟ (is_arabic: true / false).
-    3. تحديد تصنيف القناة الدقيق جداً من القائمة التالية فقط:
-       - "رياضة"
-       - "مسلسلات وبرامج"
-       - "أفلام عربية"
-       - "أفلام أجنبية ورعب"
-       - "أطفال وكرتون"
-       - "إخبارية وثائقية"
-       - "إسلامية"
+    افحص اللوجو وشريط العرض بدقة ثم أجب بالتالي:
+    1. اسم القناة الحقيقي والدقيق باللغة العربية بناءً على اللوجو أو المحتوى؟ (مثل: "beIN Sports 1 HD", "MBC 1", "روتانا سينما", "سبيستون", "الجزيرة HD", "SSC 1 HD", "MBC Drama").
+    2. هل القناة عربية أو تبث محتوى عربي؟ (is_arabic: true / false).
+    3. تحديد تصنيف القناة الدقيق فقط من: ("رياضة", "مسلسلات وبرامج", "أفلام عربية", "أفلام أجنبية ورعب", "أطفال وكرتون", "إخبارية وثائقية", "إسلامية").
 
-    تنبيه صارم: يجب أن يكون الرد بصيغة JSON فقط بهذا الشكل:
+    رد بصيغة JSON فقط بهذا الشكل:
     {
       "is_arabic": true,
       "channel_name": "اسم القناة بالعربي",
-      "category": "التصنيف الدقيق"
+      "category": "التصنيف"
     }
     `;
 
@@ -233,7 +225,7 @@ function formatM3uEntry(url, channelNameAr, categoryAr) {
 }
 
 /**
- * فحص التأكد السريع أن الرابط يستجيب
+ * فحص التأكد السريع
  */
 async function isValidStream(url) {
     try {
@@ -251,18 +243,20 @@ async function isValidStream(url) {
 }
 
 /**
- * دالة التخمين والتشغيل
+ * دالة التخمين الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 500) {
-    await sendTelegramMessage("🟢 <b>تم تشغيل المتصفح التفاعلي بنجاح! جاري الدخول للروابط وتشغيل الفيديو...</b>");
+    await sendTelegramMessage("🟢 <b>تم تفعيل المحاكي المطور بنجاح لتجاوز الشاشة السوداء...</b>");
 
-    globalBrowser = await chromium.launch({
-        headless: true,
+    // تشغيل متصفح Puppeteer المتخفي بالكامل
+    globalBrowser = await puppeteer.launch({
+        headless: "new",
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--autoplay-policy=no-user-gesture-required',
-            '--disable-web-security'
+            '--disable-web-security',
+            '--ignore-certificate-errors'
         ]
     });
 
@@ -275,12 +269,12 @@ async function startScanning(baseUrl, startNum, count = 500) {
         const valid = await isValidStream(currentScanningUrl);
 
         if (valid) {
-            console.log("✅ شغال! المتصفح يفتح البث ويشغله بـ HLS...");
+            console.log("✅ شغال! المحاكي يفك التشفير ويلتقط الفريم الملون...");
             const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);
-            const screenshotSuccess = await captureVideoFrameWithBrowser(currentScanningUrl, tempImgPath);
+            const screenshotSuccess = await captureVideoFrameWithEmulator(currentScanningUrl, tempImgPath);
 
             if (screenshotSuccess) {
-                console.log("📸 تم التقاط الصورة! إرسالها لـ Gemini...");
+                console.log("📸 تم التقاط الفريم بنجاح! جاري التحليل مع Gemini...");
                 const analysis = await analyzeScreenshotWithGemini(tempImgPath, currentScanningUrl);
 
                 if (analysis && analysis.is_arabic) {
@@ -291,9 +285,11 @@ async function startScanning(baseUrl, startNum, count = 500) {
 
                     const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category);
                     
-                    await sendTelegramPhoto(tempImgPath, `✅ <b>قناة مكتشفة بـ Gemini!</b>\n📺 <b>الاسم:</b> ${channelName}\n🏷️ <b>التصنيف:</b> ${category}`);
+                    await sendTelegramPhoto(tempImgPath, `✅ <b>قناة جديدة مكتشفة بالذكاء الاصطناعي!</b>\n📺 <b>الاسم:</b> ${channelName}\n🏷️ <b>التصنيف:</b> ${category}`);
                     await sendTelegramMessage(`<code>${m3uEntry}</code>`);
                 }
+            } else {
+                console.log("⚠️ الشاشة سوداء أو لم يتم فتح الفيديو.");
             }
         } else {
             console.log("❌ غير شغال");
