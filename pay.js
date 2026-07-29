@@ -91,7 +91,7 @@ async function isValidStream(url) {
 }
 
 /**
- * استخدام Gemini الذكي لتحليل وتحديد اسم القناة، وهل هي عربية أم لا وتصنيفها
+ * استخدام Gemini الذكي لتحليل وتحديد اسم القناة وهل هي عربية وتصنيفها
  */
 async function analyzeChannelWithGemini(url, height) {
     const prompt = `
@@ -200,5 +200,5 @@ async function startScanning(baseUrl, startNum, count = 50) {
 (async () => {
     const BASE_URL = "http://xvip.pro/live/hend0815/08152023/";
     const START_NUMBER = 340315;
-    await startScanning(BASE_URL, START_NUMBER, 20);
+    await startScanning(BASE_URL, START_NUMBER, 50);
 })();
