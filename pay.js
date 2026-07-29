@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import { GoogleGenAI } from '@google/genai';
 import fs from 'fs';
 import path from 'path';
+import FormData from 'form-data';
 
 // ==================== الإعدادات الأساسية ====================
 const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
@@ -13,29 +14,57 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyDqlfbn5shYklhde9cn3d
 
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
+// متغيرات حالة البوت والتقدم
+let globalBrowser = null;
+let currentScanningUrl = "";
+let currentScanningNum = 0;
+let lastCapturedImagePath = null;
+
 /**
- * إرسال رسالة لتليجرام
+ * إرسال رسالة نصية لتليجرام
  */
 async function sendTelegramMessage(message) {
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-    const payload = {
-        chat_id: TELEGRAM_CHAT_ID,
-        text: message,
-        parse_mode: "HTML"
-    };
     try {
-        await axios.post(url, payload, { timeout: 8000 });
+        await axios.post(url, {
+            chat_id: TELEGRAM_CHAT_ID,
+            text: message,
+            parse_mode: "HTML"
+        }, { timeout: 8000 });
     } catch (error) {
         console.log(`[!] فشل إرسال الرسالة لتليجرام: ${error.message}`);
     }
 }
 
 /**
- * الاستماع لأوامر تليجرام المباشرة مثل /start
+ * إرسال صورة ملتقطة مباشرة إلى تليجرام
+ */
+async function sendTelegramPhoto(imagePath, caption) {
+    if (!fs.existsSync(imagePath)) return;
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
+    
+    try {
+        const formData = new FormData();
+        formData.append('chat_id', TELEGRAM_CHAT_ID);
+        formData.append('photo', fs.createReadStream(imagePath));
+        formData.append('caption', caption);
+        formData.append('parse_mode', 'HTML');
+
+        await axios.post(url, formData, {
+            headers: formData.getHeaders(),
+            timeout: 10000
+        });
+    } catch (error) {
+        console.log(`[!] فشل إرسال الصورة لتليجرام: ${error.message}`);
+    }
+}
+
+/**
+ * الاستماع لأوامر تليجرام المباشرة (/start) وإرسال لقطة شاشة القناة الحالية
  */
 async function startTelegramBotListener() {
     let lastUpdateId = 0;
-    console.log("🤖 تفعيل مستمع أوامر تليجرام (/start)...");
+    console.log("🤖 تفعيل مستمع الأوامر ومصور الشاشة الحية (/start)...");
 
     setInterval(async () => {
         try {
@@ -47,29 +76,35 @@ async function startTelegramBotListener() {
                     lastUpdateId = update.update_id;
                     if (update.message && update.message.text) {
                         const text = update.message.text;
-                        const chatId = update.message.chat.id;
 
                         if (text === '/start') {
-                            await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                                chat_id: chatId,
-                                text: "<b>✨ أهلاً بك! البوت يعمل بنجاح ومستمر في فحص قنوات IPTV بالذكاء الاصطناعي...</b>",
-                                parse_mode: "HTML"
-                            });
+                            let msg = `<b>📊 تقرير فحص البث المباشر الحالي:</b>\n\n`;
+                            msg += `🔗 <b>الرابط قيد الفحص:</b> <code>${currentScanningUrl || "جاري البدء..."}</code>\n`;
+                            msg += `🔢 <b>الرقم الحالي:</b> <code>${currentScanningNum}</code>\n`;
+
+                            // إذا توفرت صورة حية أرسلها فوراً للبوت
+                            if (lastCapturedImagePath && fs.existsSync(lastCapturedImagePath)) {
+                                msg += `📸 <b>إليك لقطة شاشة حية من البث الآن:</b>`;
+                                await sendTelegramPhoto(lastCapturedImagePath, msg);
+                            } else {
+                                msg += `⚠️ <i>البث الحالي لا يعطي صورة أو غير شغال، جاري تجاوز الرقم...</i>`;
+                                await sendTelegramMessage(msg);
+                            }
                         }
                     }
                 }
             }
-        } catch (e) {
-            // الاستمرار في العمل
-        }
-    }, 3000);
+        } catch (e) {}
+    }, 2500);
 }
 
 /**
  * التقاط الشاشة عبر Playwright
  */
-async function captureVideoFrameWithBrowser(browser, streamUrl, outputPath) {
-    const context = await browser.newContext({
+async function captureVideoFrameWithBrowser(streamUrl, outputPath) {
+    if (!globalBrowser) return false;
+
+    const context = await globalBrowser.newContext({
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36',
         viewport: { width: 1280, height: 720 },
         ignoreHTTPSErrors: true
@@ -98,12 +133,13 @@ async function captureVideoFrameWithBrowser(browser, streamUrl, outputPath) {
         `;
 
         await page.setContent(htmlContent);
-        await page.waitForTimeout(5000);
+        await page.waitForTimeout(4000);
 
         await page.screenshot({ path: outputPath, type: 'jpeg', quality: 80 });
         await context.close();
 
-        if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 4000) {
+        if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 3000) {
+            lastCapturedImagePath = outputPath;
             return true;
         }
         return false;
@@ -120,16 +156,14 @@ async function analyzeScreenshotWithGemini(imagePath, streamUrl) {
     if (!fs.existsSync(imagePath)) return null;
 
     const prompt = `
-    أنت نظام فحص متطور لقنوات التلفزيون المباشر (IPTV).
-    أمامك صورة شاشة حقيقية ملتقطة من بث مباشر شغال حالياً.
+    أنت نظام فحص متطور جداً لقنوات التلفزيون والبث المباشر (IPTV).
+    افحص صورة الشاشة المرفقة جيداً وتأكد من شعار القناة:
 
-    المطلوب منك:
-    1. افحص اللوجو والنصوص في الشاشة بدقة.
-    2. اذكر اسم القناة الحقيقي بالعربي (مثل: "beIN Sports 1 HD", "MBC 1", "روتانا سينما", "سبيستون", "الجزيرة HD", "SSC Sports 1 HD").
-    3. هل القناة موجهة للجمهور العربي؟ (is_arabic: true / false).
-    4. اختر تصنيف القناة فقط من: ("رياضة", "مسلسلات وبرامج", "أفلام عربية", "أفلام أجنبية ورعب", "أطفال وكرتون", "إخبارية وثائقية", "إسلامية").
+    1. اذكر اسم القناة الحقيقي والكامل بالعربي (مثل: "beIN Sports 1 HD", "MBC 1", "روتانا سينما", "سبيستون", "الجزيرة HD", "SSC Sports 1 HD").
+    2. هل القناة موجهة للجمهور العربي؟ (is_arabic: true / false).
+    3. اختر التصنيف الدقيق فقط من: ("رياضة", "مسلسلات وبرامج", "أفلام عربية", "أفلام أجنبية ورعب", "أطفال وكرتون", "إخبارية وثائقية", "إسلامية").
 
-    رد بصيغة JSON فقط:
+    رد بصيغة JSON فقط بهذا الشكل:
     {
       "is_arabic": true,
       "channel_name": "اسم القناة بالعربي",
@@ -178,7 +212,7 @@ function formatM3uEntry(url, channelNameAr, categoryAr) {
 }
 
 /**
- * فحص التأكد السريع أن الرابط يعمل
+ * فحص التأكد السريع
  */
 async function isValidStream(url) {
     try {
@@ -196,48 +230,42 @@ async function isValidStream(url) {
 }
 
 /**
- * دالة التخمين الرئيسية
+ * عملية الفحص المتسلسلة
  */
-async function startScanning(baseUrl, startNum, count = 100) {
-    // إرسال تنبيه للتليجرام عند بدء التشغيل مباشرة
-    await sendTelegramMessage("🟢 <b>تم تشغيل سيرفر الفحص بنجاح وجاري فحص القنوات الآن...</b>");
+async function startScanning(baseUrl, startNum, count = 500) {
+    await sendTelegramMessage("🟢 <b>تم تفعيل البوت وسيرفر التخمين! اكتب /start لتلقي لقطة الشاشة الحية للبث المباشر.</b>");
 
-    const browser = await chromium.launch({
+    globalBrowser = await chromium.launch({
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--autoplay-policy=no-user-gesture-required']
     });
 
-    let foundCount = 0;
-
     for (let i = 0; i < count; i++) {
-        const currentNum = startNum + i;
-        const testUrl = `${baseUrl}${currentNum}.ts`;
+        currentScanningNum = startNum + i;
+        currentScanningUrl = `${baseUrl}${currentScanningNum}.ts`;
 
-        process.stdout.write(`[*] فحص ${currentNum} -> `);
+        process.stdout.write(`[*] فحص ${currentScanningNum} -> `);
 
-        const valid = await isValidStream(testUrl);
+        const valid = await isValidStream(currentScanningUrl);
 
         if (valid) {
-            console.log("✅ شغال! جاري الالتقاط بـ Playwright...");
-
-            const tempImgPath = path.join('/tmp', `frame_${currentNum}.jpg`);
-            const screenshotSuccess = await captureVideoFrameWithBrowser(browser, testUrl, tempImgPath);
+            console.log("✅ شغال! الالتقاط بالمتصفح...");
+            const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);
+            const screenshotSuccess = await captureVideoFrameWithBrowser(currentScanningUrl, tempImgPath);
 
             if (screenshotSuccess) {
-                const analysis = await analyzeScreenshotWithGemini(tempImgPath, testUrl);
-
-                if (fs.existsSync(tempImgPath)) {
-                    try { fs.unlinkSync(tempImgPath); } catch (e) {}
-                }
+                const analysis = await analyzeScreenshotWithGemini(tempImgPath, currentScanningUrl);
 
                 if (analysis && analysis.is_arabic) {
-                    foundCount++;
-                    const channelName = analysis.channel_name || `قناة عربية ${foundCount}`;
-                    const category = analysis.category || "قنوات عامة";
+                    const channelName = analysis.channel_name;
+                    const category = analysis.category;
 
-                    console.log(`[+] اكتشاف: ${channelName} [${category}]`);
+                    console.log(`[+] اكتشاف مؤكد: ${channelName} [${category}]`);
 
-                    const m3uEntry = formatM3uEntry(testUrl, channelName, category);
+                    const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category);
+                    
+                    // إرسال الصورة متبوعة بكود الـ M3U لـ Telegram
+                    await sendTelegramPhoto(tempImgPath, `✅ <b>قناة جديدة مكتشفة بـ Gemini!</b>\n📺 <b>الاسم:</b> ${channelName}\n🏷️ <b>التصنيف:</b> ${category}`);
                     await sendTelegramMessage(`<code>${m3uEntry}</code>`);
                 }
             }
@@ -246,15 +274,14 @@ async function startScanning(baseUrl, startNum, count = 100) {
         }
     }
 
-    await browser.close();
+    await globalBrowser.close();
 }
 
 // ==================== التشغيل ====================
 (async () => {
-    // تشغيل مستمع أوامر تليجرام في الخلفية
     startTelegramBotListener();
 
     const BASE_URL = "http://xvip.pro/live/hend0815/08152023/";
     const START_NUMBER = 340315;
-    await startScanning(BASE_URL, START_NUMBER, 200);
+    await startScanning(BASE_URL, START_NUMBER, 500);
 })();
