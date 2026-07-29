@@ -12,4 +12,4 @@ RUN npm install
 COPY . .
 
 # أمر تشغيل البوت
-CMD ["node", "netflix.js"]
+CMD ["node", "pay.js"]
