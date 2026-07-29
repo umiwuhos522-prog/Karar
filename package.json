@@ -1,5 +1,5 @@
 {
-  "name": "bot-project",
+  "name": "vlc-iptv-checker",
   "version": "1.0.0",
   "type": "module",
   "main": "pay.js",
@@ -9,9 +9,6 @@
   "dependencies": {
     "@google/genai": "latest",
     "axios": "^1.6.8",
-    "form-data": "^4.0.0",
-    "puppeteer": "^22.10.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "form-data": "^4.0.0"
   }
 }
