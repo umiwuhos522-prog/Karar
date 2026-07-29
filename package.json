@@ -9,8 +9,8 @@
   "dependencies": {
     "@google/genai": "latest",
     "axios": "^1.6.8",
-    "telegraf": "^4.16.3",
-    "playwright": "^1.44.0",
+    "form-data": "^4.0.0",
+    "puppeteer": "^22.10.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
   }
