@@ -1,90 +1,101 @@
-import sys
-import subprocess
-import requests
-import json
-import os
+import axios from 'axios';
+import { exec } from 'child_process';
+import { GoogleGenAI } from '@google/genai';
 
-# التثبيت التلقائي للمكتبات إن لم تكن موجودة
-def install_and_import(package, import_name=None):
-    if import_name is None:
-        import_name = package
-    try:
-        __import__(import_name)
-    except ImportError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+// ==================== الإعدادات الأساسية ====================
+const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
+const TELEGRAM_CHAT_ID = "6491999046";
 
-install_and_import("requests")
-install_and_import("google-genai", "google.genai")
+// مفتاح Gemini API
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyDqlfbn5shYklhde9cn3dl_d-UwqPzmSs0";
 
-from google import genai
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
-# ==================== الإعدادات الأساسية ====================
-TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ"
-TELEGRAM_CHAT_ID = "6491999046"
-
-# ضع مفتاح Gemini API الخاص بك هنا
-GEMINI_API_KEY = os.environ.get("AIzaSyDqlfbn5shYklhde9cn3dl_d-UwqPzmSs0")
-client = genai.Client(api_key=GEMINI_API_KEY)
-
-def send_telegram_message(message):
-    """إرسال النتيجة إلى تليجرام بصيغة HTML"""
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "HTML"
+/**
+ * إرسال النتيجة إلى تليجرام بصيغة HTML
+ */
+async function sendTelegramMessage(message) {
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    const payload = {
+        chat_id: TELEGRAM_CHAT_ID,
+        text: message,
+        parse_mode: "HTML"
+    };
+    try {
+        await axios.post(url, payload, { timeout: 5000 });
+    } catch (error) {
+        console.log(`[!] فشل إرسال الرسالة لتليجرام: ${error.message}`);
     }
-    try:
-        requests.post(url, data=payload, timeout=5)
-    except Exception as e:
-        print(f"[!] فشل إرسال الرسالة لتليجرام: {e}")
+}
 
-def get_stream_height_and_meta(url):
-    """استخراج دقة الفيديو وأي بيانات وصفية عبر ffprobe"""
-    cmd = [
-        'ffprobe',
-        '-v', 'error',
-        '-select_streams', 'v:0',
-        '-show_entries', 'stream=width,height,codec_name',
-        '-of', 'json',
-        url
-    ]
-    try:
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=6, text=True)
-        data = json.loads(result.stdout)
-        if 'streams' in data and len(data['streams']) > 0:
-            stream = data['streams'][0]
-            return stream.get('height', 0), stream.get('width', 0), stream.get('codec_name', '')
-    except Exception:
-        pass
-    return 0, 0, ''
+/**
+ * استخراج دقة الفيديو وأي بيانات وصفية عبر ffprobe
+ */
+function getStreamHeightAndMeta(url) {
+    return new Promise((resolve) => {
+        const cmd = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height,codec_name -of json "${url}"`;
+        exec(cmd, { timeout: 6000 }, (error, stdout) => {
+            if (error) return resolve({ height: 0, width: 0, codec: '' });
+            try {
+                const data = JSON.parse(stdout);
+                if (data.streams && data.streams.length > 0) {
+                    const stream = data.streams[0];
+                    return resolve({
+                        height: stream.height || 0,
+                        width: stream.width || 0,
+                        codec: stream.codec_name || ''
+                    });
+                }
+            } catch (e) {
+                return resolve({ height: 0, width: 0, codec: '' });
+            }
+            resolve({ height: 0, width: 0, codec: '' });
+        });
+    });
+}
 
-def is_valid_stream(url):
-    """فحص أن البث حقيقي ويعمل"""
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
+/**
+ * فحص أن البث حقيقي ويعمل
+ */
+async function isValidStream(url) {
+    try {
+        const response = await axios.get(url, {
+            timeout: 5000,
+            responseType: 'stream',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
+            }
+        });
+
+        if (response.status !== 200) return false;
+
+        const contentType = (response.headers['content-type'] || '').toLowerCase();
+        if (contentType.includes('text/html')) return false;
+
+        const chunk = await new Promise((resolve) => {
+            response.data.once('data', (data) => resolve(data.slice(0, 512)));
+            response.data.once('error', () => resolve(Buffer.from('')));
+        });
+
+        response.data.destroy();
+
+        const chunkText = chunk.toString().toLowerCase();
+        if (chunkText.includes('<html') || chunkText.includes('<!doctype')) {
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        return false;
     }
-    try:
-        with requests.get(url, timeout=5, headers=headers, stream=True, allow_redirects=True) as resp:
-            if resp.status_code != 200:
-                return False
-            content_type = resp.headers.get('Content-Type', '').lower()
-            if 'text/html' in content_type:
-                return False
-            chunk = next(resp.iter_content(chunk_size=512), b'')
-            if b'<html' in chunk.lower() or b'<!doctype' in chunk.lower():
-                return False
-            return True
-    except Exception:
-        return False
+}
 
-def analyze_channel_with_gemini(url, height):
-    """
-    استخدام Gemini الذكي لتحليل وتحديد اسم القناة، هل هي عربية أم لا، 
-    وتحديد الفئة (رياضة، مسلسلات، كرتون، أطفال، أفلام، إسلامي، إخباري...) بدقة ذكية.
-    """
-    prompt = f"""
-    You are an expert IPTV stream analyzer. I have an active video stream URL: {url} with video height {height}p.
+/**
+ * استخدام Gemini الذكي لتحليل وتحديد اسم القناة، وهل هي عربية أم لا وتصنيفها
+ */
+async function analyzeChannelWithGemini(url, height) {
+    const prompt = `
+    You are an expert IPTV stream analyzer. I have an active video stream URL: ${url} with video height ${height}p.
     Based on common IPTV naming structures and stream patterns for Arab/Middle Eastern television networks (like beIN Sports, MBC, OSN, Rotana, Shahid, SSC, etc.), analyze what kind of channel this typically is or infer its identity based on the URL index/pattern, or provide a smart professional classification.
     
     You must respond strictly in valid JSON format with the following keys:
@@ -94,87 +105,100 @@ def analyze_channel_with_gemini(url, height):
     - "description": Brief description in Arabic.
 
     If you cannot determine the exact channel, give it a smart generic Arabic IPTV title based on its resolution and context, but ensure "is_arabic" is true only if it's clearly an Arabic content stream.
-    """
-    
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-        text = response.text.strip()
-        # تنظيف كود جيسون إن وجد في الرد
-        if "```json" in text:
-            text = text.split("```json")[1].split("```")[0].strip()
-        elif "```" in text:
-            text = text.split("```")[1].split("```")[0].strip()
-            
-        data = json.loads(text)
-        return data
-    except Exception as e:
-        print(f"[!] خطأ في تحليل Gemini: {e}")
-        return {
-            "is_arabic": True,
-            "channel_name": "قناة منوعة",
-            "category": "قنوات عامة",
-            "description": "بث مباشر"
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+        });
+
+        let text = response.text.trim();
+        if (text.includes("```json")) {
+            text = text.split("```json")[1].split("```")[0].trim();
+        } else if (text.includes("```")) {
+            text = text.split("```")[1].split("```")[0].trim();
         }
 
-def format_m3u_entry(url, channel_name_ar, category_ar, height):
-    """تنسيق القناة بصيغة M3U احترافية"""
-    logo_url = "https://upload.wikimedia.org/wikipedia/commons/d/d7/Bein_sport_ana_logo.png"
-    
-    if height >= 1080:
-        quality_str = "بدقة عالية جداً 1080p"
-    elif height >= 720:
-        quality_str = "بدقة عالية 720p"
-    elif height >= 480:
-        quality_str = "بدقة متوسطة 480p"
-    elif height > 0:
-        quality_str = f"بدقة {height}p"
-    else:
-        quality_str = "بدقة غير معروفة"
+        return JSON.parse(text);
+    } catch (e) {
+        console.log(`[!] خطأ في تحليل Gemini: ${e.message}`);
+        return {
+            is_arabic: true,
+            channel_name: "قناة منوعة",
+            category: "قنوات عامة",
+            description: "بث مباشر"
+        };
+    }
+}
 
-    group_title = f"⭐ {category_ar} | {quality_str} ⭐"
-    
-    m3u_text = (
-        f"# {group_title}\n"
-        f'#EXTINF:-1 tvg-logo="{logo_url}" group-title="{group_title}", {channel_name_ar}\n'
-        f"{url}"
-    )
-    return m3u_text
+/**
+ * تنسيق القناة بصيغة M3U احترافية
+ */
+function formatM3uEntry(url, channelNameAr, categoryAr, height) {
+    const logoUrl = "https://upload.wikimedia.org/wikipedia/commons/d/d7/Bein_sport_ana_logo.png";
+    let qualityStr = "";
 
-def start_scanning(base_url, start_num, count=50):
-    print("[-] بدء فحص القنوات والتحقق منها عبر ذكاء Gemini الاصطناعي...")
-    found_arabic = 0
-    
-    for i in range(count):
-        current_num = start_num + i
-        test_url = f"{base_url}{current_num}.ts"
-        
-        print(f"[*] فحص الرابط: {test_url}", end=" -> ")
-        
-        if is_valid_stream(test_url):
-            print("✅ شغال! جاري فحص الجودة والتحليل بالذكاء الاصطناعي...")
-            height, width, codec = get_stream_height_and_meta(test_url)
-            
-            # استدعاء Gemini لتحليل البث ومعرفة هل هو عربي وتصنيفه (رياضة، كرتون، مسلسلات...)
-            analysis = analyze_channel_with_gemini(test_url, height)
-            
-            if analysis.get("is_arabic", False):
-                found_arabic += 1
-                channel_name = analysis.get("channel_name", f"قناة عربية {found_arabic}")
-                category = analysis.get("category", "قنوات عامة")
-                
-                print([+] قناة عربية مكتشفة: {channel_name} [{category}] - الدقة: {height}p)
-                
-                m3u_entry = format_m3u_entry(test_url, channel_name, category, height)
-                send_telegram_message(f"<code>{m3u_entry}</code>")
-            else:
-                print("[-] القناة غير عربية، تم تخطيها.")
-        else:
-            print("❌ لا يعمل")
+    if (height >= 1080) {
+        qualityStr = "بدقة عالية جداً 1080p";
+    } else if (height >= 720) {
+        qualityStr = "بدقة عالية 720p";
+    } else if (height >= 480) {
+        qualityStr = "بدقة متوسطة 480p";
+    } else if (height > 0) {
+        qualityStr = `بدقة ${height}p`;
+    } else {
+        qualityStr = "بدقة غير معروفة";
+    }
 
-if __name__ == "__main__":
-    BASE_URL = "http://xvip.pro/live/hend0815/08152023/"
-    START_NUMBER = 340315
-    start_scanning(BASE_URL, START_NUMBER, count=20)
+    const groupTitle = `⭐ ${categoryAr} | ${qualityStr} ⭐`;
+
+    return `# ${groupTitle}\n#EXTINF:-1 tvg-logo="${logoUrl}" group-title="${groupTitle}", ${channelNameAr}\n${url}`;
+}
+
+/**
+ * دالة التخمين والفحص الرئيسية
+ */
+async function startScanning(baseUrl, startNum, count = 50) {
+    console.log("[-] بدء فحص القنوات والتحقق منها عبر ذكاء Gemini الاصطناعي...\n");
+    let foundArabic = 0;
+
+    for (let i = 0; i < count; i++) {
+        const currentNum = startNum + i;
+        const testUrl = `${baseUrl}${currentNum}.ts`;
+
+        process.stdout.write(`[*] فحص الرابط: ${testUrl} -> `);
+
+        const valid = await isValidStream(testUrl);
+
+        if (valid) {
+            console.log("✅ شغال! جاري فحص الجودة والتحليل بالذكاء الاصطناعي...");
+            const { height } = await getStreamHeightAndMeta(testUrl);
+
+            // استدعاء Gemini لتحليل البث
+            const analysis = await analyzeChannelWithGemini(testUrl, height);
+
+            if (analysis.is_arabic) {
+                foundArabic++;
+                const channelName = analysis.channel_name || `قناة عربية ${foundArabic}`;
+                const category = analysis.category || "قنوات عامة";
+
+                console.log(`[+] قناة عربية مكتشفة: ${channelName} [${category}] - الدقة: ${height}p`);
+
+                const m3uEntry = formatM3uEntry(testUrl, channelName, category, height);
+                await sendTelegramMessage(`<code>${m3uEntry}</code>`);
+            } else {
+                console.log("[-] القناة غير عربية، تم تخطيها.");
+            }
+        } else {
+            console.log("❌ لا يعمل");
+        }
+    }
+}
+
+// ==================== التشغيل ====================
+(async () => {
+    const BASE_URL = "http://xvip.pro/live/hend0815/08152023/";
+    const START_NUMBER = 340315;
+    await startScanning(BASE_URL, START_NUMBER, 20);
+})();
