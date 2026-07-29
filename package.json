@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "netflix.js",
   "scripts": {
-    "start": "node netflix.js"
+    "start": "node pay.js"
   },
   "dependencies": {
     "telegraf": "^4.16.3",
