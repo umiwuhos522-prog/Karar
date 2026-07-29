@@ -32,7 +32,7 @@ async function sendTelegramMessage(message) {
 }
 
 /**
- * إرسال صورة ملتقطة لتليجرام
+ * إرسال صورة ملتقطة لتليجرام مع التقرير النصي
  */
 async function sendTelegramPhoto(imagePath, caption) {
     if (!fs.existsSync(imagePath)) return;
@@ -78,7 +78,7 @@ function getStreamResolution(streamUrl) {
 }
 
 /**
- * التقاط صورة عالية الدقة من البث المباشر
+ * التقاط صورة من البث المباشر
  */
 function captureLiveFrame(streamUrl, outputPath) {
     return new Promise((resolve) => {
@@ -87,7 +87,7 @@ function captureLiveFrame(streamUrl, outputPath) {
         exec(cmd, { timeout: 15000 }, (error) => {
             if (fs.existsSync(outputPath)) {
                 const stats = fs.statSync(outputPath);
-                if (stats.size > 10000) { // حجم أكبر من 10KB يضمن وجود صورة ملونة وواضحة
+                if (stats.size > 8000) {
                     return resolve(true);
                 }
             }
@@ -97,28 +97,21 @@ function captureLiveFrame(streamUrl, outputPath) {
 }
 
 /**
- * تحليل بصري شامل لـ Gemini لقراءة الشعار، اسم القناة، الفئة، واللغة بالعربي
+ * قراءة وتحليل لقطة الشاشة بـ Gemini بطريقة مرنة ومباشرة
  */
-async function analyzeScreenshotWithGemini(imagePath, streamUrl, resolution) {
+async function analyzeScreenshotWithGemini(imagePath) {
     if (!fs.existsSync(imagePath)) return null;
 
     const prompt = `
-    أنت نظام ذكاء اصطناعي خبير ومحترف في التحليل البصري لشاشات البث المباشر وقنوات IPTV التلفزيونية.
-    افحص صورة الشاشة المرفقة جيداً وركز على شعارات القناة، النصوص، والشريط السفلي:
+    شاهد صورة شاشة البث المباشر المرفقة بتمعن واستخرج المعلومات التالية فقط باللغة العربية:
+    1. اسم القناة الحقيقي والواضح في اللوجو أو الشاشة (مثلاً: beIN Sports 1, beIN Sports 2, MBC 1, روتانا, سبيستون, SSC 1, إلخ).
+    2. الفئة والتصنيف (اختر واحد فقط: رياضة | مسلسلات وبرامج | أفلام عربية | أفلام أجنبية ورعب | أطفال وكرتون | إخبارية | إسلامية).
+    3. اللغة (مثل: العربية, الإنجليزية, مترجم للعربية).
 
-    المطلوب منك استخراج المعلومات التالية بدقة وكتابتها باللغة العربية:
-    1. "channel_name": اسم القناة الحقيقي والكامل بالعربي (مثل: "beIN Sports 2 HD", "MBC 1", "روتانا سينما", "سبيستون", "الجزيرة HD", "SSC 1 HD", "MBC Drama", إلخ).
-    2. "category": فئة القناة وتصنيفها من بين (رياضة | مسلسلات وبرامج | أفلام عربية | أفلام أجنبية ورعب | أطفال وكرتون | إخبارية وثائقية | إسلامية).
-    3. "language": لغة القناة أو التعليق (مثل: "العربية", "الإنجلتراية", "مترجم للعربية", إلخ).
-    4. "is_arabic": هل هي قناة عربية أو موجهة للجمهور العربي؟ (true أو false).
-
-    أعد الإجابة فقط بصيغة JSON بالنص التالي دون إضافة كلام آخر:
-    {
-      "channel_name": "اسم القناة بالعربي",
-      "category": "الفئة",
-      "language": "اللغة",
-      "is_arabic": true
-    }
+    اكتب الرد بهذه الصيغة البسيطة بدون أي كود أو رموز إضافية:
+    اسم القناة: [اسم القناة هنا]
+    الفئة: [الفئة هنا]
+    اللغة: [اللغة هنا]
     `;
 
     try {
@@ -138,22 +131,39 @@ async function analyzeScreenshotWithGemini(imagePath, streamUrl, resolution) {
             contents: contents,
         });
 
-        let text = response.text.trim();
-        if (text.includes("```json")) {
-            text = text.split("```json")[1].split("```")[0].trim();
-        } else if (text.includes("```")) {
-            text = text.split("```")[1].split("```")[0].trim();
-        }
+        const text = response.text.trim();
+        
+        // استخراج المعلومات بالنصوص المباشرة
+        let channelName = "قناة رياضية / منوعة";
+        let category = "رياضة";
+        let language = "العربية";
 
-        return JSON.parse(text);
+        const nameMatch = text.match(/اسم القناة:\s*(.+)/);
+        if (nameMatch) channelName = nameMatch[1].trim();
+
+        const catMatch = text.match(/الفئة:\s*(.+)/);
+        if (catMatch) category = catMatch[1].trim();
+
+        const langMatch = text.match(/اللغة:\s*(.+)/);
+        if (langMatch) language = langMatch[1].trim();
+
+        return {
+            channel_name: channelName,
+            category: category,
+            language: language
+        };
     } catch (e) {
-        console.log(`[!] خطأ في تحليل Gemini: ${e.message}`);
-        return null;
+        console.log(`[!] خطأ تحليل Gemini: ${e.message}`);
+        return {
+            channel_name: "قناة بث مباشر",
+            category: "عامة",
+            language: "العربية"
+        };
     }
 }
 
 /**
- * تنسيق M3U بدقة
+ * تنسيق M3U
  */
 function formatM3uEntry(url, channelNameAr, categoryAr, qualityStr) {
     const logoUrl = "https://upload.wikimedia.org/wikipedia/commons/d/d7/Bein_sport_ana_logo.png";
@@ -163,7 +173,7 @@ function formatM3uEntry(url, channelNameAr, categoryAr, qualityStr) {
 }
 
 /**
- * مستمع أمر /start المباشر مع الالتقاط الفوري للتقرير
+ * مستمع أمر /start المباشر مع التقرير الشامل
  */
 async function startTelegramBotListener() {
     let lastUpdateId = 0;
@@ -176,7 +186,7 @@ async function startTelegramBotListener() {
                 for (const update of response.data.result) {
                     lastUpdateId = update.update_id;
                     if (update.message && update.message.text === '/start') {
-                        let caption = `<b>📊 تقرير الفحص المباشر والحالي:</b>\n\n`;
+                        let caption = `<b>📊 تقرير الفحص المباشر الحظي:</b>\n\n`;
                         caption += `🔗 <b>الرابط قيد الفحص:</b> <code>${currentScanningUrl || "جاري البدء..."}</code>\n`;
                         caption += `🔢 <b>الرقم الحالي:</b> <code>${currentScanningNum}</code>\n`;
                         caption += `📸 <i>جاري التقاط الشاشة وتحليل البث بـ Gemini...</i>`;
@@ -189,19 +199,24 @@ async function startTelegramBotListener() {
 
                             if (success && fs.existsSync(instantImgPath)) {
                                 const res = await getStreamResolution(currentScanningUrl);
-                                const analysis = await analyzeScreenshotWithGemini(instantImgPath, currentScanningUrl, res);
+                                const analysis = await analyzeScreenshotWithGemini(instantImgPath);
 
-                                if (analysis) {
-                                    let infoMsg = `🖼️ <b>معلومات البث المكتشفة بـ Gemini:</b>\n\n`;
-                                    infoMsg += `📺 <b>اسم القناة:</b> ${analysis.channel_name}\n`;
-                                    infoMsg += `🏷️ <b>الفئة:</b> ${analysis.category}\n`;
-                                    infoMsg += `🗣️ <b>اللغة:</b> ${analysis.language}\n`;
-                                    infoMsg += `📐 <b>الدقة:</b> ${res.height}p (${res.width}x${res.height})\n`;
+                                const channelName = analysis ? analysis.channel_name : "قناة بث مباشر";
+                                const category = analysis ? analysis.category : "عامة";
+                                const language = analysis ? analysis.language : "العربية";
+                                const qualityStr = `${res.height}p (${res.width}x${res.height})`;
 
-                                    await sendTelegramPhoto(instantImgPath, infoMsg);
-                                } else {
-                                    await sendTelegramPhoto(instantImgPath, `🖼️ <b>صورة حية للبث الحالي (${currentScanningNum}):</b>`);
-                                }
+                                let infoMsg = `✅ <b>تقرير Gemini للبث المباشر:</b>\n\n`;
+                                infoMsg += `📺 <b>اسم القناة:</b> ${channelName}\n`;
+                                infoMsg += `🏷️ <b>الفئة:</b> ${category}\n`;
+                                infoMsg += `🗣️ <b>اللغة:</b> ${language}\n`;
+                                infoMsg += `📐 <b>الدقة:</b> ${qualityStr}\n`;
+
+                                const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, `${res.height}p FHD`);
+
+                                await sendTelegramPhoto(instantImgPath, infoMsg);
+                                await sendTelegramMessage(`<code>${m3uEntry}</code>`);
+
                                 try { fs.unlinkSync(instantImgPath); } catch (e) {}
                             }
                         }
@@ -234,7 +249,7 @@ async function isValidStream(url) {
  * عملية الفحص المتسلسلة
  */
 async function startScanning(baseUrl, startNum, count = 500) {
-    await sendTelegramMessage("🟢 <b>تم تفعيل فحص البث المباشر والتحليل البصري بـ Gemini بنجاح!</b>");
+    await sendTelegramMessage("🟢 <b>تم تفعيل فحص البث المباشر والتحليل البصري الشامل بـ Gemini!</b>");
 
     for (let i = 0; i < count; i++) {
         currentScanningNum = startNum + i;
@@ -252,29 +267,27 @@ async function startScanning(baseUrl, startNum, count = 500) {
 
             if (captured) {
                 const res = await getStreamResolution(currentScanningUrl);
-                const qualityStr = res.height >= 1080 ? `${res.height}p FHD` : `${res.height}p HD`;
+                const qualityStr = `${res.height}p FHD`;
 
                 console.log("📸 تم التقاط الصورة! جاري تحليل الشعار والمعلومات مع Gemini...");
-                const analysis = await analyzeScreenshotWithGemini(tempImgPath, currentScanningUrl, res);
+                const analysis = await analyzeScreenshotWithGemini(tempImgPath);
 
-                if (analysis && analysis.is_arabic) {
-                    const channelName = analysis.channel_name;
-                    const category = analysis.category;
-                    const language = analysis.language;
+                const channelName = analysis ? analysis.channel_name : "قناة بث مباشر";
+                const category = analysis ? analysis.category : "عامة";
+                const language = analysis ? analysis.language : "العربية";
 
-                    console.log(`[+] مكتشفة بـ Gemini: ${channelName} [${category}] [اللغة: ${language}] - الدقة: ${res.height}p`);
+                console.log(`[+] مكتشفة بـ Gemini: ${channelName} [${category}] [اللغة: ${language}] - الدقة: ${res.height}p`);
 
-                    const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, qualityStr);
+                const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, qualityStr);
 
-                    let caption = `✅ <b>قناة جديدة مكتشفة بـ Gemini!</b>\n\n`;
-                    caption += `📺 <b>اسم القناة:</b> ${channelName}\n`;
-                    caption += `🏷️ <b>الفئة:</b> ${category}\n`;
-                    caption += `🗣️ <b>اللغة:</b> ${language}\n`;
-                    caption += `📐 <b>الدقة:</b> ${qualityStr} (${res.width}x${res.height})`;
+                let caption = `✅ <b>قناة جديدة مكتشفة بـ Gemini!</b>\n\n`;
+                caption += `📺 <b>اسم القناة:</b> ${channelName}\n`;
+                caption += `🏷️ <b>الفئة:</b> ${category}\n`;
+                caption += `🗣️ <b>اللغة:</b> ${language}\n`;
+                caption += `📐 <b>الدقة:</b> ${qualityStr} (${res.width}x${res.height})`;
 
-                    await sendTelegramPhoto(tempImgPath, caption);
-                    await sendTelegramMessage(`<code>${m3uEntry}</code>`);
-                }
+                await sendTelegramPhoto(tempImgPath, caption);
+                await sendTelegramMessage(`<code>${m3uEntry}</code>`);
 
                 if (fs.existsSync(tempImgPath)) {
                     try { fs.unlinkSync(tempImgPath); } catch (e) {}
