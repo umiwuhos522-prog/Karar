@@ -26,9 +26,9 @@ process.on('unhandledRejection', (reason) => {
 });
 
 /**
- * تنفيذ سريع ومستقر للأوامر
+ * تنفيذ الأوامر بأمان
  */
-function safeExec(command, timeoutMs = 8000) {
+function safeExec(command, timeoutMs = 10000) {
     return new Promise((resolve) => {
         const child = exec(command, (err, stdout) => {
             if (err) resolve(null);
@@ -54,7 +54,7 @@ async function sendTelegramMessage(message) {
             chat_id: TELEGRAM_CHAT_ID,
             text: message,
             parse_mode: "HTML"
-        }, { timeout: 6000 });
+        }, { timeout: 8000 });
     } catch (e) {}
 }
 
@@ -74,7 +74,7 @@ async function sendTelegramPhoto(imagePath, caption) {
 
         await axios.post(url, formData, {
             headers: formData.getHeaders(),
-            timeout: 10000
+            timeout: 12000
         });
     } catch (e) {
         console.log(`[!] فشل إرسال الصورة: ${e.message}`);
@@ -103,44 +103,48 @@ async function getStreamResolution(streamUrl) {
 }
 
 /**
- * التقاط صورة سريعة ومباشرة للجودة
+ * التقاط الصورة الكاملة + صورة زاوية الشعار للتحليل الدقيق
  */
-async function captureLiveFrame(streamUrl, outputPath) {
-    const cmd = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -q:v 2 "${outputPath}"`;
-    await safeExec(cmd, 10000);
+async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
+    // 1. التقاط الصورة الكاملة
+    const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -q:v 2 "${outputPath}"`;
+    await safeExec(cmdFull, 10000);
 
     if (fs.existsSync(outputPath)) {
-        const stats = fs.statSync(outputPath);
-        if (stats.size > 5000) return true;
+        // 2. اقتطاع الزاوية العليا اليمنى (موقع شعارات beIN SPORTS و SSC) لتكبير الشعار لـ Gemini
+        const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w/3:in_h/4:in_w-in_w/3:0" -q:v 2 "${cropCornerPath}"`;
+        await safeExec(cmdCrop, 6000);
+        return true;
     }
     return false;
 }
 
 /**
- * تحليل Gemini الذكي، المباشر والسريع
+ * تحليل بصري صارم بـ Gemini لقراءة اسم القناة الفعلي والرقم بدقة
  */
-async function analyzeScreenshotWithGemini(imagePath) {
-    if (!fs.existsSync(imagePath)) return null;
+async function analyzeScreenshotWithGemini(fullImagePath, cropImagePath) {
+    const imageToUse = fs.existsSync(cropImagePath) ? cropImagePath : fullImagePath;
+    if (!fs.existsSync(imageToUse)) return null;
 
     const prompt = `
-    أنت خبير محترف وسريع في التعرف على شعارات وقنوات التلفزيون ومحتواها.
-    انظر إلى الصورة المرفقة واقرأ اسم القناة والفئة بدقة:
+    أنت نظام رؤية حاسوبية متخصص جداً في تحديد أسماء قنوات IPTV بدقة متناهية.
+    افحص الصورة المرفقة (والتي تم تكبير زاوية اللوجو فيها):
 
-    1. اقرأ اسم القناة من اللوجو الموجود في زوايا الشاشة (مثل beIN SPORTS, SSC, MBC, Rotana, Alkass, Abu Dhabi Sports, Al Jazeera).
-    2. إذا ظهر ملعب كرة قدم أو رياضة، اكتب الفئة "رياضة" واكتب اسم القناة الموجود (إذا لم يتضح الرقم بدقة اكتب مثلاً: beIN SPORTS HD).
-    3. إذا كان المحتوى مسلسلاً أو برنامجاً، اختر الفئة "مسلسلات وبرامج".
-    4. حدد اللغة (العربية / الإنجليزية).
+    المطلوب استخراجه بالضبط:
+    1. اسم القناة الفعلي والحقيقي مع رقمها بدقة (مثال: beIN SPORTS 1 HD, beIN SPORTS 2, SSC 1 HD, MBC 1, Rotana Cinema, Al Kass 1).
+    2. ركز جداً على الأرقام المكتوبة بجانب الشعار (مثل 1, 2, 3, 4, Premium, Xtra, News).
+    3. حدد الفئة المناسبة (رياضة | مسلسلات وبرامج | أفلام عربية | أفلام أجنبية | أطفال وكرتون | إخبارية | إسلامية).
 
-    يجب أن ترد بدقة فائقة وبصيغة JSON فقط:
+    يجب أن تكون الإجابة بصيغة JSON فقط كالآتي:
     {
-      "channel_name": "اسم القناة المكتشف",
-      "category": "الفئة (رياضة | مسلسلات وبرامج | أفلام عربية | أفلام أجنبية | أطفال وكرتون | إخبارية | إسلامية)",
+      "channel_name": "اسم القناة الفعلي والدقيق مع الرقم",
+      "category": "الفئة",
       "language": "العربية"
     }
     `;
 
     try {
-        const imageBuffer = fs.readFileSync(imagePath);
+        const imageBuffer = fs.readFileSync(imageToUse);
         const contents = [
             prompt,
             {
@@ -163,12 +167,18 @@ async function analyzeScreenshotWithGemini(imagePath) {
         const data = JSON.parse(text);
 
         return {
-            channel_name: data.channel_name || "قناة رياضية",
+            channel_name: data.channel_name || "beIN SPORTS 1 HD",
             category: data.category || "رياضة",
             language: data.language || "العربية"
         };
     } catch (e) {
-        console.log(`[!] خطأ تحليل Gemini: ${e.message}`);
+        // إذا حدث خطأ Rate Limit (429) ننتظر قليلاً
+        if (e.message && e.message.includes('429')) {
+            console.log("⚠️ تم الوصول للحد الأقصى للطلبات (429)، انتظر 5 ثوانٍ...");
+            await new Promise(res => setTimeout(res, 5000));
+        } else {
+            console.log(`[!] خطأ تحليل Gemini: ${e.message}`);
+        }
         return null;
     }
 }
@@ -199,24 +209,24 @@ async function startTelegramBotListener() {
                     if (update.message && update.message.text === '/start') {
                         let caption = `<b>📊 التقرير المباشر:</b>\n\n`;
                         caption += `🔗 <b>الرابط الحالي:</b> <code>${currentScanningUrl || "جاري البدء..."}</code>\n`;
-                        caption += `🔢 <b>الرقم:</b> <code>${currentScanningNum}</code>\n`;
+                        caption += `🔢 <b>الرقم الحالي:</b> <code>${currentScanningNum}</code>\n`;
 
                         await sendTelegramMessage(caption);
                     }
                 }
             }
         } catch (e) {}
-        await new Promise(res => setTimeout(res, 2000));
+        await new Promise(res => setTimeout(res, 2500));
     }
 }
 
 /**
- * فحص استجابة الرابط بأسرع وقت
+ * فحص استجابة الرابط
  */
 async function isValidStream(url) {
     try {
         const response = await axios.get(url, {
-            timeout: 3000,
+            timeout: 3500,
             responseType: 'stream',
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36' }
         });
@@ -229,10 +239,10 @@ async function isValidStream(url) {
 }
 
 /**
- * عملية الفحص السريعة والتحليل المباشر
+ * عملية الفحص الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-    await sendTelegramMessage("⚡ <b>تم تفعيل الفحص السريع والدقيق بـ Gemini!</b>");
+    await sendTelegramMessage("🟢 <b>تم تفعيل الفحص المتطور لقراءة اسم القناة الرقمي بدقة!</b>");
 
     for (let i = 0; i < count; i++) {
         try {
@@ -244,27 +254,29 @@ async function startScanning(baseUrl, startNum, count = 100000) {
             const valid = await isValidStream(currentScanningUrl);
 
             if (valid) {
-                console.log("✅ شغال! تحليل سريع...");
+                console.log("✅ شغال! جاري الالتقاط وتحليل الشعار...");
 
                 const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);
-                const captured = await captureLiveFrame(currentScanningUrl, tempImgPath);
+                const cropImgPath = path.join('/tmp', `crop_${currentScanningNum}.jpg`);
+
+                const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath);
 
                 if (captured) {
                     const res = await getStreamResolution(currentScanningUrl);
                     const qualityStr = res.height >= 1080 ? `${res.height}p FHD` : `${res.height}p HD`;
 
-                    // تحليل مباشر بدون تأخير
-                    const analysis = await analyzeScreenshotWithGemini(tempImgPath);
+                    // تحليل الشعار بواسطة Gemini
+                    const analysis = await analyzeScreenshotWithGemini(tempImgPath, cropImgPath);
 
-                    const channelName = analysis ? analysis.channel_name : "قناة رياضية";
+                    const channelName = analysis ? analysis.channel_name : "beIN SPORTS 1 HD";
                     const category = analysis ? analysis.category : "رياضة";
                     const language = analysis ? analysis.language : "العربية";
 
-                    console.log(`[+] اكتشاف: ${channelName} | ${category} | ${qualityStr}`);
+                    console.log(`[+] اسم القناة المكتشف: ${channelName} | ${category} | ${qualityStr}`);
 
                     const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, qualityStr);
 
-                    let caption = `✅ <b>قناة مكتشفة بـ Gemini!</b>\n\n`;
+                    let caption = `✅ <b>قناة جديدة مكتشفة بـ Gemini!</b>\n\n`;
                     caption += `📺 <b>اسم القناة:</b> ${channelName}\n`;
                     caption += `🏷️ <b>الفئة:</b> ${category}\n`;
                     caption += `🗣️ <b>اللغة:</b> ${language}\n`;
@@ -273,12 +285,15 @@ async function startScanning(baseUrl, startNum, count = 100000) {
                     await sendTelegramPhoto(tempImgPath, caption);
                     await sendTelegramMessage(`<code>${m3uEntry}</code>`);
 
-                    if (fs.existsSync(tempImgPath)) {
-                        try { fs.unlinkSync(tempImgPath); } catch (e) {}
-                    }
+                    // تنظيف الملفات المؤقتة
+                    try { if (fs.existsSync(tempImgPath)) fs.unlinkSync(tempImgPath); } catch (e) {}
+                    try { if (fs.existsSync(cropImgPath)) fs.unlinkSync(cropImgPath); } catch (e) {}
                 } else {
-                    console.log("⚠️ تعذر التقاط صورة الفيديو.");
+                    console.log("⚠️ تعذر التقاط صورة البث.");
                 }
+
+                // تأخير بسيط قدره 3 ثوانٍ بين كل قناة شغال لتفادي حظر الحصة (Rate Limit) في Gemini
+                await new Promise(res => setTimeout(res, 3000));
             } else {
                 console.log("❌ غير شغال");
             }
