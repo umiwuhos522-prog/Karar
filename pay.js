@@ -24,84 +24,94 @@ async function sendTelegramMessage(message) {
         parse_mode: "HTML"
     };
     try {
-        await axios.post(url, payload, { timeout: 5000 });
+        await axios.post(url, payload, { timeout: 8000 });
     } catch (error) {
         console.log(`[!] فشل إرسال الرسالة لتليجرام: ${error.message}`);
     }
 }
 
 /**
- * تشغيل المتصفح والانتظار حتى يعمل البث المباشر ثم التقاط الشاشة لـ Gemini
+ * فتح البث مباشرة عبر المتصفح وتشغيله تلقائياً مع تجاوز حظر الفيديو
  */
 async function captureVideoFrameWithBrowser(browser, streamUrl, outputPath) {
     const context = await browser.newContext({
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36'
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36',
+        viewport: { width: 1280, height: 720 },
+        ignoreHTTPSErrors: true
     });
+
     const page = await context.newPage();
 
     try {
-        // إنشاء صفحة HTML بسيطة لتشغيل فيديو البث المباشر
+        // صفحة تشغيل تحتوي على فيديو ومحاكي تشغيل تلقائي
         const htmlContent = `
             <!DOCTYPE html>
             <html>
             <head>
                 <style>
-                    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+                    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; }
                     video { width: 100%; height: 100%; object-fit: contain; }
                 </style>
             </head>
             <body>
-                <video id="player" autoplay muted controls src="${streamUrl}"></video>
+                <video id="v" autoplay playsinline muted src="${streamUrl}"></video>
+                <script>
+                    const v = document.getElementById('v');
+                    v.play().catch(() => {});
+                </script>
             </body>
             </html>
         `;
 
         await page.setContent(htmlContent);
 
-        // الانتظار 5 ثوانٍ حقيقية ليعمل البث المباشر وتظهر صورة اللوجو والمحتوى
-        await page.waitForTimeout(5000);
+        // الانتظار 6 ثوانٍ كاملة لضمان محاذاة الفيديو وتحميل الشعار على الشاشة
+        await page.waitForTimeout(6000);
 
-        // التقاط صورة للشاشة الحالية
-        await page.screenshot({ path: outputPath, type: 'jpeg', quality: 80 });
+        // التقاط لقطة شاشة جودة عالية
+        await page.screenshot({ path: outputPath, type: 'jpeg', quality: 85 });
         await context.close();
 
-        if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 3000) {
-            return true;
+        if (fs.existsSync(outputPath)) {
+            const size = fs.statSync(outputPath).size;
+            if (size > 4000) return true; // التأكد أن الشاشة ليست سوداء بالكامل
         }
         return false;
     } catch (error) {
+        console.log(`[!] خطأ أثناء فتح المتصفح: ${error.message}`);
         await context.close();
         return false;
     }
 }
 
 /**
- * جعل Gemini يرى اللوجو والصورة بعينه ويحلل المحتوى بدقة عالية جداً
+ * إرسال الصورة لـ Gemini والتحليل الدقيق جداً
  */
 async function analyzeScreenshotWithGemini(imagePath, streamUrl) {
     if (!fs.existsSync(imagePath)) return null;
 
     const prompt = `
-    أنت خبير محترف جداً في الفحص البصري لقنوات التلفزيون والبث المباشر (IPTV).
-    أمامك صورة حقيقية التقاطها المتصفح أثناء تشغيل البث المباشر للرابط: ${streamUrl}.
+    أنت نظام فحص متطور جداً لقنوات البث المباشر والتلفزيون (IPTV).
+    أمامك صورة شاشة حقيقية ملتقطة من بث مباشر شغال حالياً.
 
-    قم برؤية الصورة وفحص اللوجو وشريط العرض بدقة ثم أجب بالتالي:
-    1. ما هو اسم القناة الحقيقي والدقيق باللغة العربية بناءً على اللوجو أو المحتوى؟ (مثال: "beIN Sports 1 HD", "MBC 1", "روتانا سينما", "سبيستون", "الجزيرة HD", "SSC 1 HD", "MBC Drama").
-    2. هل القناة عربية أو تبث محتوى عربي/مترجم للعربية؟ (is_arabic: true / false).
-    3. تحديد تصنيف القناة الدقيق جداً من القائمة التالية فقط:
+    المطلوب منك:
+    1. افحص اللوجو والنصوص الموجودة في أركان الشاشة بدقة.
+    2. اذكر اسم القناة الحقيقي والكامل بالعربي (مثل: "beIN Sports 1 HD", "MBC 1", "روتانا سينما", "سبيستون", "الجزيرة HD", "SSC Sports 1 HD", "MBC Drama", إلخ).
+    3. هل القناة موجهة للمستمع العربي أو مترجمة للعربية؟ (is_arabic: true / false).
+    4. صنف القناة بدقة من القائمة التالية فقط:
        - "رياضة"
-       - "مسلسلات"
+       - "مسلسلات وبرامج"
        - "أفلام عربية"
        - "أفلام أجنبية ورعب"
        - "أطفال وكرتون"
        - "إخبارية وثائقية"
        - "إسلامية"
 
-    تنبيه صارم: يجب أن يكون الرد بصيغة JSON فقط بهذا الشكل وبدون أي كلام إضافي:
+    يجب أن تكون إجابتك بصيغة JSON فقط:
     {
       "is_arabic": true,
       "channel_name": "اسم القناة بالعربي",
-      "category": "التصنيف الدقيق"
+      "category": "التصنيف"
     }
     `;
 
@@ -126,18 +136,18 @@ async function analyzeScreenshotWithGemini(imagePath, streamUrl) {
         if (text.includes("```json")) {
             text = text.split("```json")[1].split("```")[0].trim();
         } else if (text.includes("```")) {
-            text = text.split("```")[1].split("```")[0].trim();
+            text = text.split("```json")[1].split("```")[0].trim();
         }
 
         return JSON.parse(text);
     } catch (e) {
-        console.log(`[!] خطأ في التحليل البصري بـ Gemini: ${e.message}`);
+        console.log(`[!] خطأ تحليل Gemini: ${e.message}`);
         return null;
     }
 }
 
 /**
- * تنسيق M3U بالبيانات الحقيقية المكتشفة
+ * تنسيق M3U
  */
 function formatM3uEntry(url, channelNameAr, categoryAr) {
     const logoUrl = "https://upload.wikimedia.org/wikipedia/commons/d/d7/Bein_sport_ana_logo.png";
@@ -152,9 +162,11 @@ function formatM3uEntry(url, channelNameAr, categoryAr) {
 async function isValidStream(url) {
     try {
         const response = await axios.get(url, {
-            timeout: 4000,
+            timeout: 5000,
             responseType: 'stream',
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+            headers: { 
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36' 
+            }
         });
         if (response.status !== 200) return false;
         response.data.destroy();
@@ -165,16 +177,22 @@ async function isValidStream(url) {
 }
 
 /**
- * دالة التشغيل والفحص
+ * دالة التشغيل الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 100) {
-    console.log("🚀 تشغيل المتصفح وفحص الشاشات عبر Gemini API...\n");
+    console.log("🚀 تشغيل السكربت والمتصفح لتخمين البث وتحليله عبر Gemini...\n");
 
-    // تشغيل المتصفح عبر Playwright
     const browser = await chromium.launch({
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--autoplay-policy=no-user-gesture-required']
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--autoplay-policy=no-user-gesture-required',
+            '--disable-web-security'
+        ]
     });
+
+    let foundCount = 0;
 
     for (let i = 0; i < count; i++) {
         const currentNum = startNum + i;
@@ -185,33 +203,33 @@ async function startScanning(baseUrl, startNum, count = 100) {
         const valid = await isValidStream(testUrl);
 
         if (valid) {
-            console.log("✅ شغال! المتصفح يفتح البث والتقاط الشاشة...");
+            console.log("✅ البث شغال! جاري تشغيله في المتصفح والتقاط الشاشة...");
 
             const tempImgPath = path.join('/tmp', `frame_${currentNum}.jpg`);
             const screenshotSuccess = await captureVideoFrameWithBrowser(browser, testUrl, tempImgPath);
 
             if (screenshotSuccess) {
-                // إرسال صورة الشاشة الحقيقية لـ Gemini ليرى الشعار بعينه
+                console.log("📸 تم التقاط الصورة بنجاح! جاري إرسالها لـ Gemini للتعرف على الشعار...");
                 const analysis = await analyzeScreenshotWithGemini(tempImgPath, testUrl);
 
-                // مسح الصورة المؤقتة
                 if (fs.existsSync(tempImgPath)) {
                     try { fs.unlinkSync(tempImgPath); } catch (e) {}
                 }
 
                 if (analysis && analysis.is_arabic) {
-                    const channelName = analysis.channel_name;
-                    const category = analysis.category;
+                    foundCount++;
+                    const channelName = analysis.channel_name || `قناة عربية ${foundCount}`;
+                    const category = analysis.category || "قنوات عامة";
 
-                    console.log(`[+] تم التعرف على القناة بصرياً: ${channelName} [التصنيف: ${category}]`);
+                    console.log(`[+] اكتشاف مؤكد: ${channelName} [التصنيف: ${category}]`);
 
                     const m3uEntry = formatM3uEntry(testUrl, channelName, category);
                     await sendTelegramMessage(`<code>${m3uEntry}</code>`);
                 } else {
-                    console.log("[-] القناة ليست عربية أو لم يظهر الشعار بوضوح.");
+                    console.log("[-] ليست قناة عربية أو لم يظهر الشعار بوضوح.");
                 }
             } else {
-                console.log("⚠️ تعذر تشغيل الفيديو في المتصفح.");
+                console.log("⚠️ تعذر تشغيل الفيديو أو التقاط الشاشة.");
             }
         } else {
             console.log("❌ الرابط لا يعمل");
