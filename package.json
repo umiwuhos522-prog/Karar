@@ -7,7 +7,7 @@
     "start": "node pay.js"
   },
   "dependencies": {
-    "@google/genai": "^0.1.1",
+    "@google/genai": "latest",
     "axios": "^1.6.8",
     "telegraf": "^4.16.3",
     "playwright": "^1.44.0",
