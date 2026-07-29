@@ -1,13 +1,9 @@
 import axios from 'axios';
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import { exec } from 'child_process';
 import { GoogleGenAI } from '@google/genai';
 import fs from 'fs';
 import path from 'path';
 import FormData from 'form-data';
-
-// تفعيل إضافة التخفي للمحاكاة لتجاوز حظر السيرفرات
-puppeteer.use(StealthPlugin());
 
 // ==================== الإعدادات الأساسية ====================
 const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
@@ -16,15 +12,14 @@ const TELEGRAM_CHAT_ID = "6491999046";
 // مفتاح Gemini API
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyDqlfbn5shYklhde9cn3dl_d-UwqPzmSs0";
 
+// مسار برنامج VLC على جهازك (عدّله حسب مسار VLC لديك إذا كان مختلفاً)
+// للـ Windows غالباً: "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe"
+const VLC_PATH = `C:\\Program Files\\VideoLAN\\VLC\\vlc.exe`;
+
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
-let globalBrowser = null;
-let currentScanningUrl = "";
-let currentScanningNum = 0;
-let lastCapturedImagePath = null;
-
 /**
- * إرسال رسالة نصية لتليجرام
+ * إرسال رسالة نصية إلى تليجرام
  */
 async function sendTelegramMessage(message) {
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
@@ -34,7 +29,9 @@ async function sendTelegramMessage(message) {
             text: message,
             parse_mode: "HTML"
         }, { timeout: 8000 });
-    } catch (e) {}
+    } catch (e) {
+        console.log(`[!] فشل إرسال الرسالة لتليجرام: ${e.message}`);
+    }
 }
 
 /**
@@ -55,128 +52,57 @@ async function sendTelegramPhoto(imagePath, caption) {
             headers: formData.getHeaders(),
             timeout: 10000
         });
-    } catch (e) {}
-}
-
-/**
- * مستمع أوامر /start
- */
-async function startTelegramBotListener() {
-    let lastUpdateId = 0;
-    setInterval(async () => {
-        try {
-            const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}&timeout=5`;
-            const response = await axios.get(url, { timeout: 10000 });
-
-            if (response.data && response.data.result) {
-                for (const update of response.data.result) {
-                    lastUpdateId = update.update_id;
-                    if (update.message && update.message.text === '/start') {
-                        let msg = `<b>📊 تقرير الفحص عبر المحاكي المطور:</b>\n\n`;
-                        msg += `🔗 <b>الرابط الحالي:</b> <code>${currentScanningUrl || "جاري البدء..."}</code>\n`;
-                        msg += `🔢 <b>الرقم الحالي:</b> <code>${currentScanningNum}</code>\n`;
-
-                        if (lastCapturedImagePath && fs.existsSync(lastCapturedImagePath)) {
-                            msg += `📸 <b>إليك لقطة الشاشة الحية من المحاكي:</b>`;
-                            await sendTelegramPhoto(lastCapturedImagePath, msg);
-                        } else {
-                            msg += `⚠️ <i>جاري المحاكاة والتقاط الفريم...</i>`;
-                            await sendTelegramMessage(msg);
-                        }
-                    }
-                }
-            }
-        } catch (e) {}
-    }, 2500);
-}
-
-/**
- * محاكي شاشة حقيقي يعمل على تحويل فريمات الفيديو عبر Canvas لمنع الشاشة السوداء
- */
-async function captureVideoFrameWithEmulator(streamUrl, outputPath) {
-    if (!globalBrowser) return false;
-
-    const page = await globalBrowser.newPage();
-
-    try {
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
-        await page.setViewport({ width: 1280, height: 720 });
-
-        // إنشاء محاكي مشغل فيديو مع Canvas لتحويل محتوى البث بصرياً
-        const htmlContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-                <style>
-                    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #111; overflow: hidden; }
-                    video, canvas { width: 100%; height: 100%; object-fit: contain; }
-                </style>
-            </head>
-            <body>
-                <video id="video" autoplay muted playsinline crossorigin="anonymous"></video>
-                <canvas id="canvas" style="display:none;"></canvas>
-                <script>
-                    const video = document.getElementById('video');
-                    const canvas = document.getElementById('canvas');
-                    const videoSrc = '${streamUrl}';
-
-                    if (Hls.isSupported()) {
-                        const hls = new Hls({ maxBufferLength: 5 });
-                        hls.loadSource(videoSrc);
-                        hls.attachMedia(video);
-                        hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                            video.play();
-                        });
-                    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                        video.src = videoSrc;
-                        video.play();
-                    }
-                </script>
-            </body>
-            </html>
-        `;
-
-        await page.setContent(htmlContent);
-
-        // الانتظار 6 ثوانٍ كاملة للمحاكاة وتفريغ الفريمات
-        await page.waitForTimeout(6000);
-
-        // التقاط الشاشة عبر محاكي Puppeteer
-        await page.screenshot({ path: outputPath, type: 'jpeg', quality: 85 });
-        await page.close();
-
-        if (fs.existsSync(outputPath)) {
-            const size = fs.statSync(outputPath).size;
-            // إذا كان حجم الصورة أكبر من 10KB فهذا يعني وجود فيديو ملون حقيقي وليس شاشة سوداء
-            if (size > 10000) {
-                lastCapturedImagePath = outputPath;
-                return true;
-            }
-        }
-        return false;
-    } catch (error) {
-        await page.close().catch(() => {});
-        return false;
+    } catch (e) {
+        console.log(`[!] فشل إرسال الصورة لتليجرام: ${e.message}`);
     }
 }
 
 /**
- * تحليل الصورة عبر Gemini
+ * تشغيل البث المباشر عبر برنامج VLC الحقيقي والتقاط صورة للشاشة بدون شاشة سوداء
+ */
+function captureVLCFrame(streamUrl, outputPath) {
+    return new Promise((resolve) => {
+        const outputDir = path.dirname(outputPath);
+        const fileName = path.basename(outputPath, path.extname(outputPath));
+
+        // أمر تشغيل VLC لالتقاط فريم حقيقي من البث
+        const cmd = `"${VLC_PATH}" "${streamUrl}" --intf dummy --vout image --image-out-format jpg --image-out-prefix "${fileName}" --image-out-dir "${outputDir}" --run-time 5 vlc://quit`;
+
+        exec(cmd, { timeout: 15000 }, (error) => {
+            if (fs.existsSync(outputPath)) {
+                const stats = fs.statSync(outputPath);
+                if (stats.size > 5000) { // التأكد من وجود صورة ملونة وليست سوداء
+                    return resolve(true);
+                }
+            }
+            resolve(false);
+        });
+    });
+}
+
+/**
+ * تحليل لقطة الشاشة المأخوذة من VLC بواسطة Gemini
  */
 async function analyzeScreenshotWithGemini(imagePath, streamUrl) {
     if (!fs.existsSync(imagePath)) return null;
 
     const prompt = `
-    أنت خبير محترف جداً في التعرف البصري على شعارات وقنوات التلفزيون المباشر (IPTV).
-    أمامك صورة حقيقية التقاطها المحاكي أثناء تشغيل البث المباشر للرابط: ${streamUrl}.
+    أنت خبير محترف في الفحص البصري لقنوات IPTV والتلفزيون العربي.
+    أمامك صورة شاشة حقيقية ملتقطة من برنامج VLC أثناء تشغيل البث المباشر للرابط: ${streamUrl}.
 
-    افحص اللوجو وشريط العرض بدقة ثم أجب بالتالي:
-    1. اسم القناة الحقيقي والدقيق باللغة العربية بناءً على اللوجو أو المحتوى؟ (مثل: "beIN Sports 1 HD", "MBC 1", "روتانا سينما", "سبيستون", "الجزيرة HD", "SSC 1 HD", "MBC Drama").
-    2. هل القناة عربية أو تبث محتوى عربي؟ (is_arabic: true / false).
-    3. تحديد تصنيف القناة الدقيق فقط من: ("رياضة", "مسلسلات وبرامج", "أفلام عربية", "أفلام أجنبية ورعب", "أطفال وكرتون", "إخبارية وثائقية", "إسلامية").
+    افحص اللوجو والمحتوى على الشاشة بدقة ثم أجب بالتالي:
+    1. ما هو اسم القناة الحقيقي والدقيق باللغة العربية؟ (مثال: "beIN Sports 1 HD", "MBC 1", "روتانا سينما", "سبيستون", "الجزيرة HD", "SSC 1 HD", "MBC Drama").
+    2. هل القناة عربية أو موجهة للمستمع العربي؟ (is_arabic: true / false).
+    3. تحديد تصنيف القناة الدقيق فقط من القائمة التالية:
+       - "رياضة"
+       - "مسلسلات وبرامج"
+       - "أفلام عربية"
+       - "أفلام أجنبية ورعب"
+       - "أطفال وكرتون"
+       - "إخبارية وثائقية"
+       - "إسلامية"
 
-    رد بصيغة JSON فقط بهذا الشكل:
+    تنبيه: يجب أن تكون الإجابة بصيغة JSON فقط بهذا الشكل:
     {
       "is_arabic": true,
       "channel_name": "اسم القناة بالعربي",
@@ -210,6 +136,7 @@ async function analyzeScreenshotWithGemini(imagePath, streamUrl) {
 
         return JSON.parse(text);
     } catch (e) {
+        console.log(`[!] خطأ في تحليل Gemini: ${e.message}`);
         return null;
     }
 }
@@ -225,12 +152,12 @@ function formatM3uEntry(url, channelNameAr, categoryAr) {
 }
 
 /**
- * فحص التأكد السريع
+ * فحص التأكد السريع أن الرابط يستجيب
  */
 async function isValidStream(url) {
     try {
         const response = await axios.get(url, {
-            timeout: 4000,
+            timeout: 5000,
             responseType: 'stream',
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36' }
         });
@@ -243,39 +170,29 @@ async function isValidStream(url) {
 }
 
 /**
- * دالة التخمين الرئيسية
+ * الدالة الرئيسية للفحص
  */
-async function startScanning(baseUrl, startNum, count = 500) {
-    await sendTelegramMessage("🟢 <b>تم تفعيل المحاكي المطور بنجاح لتجاوز الشاشة السوداء...</b>");
-
-    // تشغيل متصفح Puppeteer المتخفي بالكامل
-    globalBrowser = await puppeteer.launch({
-        headless: "new",
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--autoplay-policy=no-user-gesture-required',
-            '--disable-web-security',
-            '--ignore-certificate-errors'
-        ]
-    });
+async function startScanning(baseUrl, startNum, count = 100) {
+    console.log("🚀 بدء تشغيل الفحص باستخدام برنامج VLC الحقيقي و Gemini...\n");
+    await sendTelegramMessage("🟢 <b>تم تفعيل الفحص عبر برنامج VLC الحقيقي محلياً...</b>");
 
     for (let i = 0; i < count; i++) {
-        currentScanningNum = startNum + i;
-        currentScanningUrl = `${baseUrl}${currentScanningNum}.ts`;
+        const currentNum = startNum + i;
+        const testUrl = `${baseUrl}${currentNum}.ts`;
 
-        process.stdout.write(`[*] فحص ${currentScanningNum} -> `);
+        process.stdout.write(`[*] فحص الرابط رقم ${currentNum} -> `);
 
-        const valid = await isValidStream(currentScanningUrl);
+        const valid = await isValidStream(testUrl);
 
         if (valid) {
-            console.log("✅ شغال! المحاكي يفك التشفير ويلتقط الفريم الملون...");
-            const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);
-            const screenshotSuccess = await captureVideoFrameWithEmulator(currentScanningUrl, tempImgPath);
+            console.log("✅ البث شغال! جاري التشغيل في برنامج VLC والتقاط الشاشة...");
 
-            if (screenshotSuccess) {
-                console.log("📸 تم التقاط الفريم بنجاح! جاري التحليل مع Gemini...");
-                const analysis = await analyzeScreenshotWithGemini(tempImgPath, currentScanningUrl);
+            const tempImgPath = path.join(process.cwd(), `frame_${currentNum}.jpg`);
+            const success = await captureVLCFrame(testUrl, tempImgPath);
+
+            if (success) {
+                console.log("📸 تم التقاط الصورة عبر VLC! جاري التحليل مع Gemini...");
+                const analysis = await analyzeScreenshotWithGemini(tempImgPath, testUrl);
 
                 if (analysis && analysis.is_arabic) {
                     const channelName = analysis.channel_name;
@@ -283,27 +200,28 @@ async function startScanning(baseUrl, startNum, count = 500) {
 
                     console.log(`[+] اكتشاف مؤكد: ${channelName} [${category}]`);
 
-                    const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category);
-                    
-                    await sendTelegramPhoto(tempImgPath, `✅ <b>قناة جديدة مكتشفة بالذكاء الاصطناعي!</b>\n📺 <b>الاسم:</b> ${channelName}\n🏷️ <b>التصنيف:</b> ${category}`);
+                    const m3uEntry = formatM3uEntry(testUrl, channelName, category);
+
+                    await sendTelegramPhoto(tempImgPath, `✅ <b>قناة جديدة مكتشفة بـ VLC & Gemini!</b>\n📺 <b>الاسم:</b> ${channelName}\n🏷️ <b>التصنيف:</b> ${category}`);
                     await sendTelegramMessage(`<code>${m3uEntry}</code>`);
                 }
+
+                // مسح الصورة المؤقتة
+                if (fs.existsSync(tempImgPath)) {
+                    try { fs.unlinkSync(tempImgPath); } catch (e) {}
+                }
             } else {
-                console.log("⚠️ الشاشة سوداء أو لم يتم فتح الفيديو.");
+                console.log("⚠️ تعذر فتح الفيديو أو البث مغلق.");
             }
         } else {
-            console.log("❌ غير شغال");
+            console.log("❌ الرابط لا يعمل");
         }
     }
-
-    await globalBrowser.close();
 }
 
 // ==================== التشغيل ====================
 (async () => {
-    startTelegramBotListener();
-
     const BASE_URL = "http://xvip.pro/live/hend0815/08152023/";
     const START_NUMBER = 340315;
-    await startScanning(BASE_URL, START_NUMBER, 500);
+    await startScanning(BASE_URL, START_NUMBER, 100);
 })();
