@@ -16,7 +16,6 @@ const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 let currentScanningUrl = "";
 let currentScanningNum = 0;
-let lastCapturedImagePath = null;
 
 /**
  * إرسال رسالة نصية لتليجرام
@@ -48,16 +47,40 @@ async function sendTelegramPhoto(imagePath, caption) {
 
         await axios.post(url, formData, {
             headers: formData.getHeaders(),
-            timeout: 10000
+            timeout: 12000
         });
-    } catch (e) {}
+    } catch (e) {
+        console.log(`[!] فشل إرسال الصورة: ${e.message}`);
+    }
 }
 
 /**
- * مستمع أمر /start
+ * التقاط فريم محدد من البث المباشر بدقة وصارمة عبر FFmpeg المطور مع الشاشة الوهمية
+ */
+function captureLiveFrame(streamUrl, outputPath) {
+    return new Promise((resolve) => {
+        // الانتظار 3 ثوان داخل البث (-ss 3) واستخراج إطار عالي الجودة (-vframes 1)
+        const cmd = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -q:v 2 "${outputPath}"`;
+
+        exec(cmd, { timeout: 15000 }, (error) => {
+            if (fs.existsSync(outputPath)) {
+                const stats = fs.statSync(outputPath);
+                if (stats.size > 2000) { // التأكد أن الملف ليس خاوياً
+                    return resolve(true);
+                }
+            }
+            resolve(false);
+        });
+    });
+}
+
+/**
+ * مستمع أمر /start المباشر مع الالتقاط والإرسال الفوري للصورة
  */
 async function startTelegramBotListener() {
     let lastUpdateId = 0;
+    console.log("🤖 تفعيل مستمع الأوامر المباشر لتليجرام...");
+
     setInterval(async () => {
         try {
             const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}&timeout=5`;
@@ -67,53 +90,29 @@ async function startTelegramBotListener() {
                 for (const update of response.data.result) {
                     lastUpdateId = update.update_id;
                     if (update.message && update.message.text === '/start') {
-                        let msg = `<b>📊 تقرير فحص VLC في السيرفر:</b>\n\n`;
-                        msg += `🔗 <b>الرابط الحالي:</b> <code>${currentScanningUrl || "جاري البدء..."}</code>\n`;
-                        msg += `🔢 <b>الرقم الحالي:</b> <code>${currentScanningNum}</code>\n`;
+                        let caption = `<b>📊 تقرير الفحص المباشر والحالي:</b>\n\n`;
+                        caption += `🔗 <b>الرابط قيد الفحص:</b> <code>${currentScanningUrl || "جاري البدء..."}</code>\n`;
+                        caption += `🔢 <b>الرقم الحالي:</b> <code>${currentScanningNum}</code>\n`;
+                        caption += `📸 <i>جاري التقاط صورة حية للشاشة الآن وإرسالها لك...</i>`;
 
-                        if (lastCapturedImagePath && fs.existsSync(lastCapturedImagePath)) {
-                            msg += `📸 <b>لقطة الشاشة الملتقطة عبر VLC:</b>`;
-                            await sendTelegramPhoto(lastCapturedImagePath, msg);
-                        } else {
-                            msg += `⚠️ <i>جاري فتح البث ببرنامج VLC واستخراج الفريم...</i>`;
-                            await sendTelegramMessage(msg);
+                        await sendTelegramMessage(caption);
+
+                        if (currentScanningUrl) {
+                            const instantImgPath = path.join('/tmp', `instant_${currentScanningNum}.jpg`);
+                            const success = await captureLiveFrame(currentScanningUrl, instantImgPath);
+
+                            if (success && fs.existsSync(instantImgPath)) {
+                                await sendTelegramPhoto(instantImgPath, `🖼️ <b>لقطة شاشة حية ومباشرة للبث الحالي (${currentScanningNum}):</b>`);
+                                try { fs.unlinkSync(instantImgPath); } catch (e) {}
+                            } else {
+                                await sendTelegramMessage("⚠️ <b>تعذر التقاط صورة ملونة للبث الحالي (البث قد يكون سوداء أو لا يعطي إطارات).</b>");
+                            }
                         }
                     }
                 }
             }
         } catch (e) {}
     }, 2500);
-}
-
-/**
- * تشغيل البث عبر برنامج VLC المثبت بالنظام واستخراج لقطة شاشة
- */
-function captureVLCFrame(streamUrl, outputPath) {
-    return new Promise((resolve) => {
-        const outputDir = path.dirname(outputPath);
-        const fileName = path.basename(outputPath, path.extname(outputPath));
-
-        // أمر تشغيل cvlc (VLC المخصص للسيرفرات)
-        const cmd = `cvlc "${streamUrl}" --vout image --image-out-format jpg --image-out-prefix "${fileName}" --image-out-dir "${outputDir}" --run-time 4 vlc://quit`;
-
-        exec(cmd, { timeout: 12000 }, (error) => {
-            // البحث عن الملف الناتج
-            const generatedFile = path.join(outputDir, `${fileName}00001.jpg`);
-            if (fs.existsSync(generatedFile)) {
-                try {
-                    fs.renameSync(generatedFile, outputPath);
-                    if (fs.statSync(outputPath).size > 3000) {
-                        lastCapturedImagePath = outputPath;
-                        return resolve(true);
-                    }
-                } catch (e) {}
-            } else if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 3000) {
-                lastCapturedImagePath = outputPath;
-                return resolve(true);
-            }
-            resolve(false);
-        });
-    });
 }
 
 /**
@@ -124,14 +123,14 @@ async function analyzeScreenshotWithGemini(imagePath, streamUrl) {
 
     const prompt = `
     أنت خبير فحص بصري لقنوات التلفزيون المباشر (IPTV).
-    أمامك صورة شاشة ملتقطة عبر مشغل VLC أثناء تشغيل البث المباشر للرابط: ${streamUrl}.
+    أمامك صورة شاشة ملتقطة من البث المباشر للرابط: ${streamUrl}.
 
-    افحص الصورة واللوجو بدقة ثم أجب:
+    افحص اللوجو والمحتوى بدقة ثم أجب:
     1. ما اسم القناة الحقيقي بالعربي؟ (مثال: "beIN Sports 1 HD", "MBC 1", "روتانا سينما", "سبيستون", "الجزيرة HD", "SSC 1 HD").
     2. هل القناة عربية أو تبث محتوى عربي؟ (is_arabic: true / false).
     3. تحديد تصنيف القناة فقط من: ("رياضة", "مسلسلات وبرامج", "أفلام عربية", "أفلام أجنبية ورعب", "أطفال وكرتون", "إخبارية وثائقية", "إسلامية").
 
-    رد بصيغة JSON فقط:
+    رد بصيغة JSON فقط بهذا الشكل:
     {
       "is_arabic": true,
       "channel_name": "اسم القناة بالعربي",
@@ -180,12 +179,12 @@ function formatM3uEntry(url, channelNameAr, categoryAr) {
 }
 
 /**
- * فحص الاستجابة
+ * فحص الاستجابة الأولية
  */
 async function isValidStream(url) {
     try {
         const response = await axios.get(url, {
-            timeout: 4000,
+            timeout: 5000,
             responseType: 'stream',
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36' }
         });
@@ -198,10 +197,10 @@ async function isValidStream(url) {
 }
 
 /**
- * عملية الفحص الرئيسية
+ * عملية الفحص الرئيسية بصرامة
  */
 async function startScanning(baseUrl, startNum, count = 500) {
-    await sendTelegramMessage("🟢 <b>تم تنزيل وتثبيت برنامج VLC بالسيرفر بنجاح! جاري التقاط الفريمات...</b>");
+    await sendTelegramMessage("🟢 <b>تم تفعيل الفحص الصارم ومصوّر الشاشة الفوري! اضغط /start في أي وقت للحصول على صورة حية للبث...</b>");
 
     for (let i = 0; i < count; i++) {
         currentScanningNum = startNum + i;
@@ -212,24 +211,26 @@ async function startScanning(baseUrl, startNum, count = 500) {
         const valid = await isValidStream(currentScanningUrl);
 
         if (valid) {
-            console.log("✅ شغال! تشغيل VLC والتقاط الصورة...");
+            console.log("✅ البث يستجيب! جاري استخراج صورة الشاشة بصرامة...");
 
-            const tempImgPath = path.join('/tmp', `vlc_frame_${currentScanningNum}.jpg`);
-            const success = await captureVLCFrame(currentScanningUrl, tempImgPath);
+            const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);
+            
+            // محاولة التقاط الصورة بصرامة
+            let captured = await captureLiveFrame(currentScanningUrl, tempImgPath);
 
-            if (success) {
-                console.log("📸 تم التقاط الصورة بواسطة VLC! جاري التحليل بـ Gemini...");
+            if (captured) {
+                console.log("📸 تم التقاط الصورة بنجاح! جاري التحليل مع Gemini...");
                 const analysis = await analyzeScreenshotWithGemini(tempImgPath, currentScanningUrl);
 
                 if (analysis && analysis.is_arabic) {
                     const channelName = analysis.channel_name;
                     const category = analysis.category;
 
-                    console.log(`[+] مكتشفة بـ VLC: ${channelName} [${category}]`);
+                    console.log(`[+] مكتشفة: ${channelName} [${category}]`);
 
                     const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category);
 
-                    await sendTelegramPhoto(tempImgPath, `✅ <b>قناة جديدة مكتشفة بـ VLC & Gemini!</b>\n📺 <b>الاسم:</b> ${channelName}\n🏷️ <b>التصنيف:</b> ${category}`);
+                    await sendTelegramPhoto(tempImgPath, `✅ <b>قناة جديدة مكتشفة بـ Gemini!</b>\n📺 <b>الاسم:</b> ${channelName}\n🏷️ <b>التصنيف:</b> ${category}`);
                     await sendTelegramMessage(`<code>${m3uEntry}</code>`);
                 }
 
@@ -237,10 +238,10 @@ async function startScanning(baseUrl, startNum, count = 500) {
                     try { fs.unlinkSync(tempImgPath); } catch (e) {}
                 }
             } else {
-                console.log("⚠️ تعذر فتح البث بـ VLC.");
+                console.log("⚠️ فشل استخراج صورة ملونة من البث.");
             }
         } else {
-            console.log("❌ لا يعمل");
+            console.log("❌ الرابط لا يعمل");
         }
     }
 }

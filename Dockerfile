@@ -1,11 +1,12 @@
 FROM node:20-slim
 
-# تثبيت برنامج VLC و FFMpeg وكافة الترميزات المطلوبة
+# تثبيت الحزم المطلوبة مع الشاشة الوهمية Xvfb و FFmpeg
 RUN apt-get update && apt-get install -y \
-    vlc \
     ffmpeg \
-    fonts-liberation \
+    vlc \
+    xvfb \
     procps \
+    fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
