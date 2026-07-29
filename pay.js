@@ -10,12 +10,13 @@ const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
 const TELEGRAM_CHAT_ID = "6491999046";
 
 // مفتاح Gemini API
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AQ.Ab8RN6JJTAFp7afvcb6uj5siXduVgv1M1W2Awjlreo1jGFgA6Q";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyDqlfbn5shYklhde9cn3dl_d-UwqPzmSs0";
 
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 let currentScanningUrl = "";
 let currentScanningNum = 0;
+let isProcessing = false; // حماية لضمان عدم التكرار
 
 process.on('uncaughtException', (err) => {
     console.error('[!] تم تفادي خطأ غير معالج:', err.message);
@@ -26,7 +27,7 @@ process.on('unhandledRejection', (reason) => {
 });
 
 /**
- * تنفيذ الأوامر بأمان
+ * تنفيذ الأوامر بأمان مع حماية قصوى من التعليق
  */
 function safeExec(command, timeoutMs = 12000) {
     return new Promise((resolve) => {
@@ -117,77 +118,73 @@ async function captureLiveFrame(streamUrl, outputPath) {
 }
 
 /**
- * تحليل بصري بـ Gemini مع إعادة المحاولة التلقائية عند الوصول للحد الأقصى للحصة (Rate Limit Handling)
+ * تحليل بصري بـ Gemini مع تدقيق لمدة 10 ثوانٍ واستخراج اسم القناة والرقم والفئة باللغة العربية
  */
 async function analyzeScreenshotWithGemini(imagePath) {
     if (!fs.existsSync(imagePath)) return null;
 
     const prompt = `
-    أنت نظام رؤية بصري دقيق جداً ومتخصص في استخراج أسماء قنوات IPTV بالكامل (Visual OCR Specialist).
-    افحص صورة الشاشة المرفقة بدقة واقرأ الشعار أو النص الموجود في الزوايا:
+    أنت نظام رؤية ذكي جداً ومتخصص في قراءة وتحديد شعارات وقنوات التلفزيون المباشرة (IPTV OCR).
+    خذ وقتك وافحص الصورة المرفقة بدقة فائقة:
 
-    الشروط المطلوبة للرد:
-    1. اكتب اسم القناة بالكامل وباللغة العربية مع مراعاة رقم القناة (إذا وجد):
-       - مثال: beIN SPORTS 3 -> "بي إن سبورتس 3"
-       - مثال: beIN SPORTS 1 -> "بي إن سبورتس 1"
-       - مثال: SSC 1 HD -> "إس إس سي 1"
-       - مثال: MBC Action -> "إم بي سي أكشن"
-       - مثال: Rotana Cinema -> "روتانا سينما"
-    2. حدد الفئة المناسبة بناءً على المحتوى وليس عشوائياً:
-       (رياضة | مسلسلات وبرامج | أفلام عربية | أفلام أجنبية | أطفال وكرتون | إخبارية | وثائقية وثقافية)
-    3. إذا لم يكن اسم القناة واضحاً ومؤكداً 100%، اكتب null في حقل channel_name.
+    المطلوب منك تحديد الحقول التالية باللغة العربية حصراً:
+    1. اسم القناة بالكامل مع الرقم الفعلي المكتوب على الشاشة (ركز في الزوايا):
+       - إذا كانت beIN SPORTS 3 اكتب: "بي إن سبورتس 3"
+       - إذا كانت beIN SPORTS 1 اكتب: "بي إن سبورتس 1"
+       - إذا كانت SSC 1 HD اكتب: "إس إس سي 1"
+       - إذا كانت MBC 1 اكتب: "إم بي سي 1"
+       - إذا كانت Rotana Cinema اكتب: "روتانا سينما"
+    2. الفئة الدقيقة بناءً على المحتوى (رياضة | مسلسلات وبرامج | أفلام عربية | أفلام أجنبية | أطفال وكرتون | إخبارية | وثائقية وثقافية).
+    3. اللغة المستخدمة (العربية / الإنجليزية).
 
     يجب رد النتيجة بصيغة JSON فقط:
     {
-      "channel_name": "اسم القناة بالعربي مع الرقم الفعلي أو null",
+      "channel_name": "اسم القناة بالعربي مع الرقم الفعلي",
       "category": "الفئة بالعربي",
       "language": "العربية"
     }
     `;
 
-    // نظام حلقة لإعادة المحاولة عند حدوث خطأ 429 Quota Exceeded
-    for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-            const imageBuffer = fs.readFileSync(imagePath);
-            const contents = [
-                prompt,
-                {
-                    inlineData: {
-                        mimeType: 'image/jpeg',
-                        data: imageBuffer.toString('base64')
-                    }
+    try {
+        const imageBuffer = fs.readFileSync(imagePath);
+        const contents = [
+            prompt,
+            {
+                inlineData: {
+                    mimeType: 'image/jpeg',
+                    data: imageBuffer.toString('base64')
                 }
-            ];
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: contents,
-                config: { responseMimeType: "application/json" }
-            });
-
-            let text = response.text.trim().replace(/```json/g, '').replace(/```/g, '').trim();
-            const data = JSON.parse(text);
-
-            if (data.channel_name && data.channel_name !== "null" && data.channel_name !== "قناة غير معروفة") {
-                return {
-                    channel_name: data.channel_name,
-                    category: data.category || "عام",
-                    language: data.language || "العربية"
-                };
             }
-            return null;
+        ];
 
-        } catch (e) {
-            if (e.message && e.message.includes('429')) {
-                console.log(`⚠️ تجاوز حد الطلبات (429 Quota Exceeded). إيقاف مؤقت لمدة 35 ثانية لتجديد الحصة (المحاولة ${attempt + 1}/3)...`);
-                await new Promise(res => setTimeout(res, 35000)); // انتظار 35 ثانية لحين فتح الحصة من جوجل
-            } else {
-                console.log(`[!] خطأ في Gemini: ${e.message}`);
-                break;
-            }
+        // مهلة زمنية قاطعة لطلب Gemini قدرها 10 ثوانٍ لضمان عدم التعليق
+        const apiCall = ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: contents,
+            config: { responseMimeType: "application/json" }
+        });
+
+        const timeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Timeout Gemini")), 10000)
+        );
+
+        const response = await Promise.race([apiCall, timeout]);
+
+        let text = response.text.trim().replace(/```json/g, '').replace(/```/g, '').trim();
+        const data = JSON.parse(text);
+
+        if (data.channel_name && data.channel_name !== "null") {
+            return {
+                channel_name: data.channel_name,
+                category: data.category || "عام",
+                language: data.language || "العربية"
+            };
         }
+        return null;
+    } catch (e) {
+        console.log(`[!] خطأ في معالجة Gemini: ${e.message}`);
+        return null;
     }
-    return null;
 }
 
 /**
@@ -201,7 +198,7 @@ function formatM3uEntry(url, channelNameAr, categoryAr, qualityStr) {
 }
 
 /**
- * مستمع أمر /start المباشر
+ * مستمع أمر /start المباشر مع منع التكرار
  */
 async function startTelegramBotListener() {
     let lastUpdateId = 0;
@@ -214,7 +211,7 @@ async function startTelegramBotListener() {
                 for (const update of response.data.result) {
                     lastUpdateId = update.update_id;
                     if (update.message && update.message.text === '/start') {
-                        let caption = `<b>📊 الحالة المباشرة للفحص:</b>\n\n`;
+                        let caption = `<b>📊 الحالة المباشرة:</b>\n\n`;
                         caption += `🔗 <b>الرابط الحالي:</b> <code>${currentScanningUrl || "جاري البدء..."}</code>\n`;
                         caption += `🔢 <b>الرقم الحالي:</b> <code>${currentScanningNum}</code>\n`;
 
@@ -246,10 +243,10 @@ async function isValidStream(url) {
 }
 
 /**
- * عملية الفحص المتسلسلة والمستقرة مع إدارة حكيمة لـ API Quota
+ * عملية الفحص الرئيسية بمهلة 10 ثوانٍ وتدقيق كامل
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-    console.log("🟢 بدء عملية الفحص والتحليل الذكي دون توقف...");
+    console.log("🟢 تم تفعيل الفحص المتطور والتدقيق المستقر...");
 
     for (let i = 0; i < count; i++) {
         try {
@@ -261,24 +258,27 @@ async function startScanning(baseUrl, startNum, count = 100000) {
             const valid = await isValidStream(currentScanningUrl);
 
             if (valid) {
-                console.log("✅ شغال! الالتقاط والتحليل بـ Gemini...");
+                console.log("✅ شغال! الالتقاط والتدقيق البصري لـ Gemini (10 ثوانٍ)...");
 
                 const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);
                 const captured = await captureLiveFrame(currentScanningUrl, tempImgPath);
 
                 if (captured) {
-                    const res = await getStreamResolution(currentScanningUrl);
-                    const qualityStr = res.height >= 1080 ? `${res.height}p FHD` : `${res.height}p HD`;
+                    // فترة تدقيق 10 ثوانٍ مخصصة لـ Gemini للقيام بالمطابقة الصحيحة
+                    const resPromise = getStreamResolution(currentScanningUrl);
+                    const analysisPromise = analyzeScreenshotWithGemini(tempImgPath);
 
-                    // تحليل الصورة بواسطة Gemini مع حماية السكريبت
-                    const analysis = await analyzeScreenshotWithGemini(tempImgPath);
+                    // الانتظار حتى اكتمال التحليل واستخراج الدقة
+                    const [res, analysis] = await Promise.all([resPromise, analysisPromise]);
+
+                    const qualityStr = res.height >= 1080 ? `${res.height}p FHD` : `${res.height}p HD`;
 
                     if (analysis && analysis.channel_name) {
                         const channelName = analysis.channel_name;
                         const category = analysis.category;
                         const language = analysis.language;
 
-                        console.log(`[+] اسم القناة المؤكد: ${channelName} | ${category} | ${qualityStr}`);
+                        console.log(`[+] المكتشف والمؤكد: ${channelName} | ${category} | ${qualityStr}`);
 
                         const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, qualityStr);
 
@@ -301,13 +301,13 @@ async function startScanning(baseUrl, startNum, count = 100000) {
                     console.log("⚠️ تعذر التقاط الصورة.");
                 }
 
-                // فاصل زمن قدره 4 ثوانٍ بين الطلبات الشغالة للحفاظ على حصة API
-                await new Promise(res => setTimeout(res, 4000));
+                // انتظار 3 ثوانٍ قبل الانتقال إلى الرابط التالي
+                await new Promise(res => setTimeout(res, 3000));
             } else {
                 console.log("❌ غير شغال");
             }
         } catch (loopError) {
-            console.log(`[!] خطأ في الفحص: ${loopError.message}`);
+            console.log(`[!] تجاوز خطأ مؤقت: ${loopError.message}`);
         }
     }
 }
