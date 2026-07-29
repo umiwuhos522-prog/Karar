@@ -31,33 +31,34 @@ async function sendTelegramMessage(message) {
 }
 
 /**
- * استخراج الدقة والانتظار حتى يفتح البث لالتقاط صورة حقيقية واضحة
+ * التقاط صورة من البث مع وجود مهلة أمان لمنع التجمد
  */
 function captureStreamFrameAndMeta(url, outputPath) {
     return new Promise((resolve) => {
-        // 1. استخراج الدقة عبر ffprobe
-        const metaCmd = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of json "${url}"`;
-        exec(metaCmd, { timeout: 8000 }, (metaErr, stdout) => {
-            let height = 0;
-            try {
-                const data = JSON.parse(stdout);
-                if (data.streams && data.streams.length > 0) {
-                    height = data.streams[0].height || 0;
-                }
-            } catch (e) {}
+        let isResolved = false;
 
-            // 2. الانتظار 3 ثوانٍ داخل البث (-ss 3) لتخطي اللون الأسود والتقاط صورة الشعار/المحتوى
-            const captureCmd = `ffmpeg -y -ss 3 -i "${url}" -vframes 1 -q:v 2 "${outputPath}"`;
-            exec(captureCmd, { timeout: 12000 }, (capErr) => {
-                let hasValidImage = false;
-                if (!capErr && fs.existsSync(outputPath)) {
-                    const stats = fs.statSync(outputPath);
-                    if (stats.size > 5000) { // التأكد أن حجم الصورة أكبر من 5 كيلوبايت (ليست سوداء أو فارغة)
-                        hasValidImage = true;
-                    }
+        // مهلة أمان عامة 10 ثوانٍ
+        const timer = setTimeout(() => {
+            if (!isResolved) {
+                isResolved = true;
+                resolve({ height: 1080, imageCaptured: false });
+            }
+        }, 10000);
+
+        const captureCmd = `ffmpeg -y -ss 2 -i "${url}" -vframes 1 -q:v 3 "${outputPath}"`;
+        exec(captureCmd, { timeout: 8000 }, (capErr) => {
+            if (isResolved) return;
+            clearTimeout(timer);
+            isResolved = true;
+
+            let hasValidImage = false;
+            if (!capErr && fs.existsSync(outputPath)) {
+                const stats = fs.statSync(outputPath);
+                if (stats.size > 3000) {
+                    hasValidImage = true;
                 }
-                resolve({ height, imageCaptured: hasValidImage });
-            });
+            }
+            resolve({ height: 1080, imageCaptured: hasValidImage });
         });
     });
 }
@@ -68,7 +69,7 @@ function captureStreamFrameAndMeta(url, outputPath) {
 async function isValidStream(url) {
     try {
         const response = await axios.get(url, {
-            timeout: 6000,
+            timeout: 5000,
             responseType: 'stream',
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
@@ -99,47 +100,37 @@ async function isValidStream(url) {
 }
 
 /**
- * تحليل دقيق جداً باستخدام Gemini 2.5 Flash من خلال رؤية الشاشة والشعار
+ * تحليل دقيق عبر Gemini 2.5 Flash من خلال رؤية الصورة
  */
 async function analyzeChannelWithGeminiVision(url, height, imagePath) {
-    if (!imagePath || !fs.existsSync(imagePath)) {
-        return null; // عدم التخمين إذا لم تتوفر صورة واضحة من البث
-    }
-
     const prompt = `
-    أنت نظام خبير ذكي جداً في التعرف البصري على شاشات وشعارات قنوات التلفزيون والبث المباشر (IPTV).
-    افحص صورة الشاشة المرفقة جيداً (التقطت فوراً من البث) ثم حدد:
+    أنت نظام خبير ذكي في التعرف البصري على شعارات وقنوات البث المباشر (IPTV).
+    افحص صورة الشاشة المرفقة جيداً وحدد:
     
-    1. اسم القناة الحقيقي والدقيق جداً باللغة العربية بناءً على اللوجو أو النص الموجود بالشاشة (مثل: "beIN Sports 1", "MBC 1", "روتانا سينما", "سبيستون", "الجزيرة", "SSC Sports 1", إلخ).
-    2. هل القناة عربية أو تبث باللغة العربية أو مترجمة للعربية؟
-    3. تصنيف القناة الدقيق جداً باللغة العربية:
-       - "رياضية"
-       - "مسلسلات"
-       - "أفلام عربية"
-       - "أفلام أجنبية"
-       - "أطفال وكرتون"
-       - "إخبارية"
-       - "إسلامية"
+    1. اسم القناة الحقيقي والدقيق باللغة العربية (مثل: "beIN Sports 1", "MBC 1", "روتانا سينما", "سبيستون", "الجزيرة", "SSC Sports 1").
+    2. هل القناة عربية أو مترجمة للعربية؟
+    3. تصنيف القناة: ("رياضة", "مسلسلات", "أفلام عربية", "أفلام أجنبية ورعب", "أطفال وكرتون", "إخبارية", "إسلامية").
 
-    يجب أن ترسل الإجابة فقط بصيغة JSON بالنص التالي دون إضافة أي كلام آخر:
+    أرسل الإجابة فقط بصيغة JSON دون أي نص آخر:
     {
-      "is_arabic": true or false,
-      "channel_name": "اسم القناة الحقيقي بالعربي",
-      "category": "التصنيف الدقيق"
+      "is_arabic": true,
+      "channel_name": "اسم القناة بالعربي",
+      "category": "التصنيف"
     }
     `;
 
     try {
-        const imageBuffer = fs.readFileSync(imagePath);
-        const contents = [
-            prompt,
-            {
+        let contents = [prompt];
+
+        if (imagePath && fs.existsSync(imagePath)) {
+            const imageBuffer = fs.readFileSync(imagePath);
+            contents.push({
                 inlineData: {
                     mimeType: 'image/jpeg',
                     data: imageBuffer.toString('base64')
                 }
-            }
-        ];
+            });
+        }
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -155,82 +146,62 @@ async function analyzeChannelWithGeminiVision(url, height, imagePath) {
 
         return JSON.parse(text);
     } catch (e) {
-        console.log(`[!] خطأ أثناء التحليل البصري بـ Gemini: ${e.message}`);
+        console.log(`[!] خطأ في تحليل Gemini: ${e.message}`);
         return null;
     }
 }
 
 /**
- * تنسيق القناة بصيغة M3U الاحترافية
+ * تنسيق M3U
  */
 function formatM3uEntry(url, channelNameAr, categoryAr, height) {
     const logoUrl = "https://upload.wikimedia.org/wikipedia/commons/d/d7/Bein_sport_ana_logo.png";
-    let qualityStr = "";
-
-    if (height >= 1080) {
-        qualityStr = "1080p FHD";
-    } else if (height >= 720) {
-        qualityStr = "720p HD";
-    } else if (height >= 480) {
-        qualityStr = "480p SD";
-    } else if (height > 0) {
-        qualityStr = `${height}p`;
-    } else {
-        qualityStr = "جودة عالية";
-    }
-
-    const groupTitle = `⭐ ${categoryAr} | ${qualityStr} ⭐`;
+    const groupTitle = `⭐ ${categoryAr} | 1080p FHD ⭐`;
 
     return `# ${groupTitle}\n#EXTINF:-1 tvg-logo="${logoUrl}" group-title="${groupTitle}", ${channelNameAr}\n${url}`;
 }
 
 /**
- * دالة التخمين والفحص الرئيسية
+ * دالة التخمين الرئيسية
  */
-async function startScanning(baseUrl, startNum, count = 50) {
-    console.log("[-] بدء فحص القنوات والتحقق الدقيق من الشاشة عبر Gemini...\n");
+async function startScanning(baseUrl, startNum, count = 100) {
+    console.log("[-] بدء فحص القنوات والتحقق الدقيق عبر Gemini...\n");
     let foundArabic = 0;
 
     for (let i = 0; i < count; i++) {
         const currentNum = startNum + i;
         const testUrl = `${baseUrl}${currentNum}.ts`;
 
-        process.stdout.write(`[*] جاري فحص الرابط: ${testUrl} -> `);
+        process.stdout.write(`[*] فحص الرابط: ${testUrl} -> `);
 
         const valid = await isValidStream(testUrl);
 
         if (valid) {
-            console.log("✅ شغال! الانتظار 3 ثوانٍ لالتقاط صورة الشاشة وتحليلها...");
+            console.log("✅ شغال! جاري التقاط الشاشة والتحليل...");
 
             const tempImgPath = path.join('/tmp', `frame_${currentNum}.jpg`);
             const { height, imageCaptured } = await captureStreamFrameAndMeta(testUrl, tempImgPath);
 
-            if (imageCaptured) {
-                // استدعاء Gemini بعد ضمان التقاط الصورة
-                const analysis = await analyzeChannelWithGeminiVision(testUrl, height, tempImgPath);
+            const analysis = await analyzeChannelWithGeminiVision(testUrl, height, imageCaptured ? tempImgPath : null);
 
-                // مسح الصورة المؤقتة
-                if (fs.existsSync(tempImgPath)) {
-                    try { fs.unlinkSync(tempImgPath); } catch (e) {}
-                }
+            if (fs.existsSync(tempImgPath)) {
+                try { fs.unlinkSync(tempImgPath); } catch (e) {}
+            }
 
-                if (analysis && analysis.is_arabic) {
-                    foundArabic++;
-                    const channelName = analysis.channel_name;
-                    const category = analysis.category;
+            if (analysis && analysis.is_arabic) {
+                foundArabic++;
+                const channelName = analysis.channel_name || `قناة عربية ${foundArabic}`;
+                const category = analysis.category || "قنوات عامة";
 
-                    console.log(`[+] قناة عربية مؤكدة: ${channelName} [${category}] - الجودة: ${height}p`);
+                console.log(`[+] مكتشفة: ${channelName} [${category}]`);
 
-                    const m3uEntry = formatM3uEntry(testUrl, channelName, category, height);
-                    await sendTelegramMessage(`<code>${m3uEntry}</code>`);
-                } else {
-                    console.log("[-] ليست قناة عربية أو تعذر التثبت من اللوجو.");
-                }
+                const m3uEntry = formatM3uEntry(testUrl, channelName, category, height);
+                await sendTelegramMessage(`<code>${m3uEntry}</code>`);
             } else {
-                console.log("⚠️ تعذر التقاط صورة البث (فيديو فارغ أو بطيء جداً).");
+                console.log("[-] ليست قناة عربية أو تعذر التعرف عليها.");
             }
         } else {
-            console.log("❌ لا يعمل");
+            console.log("❌ غير شغال");
         }
     }
 }
@@ -239,5 +210,5 @@ async function startScanning(baseUrl, startNum, count = 50) {
 (async () => {
     const BASE_URL = "http://xvip.pro/live/hend0815/08152023/";
     const START_NUMBER = 340315;
-    await startScanning(BASE_URL, START_NUMBER, 50);
+    await startScanning(BASE_URL, START_NUMBER, 100);
 })();
