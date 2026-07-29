@@ -1,5 +1,8 @@
 import axios from 'axios';
+import { chromium } from 'playwright';
 import { GoogleGenAI } from '@google/genai';
+import fs from 'fs';
+import path from 'path';
 
 // ==================== الإعدادات الأساسية ====================
 const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
@@ -28,82 +31,95 @@ async function sendTelegramMessage(message) {
 }
 
 /**
- * فحص سريعة وفعالة للبث بدون تجميد السكربت
+ * تشغيل المتصفح والانتظار حتى يعمل البث المباشر ثم التقاط الشاشة لـ Gemini
  */
-async function inspectStream(url) {
+async function captureVideoFrameWithBrowser(browser, streamUrl, outputPath) {
+    const context = await browser.newContext({
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36'
+    });
+    const page = await context.newPage();
+
     try {
-        const response = await axios.get(url, {
-            timeout: 6000,
-            responseType: 'stream',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36',
-                'Accept': '*/*',
-                'Connection': 'keep-alive'
-            }
-        });
+        // إنشاء صفحة HTML بسيطة لتشغيل فيديو البث المباشر
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+                    video { width: 100%; height: 100%; object-fit: contain; }
+                </style>
+            </head>
+            <body>
+                <video id="player" autoplay muted controls src="${streamUrl}"></video>
+            </body>
+            </html>
+        `;
 
-        if (response.status !== 200) return { valid: false };
+        await page.setContent(htmlContent);
 
-        const contentType = (response.headers['content-type'] || '').toLowerCase();
-        if (contentType.includes('text/html')) return { valid: false };
+        // الانتظار 5 ثوانٍ حقيقية ليعمل البث المباشر وتظهر صورة اللوجو والمحتوى
+        await page.waitForTimeout(5000);
 
-        // أخذ العينة الأولى للتأكد أن الملف فيديو وليس HTML
-        const chunk = await new Promise((resolve) => {
-            const timer = setTimeout(() => resolve(Buffer.from('')), 3000);
-            response.data.once('data', (data) => {
-                clearTimeout(timer);
-                resolve(data.slice(0, 512));
-            });
-            response.data.once('error', () => resolve(Buffer.from('')));
-        });
+        // التقاط صورة للشاشة الحالية
+        await page.screenshot({ path: outputPath, type: 'jpeg', quality: 80 });
+        await context.close();
 
-        response.data.destroy();
-
-        const chunkText = chunk.toString().toLowerCase();
-        if (chunkText.includes('<html') || chunkText.includes('<!doctype') || chunk.length === 0) {
-            return { valid: false };
+        if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 3000) {
+            return true;
         }
-
-        return { valid: true, serverHeaders: response.headers };
+        return false;
     } catch (error) {
-        return { valid: false };
+        await context.close();
+        return false;
     }
 }
 
 /**
- * تحليل ذكي وسريع عبر Gemini لمعرفة تفاصيل القناة وتصنيفها
+ * جعل Gemini يرى اللوجو والصورة بعينه ويحلل المحتوى بدقة عالية جداً
  */
-async function analyzeStreamWithGemini(url, streamIndex) {
-    const prompt = `
-    أنت محترف متخصص في خوادم قنوات IPTV وشبكات البث العربية (مثل MBC, beIN Sports, SSC, Shahid, OSN, Rotana).
-    لدينا رابط بث مباشر شغال IPTV:
-    URL: ${url}
-    رقم القناة في السيرفر: ${streamIndex}
+async function analyzeScreenshotWithGemini(imagePath, streamUrl) {
+    if (!fs.existsSync(imagePath)) return null;
 
-    المطلوب منك:
-    1. استنتاج وتحديد اسم القناة العربية الأكثر احتمالاً لهذا الرقم بناءً على ترتيب قنوات السيرفرات الشهيرة (مثلاً: "beIN Sports 1 HD", "MBC 1", "روتانا سينما", "SSC 1 HD", "سبيستون", "قناة المجد", "MBC Drama").
-    2. التأكد هل هي قناة عربية أم لا (is_arabic).
-    3. تحديد تصنيف القناة بالضبط من بين التصنيفات التالية فقط:
+    const prompt = `
+    أنت خبير محترف جداً في الفحص البصري لقنوات التلفزيون والبث المباشر (IPTV).
+    أمامك صورة حقيقية التقاطها المتصفح أثناء تشغيل البث المباشر للرابط: ${streamUrl}.
+
+    قم برؤية الصورة وفحص اللوجو وشريط العرض بدقة ثم أجب بالتالي:
+    1. ما هو اسم القناة الحقيقي والدقيق باللغة العربية بناءً على اللوجو أو المحتوى؟ (مثال: "beIN Sports 1 HD", "MBC 1", "روتانا سينما", "سبيستون", "الجزيرة HD", "SSC 1 HD", "MBC Drama").
+    2. هل القناة عربية أو تبث محتوى عربي/مترجم للعربية؟ (is_arabic: true / false).
+    3. تحديد تصنيف القناة الدقيق جداً من القائمة التالية فقط:
        - "رياضة"
-       - "مسلسلات وبرامج"
+       - "مسلسلات"
        - "أفلام عربية"
        - "أفلام أجنبية ورعب"
        - "أطفال وكرتون"
        - "إخبارية وثائقية"
        - "إسلامية"
 
-    أجب بصيغة JSON فقط بهذا الشكل وبدون أي مقدمات:
+    تنبيه صارم: يجب أن يكون الرد بصيغة JSON فقط بهذا الشكل وبدون أي كلام إضافي:
     {
       "is_arabic": true,
       "channel_name": "اسم القناة بالعربي",
-      "category": "التصنيف"
+      "category": "التصنيف الدقيق"
     }
     `;
 
     try {
+        const imageBuffer = fs.readFileSync(imagePath);
+        const contents = [
+            prompt,
+            {
+                inlineData: {
+                    mimeType: 'image/jpeg',
+                    data: imageBuffer.toString('base64')
+                }
+            }
+        ];
+
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: prompt,
+            contents: contents,
         });
 
         let text = response.text.trim();
@@ -115,17 +131,13 @@ async function analyzeStreamWithGemini(url, streamIndex) {
 
         return JSON.parse(text);
     } catch (e) {
-        console.log(`[!] خطأ في تحليل Gemini: ${e.message}`);
-        return {
-            is_arabic: true,
-            channel_name: `قناة عربية HD (${streamIndex})`,
-            category: "قنوات عامة"
-        };
+        console.log(`[!] خطأ في التحليل البصري بـ Gemini: ${e.message}`);
+        return null;
     }
 }
 
 /**
- * تنسيق M3U احترافي
+ * تنسيق M3U بالبيانات الحقيقية المكتشفة
  */
 function formatM3uEntry(url, channelNameAr, categoryAr) {
     const logoUrl = "https://upload.wikimedia.org/wikipedia/commons/d/d7/Bein_sport_ana_logo.png";
@@ -135,45 +147,83 @@ function formatM3uEntry(url, channelNameAr, categoryAr) {
 }
 
 /**
- * عملية الفحص الرئيسية
+ * فحص التأكد السريع أن الرابط يستجيب
+ */
+async function isValidStream(url) {
+    try {
+        const response = await axios.get(url, {
+            timeout: 4000,
+            responseType: 'stream',
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+        });
+        if (response.status !== 200) return false;
+        response.data.destroy();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
+ * دالة التشغيل والفحص
  */
 async function startScanning(baseUrl, startNum, count = 100) {
-    console.log("🚀 بدء فحص القنوات والتحليل الفوري مع Gemini...\n");
+    console.log("🚀 تشغيل المتصفح وفحص الشاشات عبر Gemini API...\n");
+
+    // تشغيل المتصفح عبر Playwright
+    const browser = await chromium.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--autoplay-policy=no-user-gesture-required']
+    });
 
     for (let i = 0; i < count; i++) {
         const currentNum = startNum + i;
         const testUrl = `${baseUrl}${currentNum}.ts`;
 
-        console.log(`[*] جاري فحص الرابط رقم ${currentNum}...`);
+        process.stdout.write(`[*] فحص الرابط رقم ${currentNum} -> `);
 
-        const result = await inspectStream(testUrl);
+        const valid = await isValidStream(testUrl);
 
-        if (result.valid) {
-            console.log(`✅ القناة رقم ${currentNum} شغالة! جاري تحليل البيانات بـ Gemini...`);
+        if (valid) {
+            console.log("✅ شغال! المتصفح يفتح البث والتقاط الشاشة...");
 
-            // استدعاء الذكاء الاصطناعي لتشخيص القناة ورقمها
-            const analysis = await analyzeStreamWithGemini(testUrl, currentNum);
+            const tempImgPath = path.join('/tmp', `frame_${currentNum}.jpg`);
+            const screenshotSuccess = await captureVideoFrameWithBrowser(browser, testUrl, tempImgPath);
 
-            if (analysis && analysis.is_arabic) {
-                const channelName = analysis.channel_name;
-                const category = analysis.category;
+            if (screenshotSuccess) {
+                // إرسال صورة الشاشة الحقيقية لـ Gemini ليرى الشعار بعينه
+                const analysis = await analyzeScreenshotWithGemini(tempImgPath, testUrl);
 
-                console.log(`[+] تم الاكتشاف: ${channelName} [التصنيف: ${category}]`);
+                // مسح الصورة المؤقتة
+                if (fs.existsSync(tempImgPath)) {
+                    try { fs.unlinkSync(tempImgPath); } catch (e) {}
+                }
 
-                const m3uEntry = formatM3uEntry(testUrl, channelName, category);
-                await sendTelegramMessage(`<code>${m3uEntry}</code>`);
+                if (analysis && analysis.is_arabic) {
+                    const channelName = analysis.channel_name;
+                    const category = analysis.category;
+
+                    console.log(`[+] تم التعرف على القناة بصرياً: ${channelName} [التصنيف: ${category}]`);
+
+                    const m3uEntry = formatM3uEntry(testUrl, channelName, category);
+                    await sendTelegramMessage(`<code>${m3uEntry}</code>`);
+                } else {
+                    console.log("[-] القناة ليست عربية أو لم يظهر الشعار بوضوح.");
+                }
             } else {
-                console.log("[-] القناة غير عربية، تم التجاوز.");
+                console.log("⚠️ تعذر تشغيل الفيديو في المتصفح.");
             }
         } else {
-            console.log(`❌ القناة رقم ${currentNum} لا تعمل.`);
+            console.log("❌ الرابط لا يعمل");
         }
     }
+
+    await browser.close();
 }
 
 // ==================== التشغيل ====================
 (async () => {
     const BASE_URL = "http://xvip.pro/live/hend0815/08152023/";
     const START_NUMBER = 340315;
-    await startScanning(BASE_URL, START_NUMBER, 200);
+    await startScanning(BASE_URL, START_NUMBER, 100);
 })();
