@@ -3,13 +3,11 @@ import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import FormData from 'form-data';
+import createReport from 'google-translate-api-x'; // للترجمة التلقائية إلى العربية
 
 // ==================== الإعدادات الأساسية ====================
 const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
 const TELEGRAM_CHAT_ID = "6491999046";
-
-// قراءة مفتاح Anthropic (Claude) بأمان من متغيرات البيئة في Railway
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 let currentScanningUrl = "";
 let currentScanningNum = 0;
@@ -79,7 +77,7 @@ async function sendTelegramPhoto(imagePath, caption) {
 }
 
 /**
- * استخراج دقة الفيديو الحقيقية من البث عبر النظام (ffprobe)
+ * استخراج دقة الفيديو الحقيقية عبر ffprobe
  */
 async function getStreamResolution(streamUrl) {
   const cmd = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of json "${streamUrl}"`;
@@ -105,14 +103,16 @@ async function getStreamResolution(streamUrl) {
 }
 
 /**
- * التقاط الصورة من البث وتجهيزها
+ * التقاط الصورة ومعالجتها محلياً للتعرف البصري
  */
 async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
-  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -vf "scale=800:-1" -q:v 2 "${outputPath}"`;
+  // التقاط الصورة الكاملة
+  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -q:v 2 "${outputPath}"`;
   await safeExec(cmdFull, 12000);
 
   if (fs.existsSync(outputPath)) {
-    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=600:-1" -q:v 2 "${cropCornerPath}"`;
+    // اقتصاص الشعار وزيادة التباين (High Contrast) لقراءة أسهل بواسطة OCR
+    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.45:in_h*0.3:in_w*0.55:0,eq=contrast=1.5:brightness=0.05" -q:v 1 "${cropCornerPath}"`;
     await safeExec(cmdCrop, 8000);
     return true;
   }
@@ -120,109 +120,83 @@ async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
 }
 
 /**
- * تحليل اسم القناة والفئة واللغة عبر Claude 3.5 Sonnet
+ * محرك قراءة النصوص المحلي (Tesseract OCR)
  */
-async function analyzeScreenshotWithClaude(fullImagePath, cropImagePath) {
-  if (!fs.existsSync(fullImagePath)) return null;
-
-  if (!ANTHROPIC_API_KEY) {
-    console.log("[!] خطأ: مفتاح ANTHROPIC_API_KEY غير معرف في متغيرات البيئة (Variables)!");
-    return null;
+async function localOCR(imagePath) {
+  // استخدام Tesseract من نظام التشغيل مباشرة
+  const cmd = `tesseract "${imagePath}" stdout --oem 1 -l eng+ara --psm 6 2>/dev/null`;
+  const result = await safeExec(cmd, 6000);
+  if (result) {
+    return result.replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').trim();
   }
+  return "";
+}
 
-  const promptText = `أنت نظام Visual OCR متخصص ودقيق جداً في قراءة شعارات وتعريف قنوات التلفزيون.
-مرفق صورتان للحدث المباشر (صورة كاملة وصورة مقربة لزاوية الشعار).
-
-المطلوب استخراجه فقط:
-1. اسم القناة الرسمي باللغة العربية مع الرقم الظاهر بجوار الشعار بدقة تامة (مثل: بي إن سبورتس 1, SSC 2). إذا لم يوجد رقم مكتوب فاكتب اسم القناة فقط بدون أي تخمين.
-2. الفئة (رياضة | أفلام عربية | أفلام أجنبية | مسلسلات | وثائقي | أطفال | ترفيه | إخبارية | دينية | عامة).
-3. اللغة (العربية | الإنجليزية | الفرنسية | أخرى).
-
-أعد JSON فقط بدون أي شرح وبدون كتل كود (code blocks):
-{
-  "channel_name": "",
-  "category": "",
-  "language": "",
-  "confidence": 0,
-  "reason": ""
-}`;
-
+/**
+ * ترجمة اسم القناة تلقائياً للعربية
+ */
+async function translateToArabic(text) {
+  if (!text) return "";
   try {
-    const fullImageBase64 = fs.readFileSync(fullImagePath).toString('base64');
-    const content = [];
-
-    // إضافة الصورة الكاملة
-    content.push({
-      type: "image",
-      source: {
-        type: "base64",
-        media_type: "image/jpeg",
-        data: fullImageBase64
-      }
-    });
-
-    // إضافة الصورة المقربة إن وجدت
-    if (fs.existsSync(cropImagePath)) {
-      const cropImageBase64 = fs.readFileSync(cropImagePath).toString('base64');
-      content.push({
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: "image/jpeg",
-          data: cropImageBase64
-        }
-      });
-    }
-
-    // إضافة النص
-    content.push({
-      type: "text",
-      text: promptText
-    });
-
-    // إرسال الطلب لـ Anthropic Claude API
-    const response = await axios.post(
-      'https://api.anthropic.com/v1/messages',
-      {
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: content }]
-      },
-      {
-        headers: {
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json'
-        },
-        timeout: 20000
-      }
-    );
-
-    let rawText = response.data.content[0].text.trim();
-    rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(rawText);
-
-    if (data.channel_name && data.confidence >= 95) {
-      return {
-        channel_name: data.channel_name,
-        category: data.category || "عامة",
-        language: data.language || "العربية",
-        confidence: data.confidence,
-        reason: data.reason || ""
-      };
-    } else {
-      console.log(`[!] تم تجاهل النتيجة من Claude لتدني نسبة الثقة (${data.confidence || 0}%): ${data.reason || 'غير محدد'}`);
-    }
-    return null;
-
+    const res = await createReport(text, { to: 'ar' });
+    return res.text || text;
   } catch (e) {
-    if (e.response && e.response.data) {
-      console.log(`[!] خطأ Anthropic API:`, JSON.stringify(e.response.data));
-    } else {
-      console.log(`[!] خطأ تحليل Claude: ${e.message}`);
-    }
+    return text;
+  }
+}
+
+/**
+ * تصنيف الفئة آلياً بحسب الكلمات المفتاحية
+ */
+function detectCategory(channelText) {
+  const text = channelText.toLowerCase();
+
+  if (text.includes('sport') || text.includes('ssc') || text.includes('bein') || text.includes('كرة') || text.includes('رياضة') || text.includes('match')) {
+    return "رياضة";
+  }
+  if (text.includes('movie') || text.includes('cinema') || text.includes('action') || text.includes('أفلام') || text.includes('سينما')) {
+    return "أفلام";
+  }
+  if (text.includes('series') || text.includes('drama') || text.includes('مسلسل') || text.includes('دراما')) {
+    return "مسلسلات";
+  }
+  if (text.includes('news') || text.includes('اخبار') || text.includes('الجزيرة') || text.includes('العربية')) {
+    return "إخبارية";
+  }
+  if (text.includes('kids') || text.includes('cn') || text.includes('mbc3') || text.includes('أطفال') || text.includes('كارتون')) {
+    return "أطفال";
+  }
+  if (text.includes('doc') || text.includes('nat geo') || text.includes('وثائقي')) {
+    return "وثائقي";
+  }
+  return "عامة";
+}
+
+/**
+ * تحليل اسم القناة والفئة محلياً بنسبة 100%
+ */
+async function analyzeImageLocally(cropImagePath, fullImagePath) {
+  let detectedText = await localOCR(cropImagePath);
+  
+  if (!detectedText || detectedText.length < 2) {
+    detectedText = await localOCR(fullImagePath);
+  }
+
+  if (!detectedText || detectedText.length < 2) {
     return null;
   }
+
+  // 1. ترجمة النص المكتشف إلى العربية
+  const translatedName = await translateToArabic(detectedText);
+
+  // 2. تصنيف الفئة آلياً حسب الكلمات المكتشفة
+  const category = detectCategory(detectedText + " " + translatedName);
+
+  return {
+    original_text: detectedText,
+    channel_name: translatedName || detectedText,
+    category: category
+  };
 }
 
 /**
@@ -284,7 +258,7 @@ async function isValidStream(url) {
  * عملية الفحص الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص والتحليل الدقيق باستخدام Anthropic Claude 3.5 Sonnet!</b>");
+  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص والتحليل المحلي بالنظام (بدون API)!</b>");
 
   for (let i = 0; i < count; i++) {
     try {
@@ -296,7 +270,7 @@ async function startScanning(baseUrl, startNum, count = 100000) {
       const valid = await isValidStream(currentScanningUrl);  
 
       if (valid) {  
-        console.log("✅ شغال! جاري الالتقاط والتحليل بواسطة Claude...");  
+        console.log("✅ شغال! جاري الالتقاط والتحليل المحلي...");  
 
         const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);  
         const cropImgPath = path.join('/tmp', `crop_${currentScanningNum}.jpg`);  
@@ -308,31 +282,25 @@ async function startScanning(baseUrl, startNum, count = 100000) {
           const res = await getStreamResolution(currentScanningUrl);  
           const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
 
-          // 2. تحليل اسم القناة والفئة واللغة بـ Claude
-          const analysis = await analyzeScreenshotWithClaude(tempImgPath, cropImgPath);  
+          // 2. التحليل المحلي باسم القناة المكتوب + الترجمة + الفئة
+          const analysis = await analyzeImageLocally(cropImgPath, tempImgPath);  
 
-          if (analysis) {
-            const channelName = analysis.channel_name;  
-            const category = analysis.category;  
-            const language = analysis.language;  
+          const channelName = analysis ? analysis.channel_name : "قناة غير معنونة";  
+          const category = analysis ? analysis.category : "عامة";  
+          const rawText = analysis ? analysis.original_text : "غير محدد";
 
-            console.log(`[+] القناة المكتشفة: ${channelName} | ${category} | الدقة: ${res.qualityStr} | الثقة: ${analysis.confidence}%`);  
+          console.log(`[+] القناة المكتشفة: ${channelName} | الفئة: ${category} | النص الأصلي: ${rawText}`);  
 
-            const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
+          const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
 
-            let caption = `✅ <b>قناة جديدة مكتشفة بـ Claude!</b>\n\n`;  
-            caption += `📺 <b>اسم القناة:</b> ${channelName}\n`;  
-            caption += `🏷️ <b>الفئة:</b> ${category}\n`;  
-            caption += `🗣️ <b>اللغة:</b> ${language}\n`;  
-            caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}\n`;
-            caption += `🎯 <b>نسبة الثقة:</b> ${analysis.confidence}%\n`;
-            if (analysis.reason) caption += `📝 <b>ملاحظة:</b> ${analysis.reason}`;
+          let caption = `✅ <b>قناة جديدة مكتشفة محلياً!</b>\n\n`;  
+          caption += `📺 <b>اسم القناة (مترجم):</b> ${channelName}\n`;  
+          caption += `🔤 <b>النص الملتقط:</b> <code>${rawText}</code>\n`;  
+          caption += `🏷️ <b>الفئة المقدرة:</b> ${category}\n`;  
+          caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}`;  
 
-            await sendTelegramPhoto(tempImgPath, caption);  
-            await sendTelegramMessage(`<code>${m3uEntry}</code>`);  
-          } else {
-            console.log("⚠️ لم يتم التأكد من القناة بنسبة ثقة كافية (أقل من 95%).");
-          }
+          await sendTelegramPhoto(tempImgPath, caption);  
+          await sendTelegramMessage(`<code>${m3uEntry}</code>`);  
 
           // تنظيف الصور المؤقتة  
           try { if (fs.existsSync(tempImgPath)) fs.unlinkSync(tempImgPath); } catch (e) {}  
