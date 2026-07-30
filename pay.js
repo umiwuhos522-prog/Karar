@@ -25,7 +25,7 @@ process.on('unhandledRejection', (reason) => {
 /**
  * تنفيذ الأوامر مع حماية من التجميد
  */
-function safeExec(command, timeoutMs = 15000) {
+function safeExec(command, timeoutMs = 20000) {
   return new Promise((resolve) => {
     const child = exec(command, (err, stdout) => {
       if (err) resolve(null);
@@ -83,7 +83,7 @@ async function sendTelegramPhoto(imagePath, caption) {
  */
 async function getStreamResolution(streamUrl) {
   const cmd = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of json "${streamUrl}"`;
-  const stdout = await safeExec(cmd, 8000);
+  const stdout = await safeExec(cmd, 10000);
 
   if (stdout) {
     try {
@@ -105,22 +105,23 @@ async function getStreamResolution(streamUrl) {
 }
 
 /**
- * التقاط الصورة وإعادة تحجيمها مع إمكانية تحديد القفزة الزمنية (seekTime)
+ * التقاط الصورة بوضوح عالي وبدون ضغط لضمان قراءة الشعار 100%
  */
-async function captureLiveFrame(streamUrl, outputPath, cropCornerPath, seekTime = 3) {
-  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss ${seekTime} -i "${streamUrl}" -vframes 1 -vf "scale=640:-1" -q:v 3 "${outputPath}"`;
-  await safeExec(cmdFull, 12000);
+async function captureLiveFrame(streamUrl, outputPath, cropCornerPath, seekTime = 6) {
+  // الالتقاط بعد مرور أوقات أطول لضمان وضوح البث والشعار
+  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss ${seekTime} -i "${streamUrl}" -vframes 1 -vf "scale=1280:-1" -q:v 1 "${outputPath}"`;
+  await safeExec(cmdFull, 15000);
 
   if (fs.existsSync(outputPath)) {
-    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=500:-1" -q:v 3 "${cropCornerPath}"`;
-    await safeExec(cmdCrop, 8000);
+    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=800:-1" -q:v 1 "${cropCornerPath}"`;
+    await safeExec(cmdCrop, 10000);
     return true;
   }
   return false;
 }
 
 /**
- * تحليل اسم القناة والفئة عبر OpenAI API
+ * تحليل دقيق وصارم جداً لاسم القناة عبر OpenAI API (gpt-4o-mini)
  */
 async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath) {
   if (!fs.existsSync(fullImagePath)) return null;
@@ -130,12 +131,16 @@ async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath
     return null;
   }
 
-  const promptText = `أنت خبير متقدم جداً في تحليل شعارات القنوات التلفزيونية (TV Logo Recognition) وقراءة النصوص الصغيرة (Visual OCR).
+  const promptText = `أنت خبير محترف جداً ومُدقق في تحليل شعارات القنوات التلفزيونية (TV Logo Recognition) واستخراج النصوص الدقيقة (Visual OCR).
 
-المطلوب استخراجه من الصورة:
-1. حدد اسم القناة الرسمي باللغة العربية مع الرقم الظاهر بجوار الشعار بدقة تامة (مثال: بي إن سبورتس 1, SSC 2, بي إن سبورتس الإخبارية). إذا لم تجد رقماً مكتوباً اكتب اسم القناة فقط دون تخمين.
-2. حدد الفئة (رياضة | أفلام عربية | أفلام أجنبية | مسلسلات | وثائقي | أطفال | ترفيه | إخبارية | دينية | عامة).
-3. حدد اللغة الأساسية (العربية | الإنجليزية | الفرنسية | أخرى).
+المطلوب تدقيقه من الصورتين:
+1. اقرأ اسم القناة الرسمي باللغة العربية مع الرقم الظاهر بجوار الشعار بدقة 100% (مثال: بي إن سبورتس 1, SSC 2, بي إن سبورتس الإخبارية, بي إن سبورتس بريميوم 1, الكأس 1). 
+2. لا تُخمن الرقم إطلاقاً، اقرأه كما هو مكتوب بوضوح على الشاشة.
+3. إذا لم يكن هناك رقم مكتوب بجوار الشعار، اكتب اسم القناة الرسمي فقط.
+4. حدد الفئة (رياضة | أفلام عربية | أفلام أجنبية | مسلسلات | وثائقي | أطفال | ترفيه | إخبارية | دينية | عامة).
+5. حدد اللغة الأساسية للبث (العربية | الإنجليزية | الفرنسية | أخرى).
+
+إذا لم تكن واثقاً من اسم القناة بنسبة 100%، ضع نسبة الثقة confidence أقل من 80.
 
 أعد JSON فقط بدون أي شرح وبدون كتل كود:
 {
@@ -151,14 +156,14 @@ async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath
     
     const messagesContent = [
       { type: "text", text: promptText },
-      { type: "image_url", image_url: { url: `data:image/jpeg;base64,${fullImageBase64}`, detail: "low" } }
+      { type: "image_url", image_url: { url: `data:image/jpeg;base64,${fullImageBase64}`, detail: "high" } }
     ];
 
     if (fs.existsSync(cropImagePath)) {
       const cropImageBase64 = fs.readFileSync(cropImagePath).toString('base64');
       messagesContent.push({
         type: "image_url",
-        image_url: { url: `data:image/jpeg;base64,${cropImageBase64}`, detail: "low" }
+        image_url: { url: `data:image/jpeg;base64,${cropImageBase64}`, detail: "high" }
       });
     }
 
@@ -168,35 +173,42 @@ async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: messagesContent }],
         response_format: { type: "json_object" },
-        max_tokens: 300
+        max_tokens: 400
       },
       {
         headers: {
           'Authorization': `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        timeout: 20000
+        timeout: 25000
       }
     );
 
     let rawText = response.data.choices[0].message.content.trim();
     const data = JSON.parse(rawText);
 
-    if (data.channel_name && data.confidence >= 70) {
+    // اشتراط نسبة ثقة عالية واستخراج اسم محدد دون قبول أي إجابة عامة
+    if (data.channel_name && data.channel_name.trim().length > 2 && data.confidence >= 80) {
       return {
-        channel_name: data.channel_name,
+        channel_name: data.channel_name.trim(),
         category: data.category || "عامة",
         language: data.language || "العربية",
         confidence: data.confidence,
         reason: data.reason || ""
       };
+    } else {
+      console.log(`[!] [تحليل غير مكتمل] الثقة: ${data.confidence || 0}% | السبب: ${data.reason || 'غير محدد'}`);
     }
     return null;
 
   } catch (e) {
     if (e.response && e.response.data && e.response.data.error && e.response.data.error.code === 'rate_limit_exceeded') {
-      console.log("⏳ تجاوز مؤقت لمعدل الطلبات، انتظار 3 ثوانٍ...");
-      await new Promise(res => setTimeout(res, 3000));
+      console.log("⏳ تجاوز مؤقت لمعدل الطلبات، انتظار 4 ثوانٍ...");
+      await new Promise(res => setTimeout(res, 4000));
+    } else if (e.response && e.response.data) {
+      console.log(`[!] خطأ OpenAI API:`, JSON.stringify(e.response.data));
+    } else {
+      console.log(`[!] خطأ تحليل ChatGPT: ${e.message}`);
     }
     return null;
   }
@@ -245,7 +257,7 @@ async function startTelegramBotListener() {
 async function isValidStream(url) {
   try {
     const response = await axios.get(url, {
-      timeout: 3500,
+      timeout: 4000,
       responseType: 'stream',
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36' }
     });
@@ -258,10 +270,10 @@ async function isValidStream(url) {
 }
 
 /**
- * عملية الفحص الرئيسية بوجود حلقة إتاحة حتى استخراج معلومات القناة
+ * عملية الفحص الرئيسية بطيئة ودقيقة جداً (حلقة تدقيق تامة حتى استخراج الاسم 100%)
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص المتواصل (بدون تجاوز للقنوات الشغالة)!</b>");
+  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص العالي الدقة (تدقيق 100% حتى استخراج الاسم والبيانات بالكامل)!</b>");
 
   for (let i = 0; i < count; i++) {
     try {
@@ -273,46 +285,47 @@ async function startScanning(baseUrl, startNum, count = 100000) {
       const valid = await isValidStream(currentScanningUrl);  
 
       if (valid) {  
-        console.log("✅ شغال! جاري الإعادة والتحليل حتى جلب بيانات القناة بالكامل...");  
+        console.log("✅ شغال! جاري التدقيق والانتظار التام حتى جلب اسم القناة 100%...");  
 
         const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);  
         const cropImgPath = path.join('/tmp', `crop_${currentScanningNum}.jpg`);  
 
         let analysis = null;
-        let attempts = 0;
-        const maxAttempts = 3; // عدد محاولات التقاط فريمات مختلفة
+        let attempt = 0;
 
-        // حلقة تكرار للقناة الشغالة حتى يتم التعرف على اسمها
-        while (!analysis && attempts < maxAttempts) {
-          attempts++;
-          const seekTime = attempts === 1 ? 3 : (attempts === 2 ? 6 : 9);
-          
+        // حلقة تكرار هادئة وبطيئة للقناة الشغالة دون مغادرتها حتى جلب الاسم الدقيق
+        while (!analysis) {
+          attempt++;
+          // التدرج في ثواني الالتقاط: 6 ثوانٍ، ثم 10 ثوانٍ، ثم 14 ثانية... لضمان وضوح الشعار
+          const seekTime = 6 + (attempt - 1) * 4;
+
+          console.log(`🔍 [محاولة ${attempt}] التقاط فريم بعد ${seekTime} ثوانٍ وللتحليل الدقيق...`);
           const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath, seekTime);
+
           if (captured) {
             analysis = await analyzeScreenshotWithOfficialChatGPT(tempImgPath, cropImgPath);
           }
 
-          if (!analysis && attempts < maxAttempts) {
-            console.log(`[!] محاولة تحليل أخرى (${attempts}/${maxAttempts})... إعادة التقاط فريم جديد`);
-            await new Promise(res => setTimeout(res, 2000));
+          if (!analysis) {
+            console.log(`⚠️ لم يتم التأكد من الشعار بعد... انتظار 4 ثوانٍ وإعادة الالتقاط بقفزة زمنية أطول.`);
+            await new Promise(res => setTimeout(res, 4000));
           }
         }
 
-        // استخراج الدقة من النظام عبر ffprobe
+        // استخراج الدقة الحقيقية برمجياً عبر ffprobe
         const res = await getStreamResolution(currentScanningUrl);  
         const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
 
-        // في حال لم يتعرف عليها الذكاء الاصطناعي بعد عدة محاولات، لن نلغي القناة الشغالة بل نرسلها باسم افتراضي
-        const channelName = analysis ? analysis.channel_name : "قناة بث مباشر";  
-        const category = analysis ? analysis.category : "عامة";  
-        const language = analysis ? analysis.language : "العربية";  
-        const confidence = analysis ? analysis.confidence : 50;
+        const channelName = analysis.channel_name;  
+        const category = analysis.category;  
+        const language = analysis.language;  
+        const confidence = analysis.confidence;
 
-        console.log(`[+] تم إرسال القناة: ${channelName} | ${category} | الدقة: ${res.qualityStr}`);  
+        console.log(`[+] تم التدقيق والجلب بنجاح 100%: ${channelName} | ${category} | الدقة: ${res.qualityStr}`);  
 
         const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
 
-        let caption = `✅ <b>قناة جديدة اكتشفت بنجاح!</b>\n\n`;  
+        let caption = `✅ <b>قناة جديدة مكتشفة بـ ChatGPT!</b>\n\n`;  
         caption += `📺 <b>اسم القناة:</b> ${channelName}\n`;  
         caption += `🏷️ <b>الفئة:</b> ${category}\n`;  
         caption += `🗣️ <b>اللغة:</b> ${language}\n`;  
@@ -326,8 +339,8 @@ async function startScanning(baseUrl, startNum, count = 100000) {
         try { if (fs.existsSync(tempImgPath)) fs.unlinkSync(tempImgPath); } catch (e) {}  
         try { if (fs.existsSync(cropImgPath)) fs.unlinkSync(cropImgPath); } catch (e) {}  
 
-        // انتظار بسيط قبل الانتقال للقناة التالية
-        await new Promise(res => setTimeout(res, 2000));
+        // استراحة 3 ثوانٍ قبل الانتقال للقناة القادمة
+        await new Promise(res => setTimeout(res, 3000));
       } else {  
         console.log("❌ غير شغال");  
       }  
