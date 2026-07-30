@@ -226,12 +226,13 @@ Unknown
     }  
 
     const response = await ai.models.generateContent({  
-      model: 'gemini-2.5-flash',  
-      contents: contents,  
-      config: {  
+    model: 'gemini-2.0-flash',  
+    contents: contents,  
+    config: {  
         responseMimeType: "application/json"  
-      }  
-    });  
+    }  
+}); 
+
 
     let text = response.text.trim().replace(/```json/g, '').replace(/```/g, '').trim();  
     const data = JSON.parse(text);  
