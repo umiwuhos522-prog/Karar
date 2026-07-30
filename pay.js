@@ -8,11 +8,8 @@ import FormData from 'form-data';
 const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
 const TELEGRAM_CHAT_ID = "6491999046";
 
-// قراءة مفتاح API المشتري بأمان من متغيرات البيئة في Railway
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "sk-TX2YMwx6VWKNPPMJqsIguRbKycUsdi6an";
-
-// الرابط الأساسي للسيرفر الوسيط الخاص بالخدمة المشتراة
-const BASE_API_URL = "https://api.nghimmo.com/v1/chat/completions";
+// قراءة مفتاح OpenAI الرسمي بأمان من متغيرات البيئة في Railway
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 let currentScanningUrl = "";
 let currentScanningNum = 0;
@@ -123,17 +120,24 @@ async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
 }
 
 /**
- * تحليل اسم القناة والفئة واللغة عبر السيرفر الوسيط المشتري
+ * تحليل اسم القناة والفئة واللغة عبر OpenAI API الرسمي
  */
-async function analyzeScreenshotWithCustomAPI(fullImagePath, cropImagePath) {
+async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath) {
   if (!fs.existsSync(fullImagePath)) return null;
 
-  const promptText = `أنت خبير متقدم في تحليل شعارات القنوات التلفزيونية (TV Logo Recognition) وقراءة النصوص (Visual OCR).
+  if (!OPENAI_API_KEY) {
+    console.log("[!] خطأ: مفتاح OPENAI_API_KEY غير معرف في متغيرات البيئة (Variables)!");
+    return null;
+  }
 
-المطلوب استخراجه فقط من الصورتين:
-1. اسم القناة الرسمي باللغة العربية مع الرقم الظاهر بجوار الشعار بدقة تامة (مثال: بي إن سبورتس 1, SSC 2). إذا لم تجد رقماً مكتوباً اكتب اسم القناة فقط.
-2. الفئة (رياضة | أفلام عربية | أفلام أجنبية | مسلسلات | وثائقي | أطفال | ترفيه | إخبارية | دينية | عامة).
-3. اللغة الأساسية (العربية | الإنجليزية | الفرنسية | أخرى).
+  const promptText = `أنت خبير متقدم جداً في تحليل شعارات القنوات التلفزيونية (TV Logo Recognition) وقراءة النصوص الصغيرة (Visual OCR).
+
+سيتم تزويدك بصورة أو صورتين للبث المباشر (كاملة ومقربة للشعار).
+
+المطلوب استخراجه فقط:
+1. حدد اسم القناة الرسمي باللغة العربية مع الرقم الظاهر بجوار الشعار بدقة تامة (مثال: بي إن سبورتس 1, SSC 2, بي إن سبورتس الإخبارية). إذا لم تجد رقماً مكتوباً اكتب اسم القناة فقط دون تخمين.
+2. حدد الفئة (رياضة | أفلام عربية | أفلام أجنبية | مسلسلات | وثائقي | أطفال | ترفيه | إخبارية | دينية | عامة).
+3. حدد اللغة الأساسية (العربية | الإنجليزية | الفرنسية | أخرى).
 
 أعد JSON فقط بدون أي شرح وبدون كتل كود:
 {
@@ -146,6 +150,7 @@ async function analyzeScreenshotWithCustomAPI(fullImagePath, cropImagePath) {
 
   try {
     const fullImageBase64 = fs.readFileSync(fullImagePath).toString('base64');
+    
     const messagesContent = [
       { type: "text", text: promptText },
       { type: "image_url", image_url: { url: `data:image/jpeg;base64,${fullImageBase64}` } }
@@ -159,12 +164,13 @@ async function analyzeScreenshotWithCustomAPI(fullImagePath, cropImagePath) {
       });
     }
 
-    // إرسال الطلب للسيرفر الوسيط api.nghimmo.com
+    // الطلب المباشر لسيرفرات OpenAI الرسمية
     const response = await axios.post(
-      BASE_API_URL,
+      'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-5.5', // استخدام اسم النموذج المتاح في سيرفر البائع
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: messagesContent }],
+        response_format: { type: "json_object" },
         max_tokens: 500
       },
       {
@@ -172,12 +178,11 @@ async function analyzeScreenshotWithCustomAPI(fullImagePath, cropImagePath) {
           'Authorization': `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        timeout: 25000
+        timeout: 20000
       }
     );
 
     let rawText = response.data.choices[0].message.content.trim();
-    rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
     const data = JSON.parse(rawText);
 
     if (data.channel_name && data.confidence >= 90) {
@@ -189,15 +194,15 @@ async function analyzeScreenshotWithCustomAPI(fullImagePath, cropImagePath) {
         reason: data.reason || ""
       };
     } else {
-      console.log(`[!] تم تجاهل النتيجة لتدني نسبة الثقة (${data.confidence || 0}%): ${data.reason || 'غير محدد'}`);
+      console.log(`[!] تم تجاهل النتيجة من ChatGPT لتدني الثقة (${data.confidence || 0}%): ${data.reason || 'غير محدد'}`);
     }
     return null;
 
   } catch (e) {
     if (e.response && e.response.data) {
-      console.log(`[!] خطأ API الوسيط:`, JSON.stringify(e.response.data));
+      console.log(`[!] خطأ OpenAI API الرسمي:`, JSON.stringify(e.response.data));
     } else {
-      console.log(`[!] خطأ تحليل الصور: ${e.message}`);
+      console.log(`[!] خطأ تحليل ChatGPT: ${e.message}`);
     }
     return null;
   }
@@ -262,7 +267,7 @@ async function isValidStream(url) {
  * عملية الفحص الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص والتحليل باستخدام API المشتري!</b>");
+  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص والتحليل المباشر باستخدام OpenAI ChatGPT الرسمي (gpt-4o-mini)!</b>");
 
   for (let i = 0; i < count; i++) {
     try {
@@ -274,7 +279,7 @@ async function startScanning(baseUrl, startNum, count = 100000) {
       const valid = await isValidStream(currentScanningUrl);  
 
       if (valid) {  
-        console.log("✅ شغال! جاري الالتقاط والتحليل بواسطة API...");  
+        console.log("✅ شغال! جاري الالتقاط والتحليل بواسطة ChatGPT الرسمي...");  
 
         const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);  
         const cropImgPath = path.join('/tmp', `crop_${currentScanningNum}.jpg`);  
@@ -282,10 +287,12 @@ async function startScanning(baseUrl, startNum, count = 100000) {
         const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath);  
 
         if (captured) {  
+          // 1. استخراج الدقة من النظام عبر ffprobe
           const res = await getStreamResolution(currentScanningUrl);  
           const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
 
-          const analysis = await analyzeScreenshotWithCustomAPI(tempImgPath, cropImgPath);  
+          // 2. تحليل اسم القناة والفئة واللغة بـ ChatGPT الرسمي
+          const analysis = await analyzeScreenshotWithOfficialChatGPT(tempImgPath, cropImgPath);  
 
           if (analysis) {
             const channelName = analysis.channel_name;  
@@ -296,7 +303,7 @@ async function startScanning(baseUrl, startNum, count = 100000) {
 
             const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
 
-            let caption = `✅ <b>قناة جديدة مكتشفة!</b>\n\n`;  
+            let caption = `✅ <b>قناة جديدة مكتشفة بـ ChatGPT الرسمي!</b>\n\n`;  
             caption += `📺 <b>اسم القناة:</b> ${channelName}\n`;  
             caption += `🏷️ <b>الفئة:</b> ${category}\n`;  
             caption += `🗣️ <b>اللغة:</b> ${language}\n`;  
