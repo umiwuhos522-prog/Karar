@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { exec } from 'child_process';
-import { GoogleGenAI } from '@google/genai';
 import fs from 'fs';
 import path from 'path';
 import FormData from 'form-data';
@@ -9,33 +8,8 @@ import FormData from 'form-data';
 const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
 const TELEGRAM_CHAT_ID = "6491999046";
 
-// جلب 4 مفاتيح لـ Gemini من متغيرات البيئة في Railway
-const GEMINI_KEYS = [
-  process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY,
-  process.env.GEMINI_API_KEY_2,
-  process.env.GEMINI_API_KEY_3,
-  process.env.GEMINI_API_KEY_4
-].filter(Boolean); // تصفية القيم الفارغة
-
-let currentKeyIndex = 0;
-
-/**
- * الحصول على العميل التالي تلقائياً لنظام المداورة
- */
-function getNextGeminiAI() {
-  if (GEMINI_KEYS.length === 0) {
-    console.log("[!] خطأ: لا يوجد أي مفتاح GEMINI_API_KEY معرف في متغيرات البيئة!");
-    return { ai: null, keyNum: 0 };
-  }
-  const key = GEMINI_KEYS[currentKeyIndex];
-  const keyNum = currentKeyIndex + 1;
-  currentKeyIndex = (currentKeyIndex + 1) % GEMINI_KEYS.length;
-  
-  return {
-    ai: new GoogleGenAI({ apiKey: key }),
-    keyNum: keyNum
-  };
-}
+// قراءة مفتاح Anthropic (Claude) بأمان من متغيرات البيئة في Railway
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 let currentScanningUrl = "";
 let currentScanningNum = 0;
@@ -131,7 +105,7 @@ async function getStreamResolution(streamUrl) {
 }
 
 /**
- * التقاط الصورة وإعادة تحجيمها
+ * التقاط الصورة من البث وتجهيزها
  */
 async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
   const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -vf "scale=800:-1" -q:v 2 "${outputPath}"`;
@@ -146,20 +120,25 @@ async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
 }
 
 /**
- * تحليل البث بواسطة Gemini باستخدام نظام المداورة الموزعة
+ * تحليل اسم القناة والفئة واللغة عبر Claude 3.5 Sonnet
  */
-async function analyzeScreenshotWithGemini(fullImagePath, cropImagePath) {
+async function analyzeScreenshotWithClaude(fullImagePath, cropImagePath) {
   if (!fs.existsSync(fullImagePath)) return null;
 
-  const promptText = `أنت نظام Visual OCR متخصص في قراءة وتعريف قنوات التلفزيون.
-مرفق صورتان للحدث المباشر (كاملة ومقربة للشعار).
+  if (!ANTHROPIC_API_KEY) {
+    console.log("[!] خطأ: مفتاح ANTHROPIC_API_KEY غير معرف في متغيرات البيئة (Variables)!");
+    return null;
+  }
+
+  const promptText = `أنت نظام Visual OCR متخصص ودقيق جداً في قراءة شعارات وتعريف قنوات التلفزيون.
+مرفق صورتان للحدث المباشر (صورة كاملة وصورة مقربة لزاوية الشعار).
 
 المطلوب استخراجه فقط:
-1. اسم القناة الرسمي باللغة العربية مع الرقم الظاهر بجوار الشعار بدقة تامة (مثل: بي إن سبورتس 1, SSC 2). إذا لم يوجد رقم اكتب الاسم فقط بدون تخمين.
+1. اسم القناة الرسمي باللغة العربية مع الرقم الظاهر بجوار الشعار بدقة تامة (مثل: بي إن سبورتس 1, SSC 2). إذا لم يوجد رقم مكتوب فاكتب اسم القناة فقط بدون أي تخمين.
 2. الفئة (رياضة | أفلام عربية | أفلام أجنبية | مسلسلات | وثائقي | أطفال | ترفيه | إخبارية | دينية | عامة).
 3. اللغة (العربية | الإنجليزية | الفرنسية | أخرى).
 
-أعد JSON فقط بهذا الهيكل:
+أعد JSON فقط بدون أي شرح وبدون كتل كود (code blocks):
 {
   "channel_name": "",
   "category": "",
@@ -168,70 +147,82 @@ async function analyzeScreenshotWithGemini(fullImagePath, cropImagePath) {
   "reason": ""
 }`;
 
-  // محاولة التحليل وإعادة المحاولة مع المفتاح التالي إذا حدث 429
-  for (let attempt = 0; attempt < GEMINI_KEYS.length; attempt++) {
-    const { ai, keyNum } = getNextGeminiAI();
-    if (!ai) return null;
+  try {
+    const fullImageBase64 = fs.readFileSync(fullImagePath).toString('base64');
+    const content = [];
 
-    try {
-      const fullImageBuffer = fs.readFileSync(fullImagePath);
-      const contents = [
-        promptText,
-        {
-          inlineData: {
-            mimeType: 'image/jpeg',
-            data: fullImageBuffer.toString('base64')
-          }
+    // إضافة الصورة الكاملة
+    content.push({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: "image/jpeg",
+        data: fullImageBase64
+      }
+    });
+
+    // إضافة الصورة المقربة إن وجدت
+    if (fs.existsSync(cropImagePath)) {
+      const cropImageBase64 = fs.readFileSync(cropImagePath).toString('base64');
+      content.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: "image/jpeg",
+          data: cropImageBase64
         }
-      ];
-
-      if (fs.existsSync(cropImagePath)) {  
-        const cropImageBuffer = fs.readFileSync(cropImagePath);  
-        contents.push({  
-          inlineData: {  
-            mimeType: 'image/jpeg',  
-            data: cropImageBuffer.toString('base64')  
-          }  
-        });  
-      }  
-
-      const response = await ai.models.generateContent({  
-        model: 'gemini-2.0-flash',  
-        contents: contents,  
-        config: {  
-          responseMimeType: "application/json"  
-        }  
-      }); 
-
-      let text = response.text.trim().replace(/```json/g, '').replace(/```/g, '').trim();  
-      const data = JSON.parse(text);  
-
-      if (data.channel_name && data.confidence >= 95) {  
-        return {  
-          channel_name: data.channel_name,  
-          category: data.category || "عامة",  
-          language: data.language || "العربية",
-          confidence: data.confidence,
-          reason: data.reason || "",
-          keyUsed: keyNum
-        };  
-      } else {
-        console.log(`[!] [مفتاح ${keyNum}] تم تجاهل النتيجة لتدني الثقة (${data.confidence || 0}%): ${data.reason || 'غير محدد'}`);
-        return null;
-      }
-
-    } catch (e) {
-      if (e.message && e.message.includes('429')) {
-        console.log(`⚠️ [مفتاح ${keyNum}] وصل للحد الأقصى (429)! الانتقال المباشر للمفتاح التالي...`);
-        // الانتقال للمفتاح الذي يليه في الدورة التالية
-        continue;
-      } else {
-        console.log(`[!] [مفتاح ${keyNum}] خطأ تحليل Gemini: ${e.message}`);
-        return null;
-      }
+      });
     }
+
+    // إضافة النص
+    content.push({
+      type: "text",
+      text: promptText
+    });
+
+    // إرسال الطلب لـ Anthropic Claude API
+    const response = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: content }]
+      },
+      {
+        headers: {
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json'
+        },
+        timeout: 20000
+      }
+    );
+
+    let rawText = response.data.content[0].text.trim();
+    rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const data = JSON.parse(rawText);
+
+    if (data.channel_name && data.confidence >= 95) {
+      return {
+        channel_name: data.channel_name,
+        category: data.category || "عامة",
+        language: data.language || "العربية",
+        confidence: data.confidence,
+        reason: data.reason || ""
+      };
+    } else {
+      console.log(`[!] تم تجاهل النتيجة من Claude لتدني نسبة الثقة (${data.confidence || 0}%): ${data.reason || 'غير محدد'}`);
+    }
+    return null;
+
+  } catch (e) {
+    if (e.response && e.response.data) {
+      console.log(`[!] خطأ Anthropic API:`, JSON.stringify(e.response.data));
+    } else {
+      console.log(`[!] خطأ تحليل Claude: ${e.message}`);
+    }
+    return null;
   }
-  return null;
 }
 
 /**
@@ -293,7 +284,7 @@ async function isValidStream(url) {
  * عملية الفحص الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage(`🟢 <b>تم تفعيل الفحص بنظام المداورة بين (${GEMINI_KEYS.length}) مفاتيح Gemini!</b>`);
+  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص والتحليل الدقيق باستخدام Anthropic Claude 3.5 Sonnet!</b>");
 
   for (let i = 0; i < count; i++) {
     try {
@@ -305,7 +296,7 @@ async function startScanning(baseUrl, startNum, count = 100000) {
       const valid = await isValidStream(currentScanningUrl);  
 
       if (valid) {  
-        console.log("✅ شغال! جاري الالتقاط والتحليل الآلي...");  
+        console.log("✅ شغال! جاري الالتقاط والتحليل بواسطة Claude...");  
 
         const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);  
         const cropImgPath = path.join('/tmp', `crop_${currentScanningNum}.jpg`);  
@@ -313,29 +304,28 @@ async function startScanning(baseUrl, startNum, count = 100000) {
         const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath);  
 
         if (captured) {  
-          // 1. الدقة من النظام
+          // 1. استخراج الدقة من النظام عبر ffprobe
           const res = await getStreamResolution(currentScanningUrl);  
           const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
 
-          // 2. التحليل بـ Gemini عبر نظام المداورة
-          const analysis = await analyzeScreenshotWithGemini(tempImgPath, cropImgPath);  
+          // 2. تحليل اسم القناة والفئة واللغة بـ Claude
+          const analysis = await analyzeScreenshotWithClaude(tempImgPath, cropImgPath);  
 
           if (analysis) {
             const channelName = analysis.channel_name;  
             const category = analysis.category;  
             const language = analysis.language;  
 
-            console.log(`[+] القناة المكتشفة: ${channelName} | ${category} | الدقة: ${res.qualityStr} | (مفتاح ${analysis.keyUsed})`);  
+            console.log(`[+] القناة المكتشفة: ${channelName} | ${category} | الدقة: ${res.qualityStr} | الثقة: ${analysis.confidence}%`);  
 
             const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
 
-            let caption = `✅ <b>قناة جديدة مكتشفة!</b>\n\n`;  
+            let caption = `✅ <b>قناة جديدة مكتشفة بـ Claude!</b>\n\n`;  
             caption += `📺 <b>اسم القناة:</b> ${channelName}\n`;  
             caption += `🏷️ <b>الفئة:</b> ${category}\n`;  
             caption += `🗣️ <b>اللغة:</b> ${language}\n`;  
             caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}\n`;
-            caption += `🎯 <b>نسبة ثقة Gemini:</b> ${analysis.confidence}%\n`;
-            caption += `🔑 <b>المفتاح المستخدم:</b> #${analysis.keyUsed}\n`;
+            caption += `🎯 <b>نسبة الثقة:</b> ${analysis.confidence}%\n`;
             if (analysis.reason) caption += `📝 <b>ملاحظة:</b> ${analysis.reason}`;
 
             await sendTelegramPhoto(tempImgPath, caption);  
