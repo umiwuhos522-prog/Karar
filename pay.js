@@ -3,11 +3,13 @@ import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import FormData from 'form-data';
-import createReport from 'google-translate-api-x';
 
 // ==================== الإعدادات الأساسية ====================
 const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
 const TELEGRAM_CHAT_ID = "6491999046";
+
+// قراءة مفتاح OpenAI بأمان من متغيرات البيئة في Railway
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 let currentScanningUrl = "";
 let currentScanningNum = 0;
@@ -77,7 +79,7 @@ async function sendTelegramPhoto(imagePath, caption) {
 }
 
 /**
- * استخراج دقة الفيديو الحقيقية عبر ffprobe
+ * استخراج دقة الفيديو الحقيقية من البث عبر ffprobe
  */
 async function getStreamResolution(streamUrl) {
   const cmd = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of json "${streamUrl}"`;
@@ -103,84 +105,126 @@ async function getStreamResolution(streamUrl) {
 }
 
 /**
- * التقاط الفريم بأساليب تحسين متدرجة للتدقيق
+ * التقاط الصورة وإعادة تحجيمها لتقليل التكلفة وسرعة المعالجة
  */
-async function captureLiveFrame(streamUrl, outputPath, cropCornerPath, mode = 1) {
-  let vfFilter = "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=1200:-1";
-  
-  // تغيير الفلتر حسب محاولة التدقيق
-  if (mode === 2) {
-    vfFilter = "crop=in_w*0.4:in_h*0.3:in_w*0.6:0,hue=s=0,eq=contrast=2.0:brightness=0.1,scale=1400:-1"; // تحويل لأبيض وأسود مع تباين قوي
-  } else if (mode === 3) {
-    vfFilter = "crop=in_w*0.6:in_h*0.4:in_w*0.4:0,unsharp=7:7:2.5:7:7:2.5,scale=1600:-1"; // حدة بصرية عالية جداً
-  }
-
-  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -q:v 1 "${outputPath}"`;
-  await safeExec(cmdFull, 10000);
+async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
+  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -vf "scale=800:-1" -q:v 2 "${outputPath}"`;
+  await safeExec(cmdFull, 12000);
 
   if (fs.existsSync(outputPath)) {
-    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "${vfFilter}" -q:v 1 "${cropCornerPath}"`;
-    await safeExec(cmdCrop, 6000);
+    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=600:-1" -q:v 2 "${cropCornerPath}"`;
+    await safeExec(cmdCrop, 8000);
     return true;
   }
   return false;
 }
 
 /**
- * قراءة النصوص محلياً
+ * تحليل اسم القناة والفئة واللغة عبر ChatGPT (OpenAI GPT-4o-mini)
  */
-async function localOCR(imagePath) {
-  const cmd = `tesseract "${imagePath}" stdout --oem 1 --psm 6 -l eng+ara 2>/dev/null`;
-  const result = await safeExec(cmd, 6000);
-  if (result) {
-    return result.replace(/[\r\n]+/g, ' ').replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').trim();
+async function analyzeScreenshotWithChatGPT(fullImagePath, cropImagePath) {
+  if (!fs.existsSync(fullImagePath)) return null;
+
+  if (!OPENAI_API_KEY) {
+    console.log("[!] خطأ: مفتاح OPENAI_API_KEY غير معرف في متغيرات البيئة (Variables)!");
+    return null;
   }
-  return "";
-}
 
-/**
- * تصنيف القنوات والأسماء بدقة
- */
-function refineChannelDetails(rawText) {
-  if (!rawText || rawText.length < 2) return null;
+  const promptText = `أنت خبير متقدم جداً في تحليل شعارات القنوات التلفزيونية (TV Logo Recognition) وقراءة النصوص الصغيرة (Visual OCR).
 
-  let text = rawText.toUpperCase();
-  let detectedName = "";
-  let category = "عامة";
+سيتم تزويدك بصورة أو صورتين للبث المباشر (كاملة ومقربة للشعار).
 
-  if (text.includes("BEIN") || text.includes("SPORTS") || text.includes("بي ان") || text.includes("سبورت")) {
-    category = "رياضة";
-    detectedName = "بي إن سبورتس";
+المطلوب استخراجه فقط:
+1. حدد اسم القناة الرسمي باللغة العربية مع الرقم الظاهر بجوار الشعار بدقة تامة (مثال: بي إن سبورتس 1, SSC 2, بي إن سبورتس الإخبارية). إذا لم تجد رقماً مكتوباً اكتب اسم القناة فقط دون تخمين.
+2. حدد الفئة (رياضة | أفلام عربية | أفلام أجنبية | مسلسلات | وثائقي | أطفال | ترفيه | إخبارية | دينية | عامة).
+3. حدد اللغة الأساسية (العربية | الإنجليزية | الفرنسية | أخرى).
 
-    if (text.includes("NEWS") || text.includes("الإخبارية")) detectedName += " الإخبارية";
-    else if (text.includes("PREMIUM 1") || text.includes("PREMIUM1")) detectedName += " بريميوم 1";
-    else if (text.includes("PREMIUM 2") || text.includes("PREMIUM2")) detectedName += " بريميوم 2";
-    else if (text.includes("PREMIUM 3") || text.includes("PREMIUM3")) detectedName += " بريميوم 3";
-    else if (text.includes("PREMIUM") || text.includes("بريميوم")) detectedName += " بريميوم";
-    else if (text.includes("XTRA 1") || text.includes("XTRA1")) detectedName += " إكسترا 1";
-    else if (text.includes("XTRA 2") || text.includes("XTRA2")) detectedName += " إكسترا 2";
-    else if (text.includes("MAX 1") || text.includes("MAX1")) detectedName += " ماكس 1";
-    else if (text.includes("MAX 2") || text.includes("MAX2")) detectedName += " ماكس 2";
-    else if (text.includes("MAX 3") || text.includes("MAX3")) detectedName += " ماكس 3";
-    else {
-      const numMatch = text.match(/\b([1-9])\b/);
-      if (numMatch) detectedName += ` ${numMatch[1]}`;
-    }
-  } else if (text.includes("SSC")) {
-    category = "رياضة";
-    detectedName = "إس إس سي";
-    const numMatch = text.match(/\b([1-9]|NEWS|EXTRA)\b/);
-    if (numMatch) detectedName += ` ${numMatch[1]}`;
-  } else {
-    if (text.includes("MOVIE") || text.includes("CINEMA") || text.includes("أفلام")) category = "أفلام";
-    else if (text.includes("DRAMA") || text.includes("SERIES") || text.includes("مسلسل")) category = "مسلسلات";
-    else if (text.includes("KIDS") || text.includes("CN") || text.includes("أطفال")) category = "أطفال";
-    else if (text.includes("NEWS") || text.includes("أخبار")) category = "إخبارية";
+أعد JSON فقط بدون أي شرح وبدون كتل كود:
+{
+  "channel_name": "",
+  "category": "",
+  "language": "",
+  "confidence": 0,
+  "reason": ""
+}`;
+
+  try {
+    const fullImageBase64 = fs.readFileSync(fullImagePath).toString('base64');
     
-    detectedName = rawText;
-  }
+    const messagesContent = [];
 
-  return { channel_name: detectedName, category: category };
+    // إضافة النص
+    messagesContent.push({
+      type: "text",
+      text: promptText
+    });
+
+    // إضافة الصورة الكاملة
+    messagesContent.push({
+      type: "image_url",
+      image_url: {
+        url: `data:image/jpeg;base64,${fullImageBase64}`
+      }
+    });
+
+    // إضافة الصورة المقربة إن وجدت
+    if (fs.existsSync(cropImagePath)) {
+      const cropImageBase64 = fs.readFileSync(cropImagePath).toString('base64');
+      messagesContent.push({
+        type: "image_url",
+        image_url: {
+          url: `data:image/jpeg;base64,${cropImageBase64}`
+        }
+      });
+    }
+
+    // إرسال الطلب لـ OpenAI API
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'user',
+            content: messagesContent
+          }
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 500
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 20000
+      }
+    );
+
+    let rawText = response.data.choices[0].message.content.trim();
+    const data = JSON.parse(rawText);
+
+    if (data.channel_name && data.confidence >= 90) {
+      return {
+        channel_name: data.channel_name,
+        category: data.category || "عامة",
+        language: data.language || "العربية",
+        confidence: data.confidence,
+        reason: data.reason || ""
+      };
+    } else {
+      console.log(`[!] تم تجاهل النتيجة من ChatGPT لتدني الثقة (${data.confidence || 0}%): ${data.reason || 'غير محدد'}`);
+    }
+    return null;
+
+  } catch (e) {
+    if (e.response && e.response.data) {
+      console.log(`[!] خطأ OpenAI API:`, JSON.stringify(e.response.data));
+    } else {
+      console.log(`[!] خطأ تحليل ChatGPT: ${e.message}`);
+    }
+    return null;
+  }
 }
 
 /**
@@ -239,10 +283,10 @@ async function isValidStream(url) {
 }
 
 /**
- * عملية الفحص الرئيسية بدون تجاوز القنوات الشغالة
+ * عملية الفحص الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص التام (يتم التدقيق في القناة حتى استخراج بياناتها كاملة دون تجاهل)!</b>");
+  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص والتحليل الدقيق باستخدام OpenAI ChatGPT (gpt-4o-mini)!</b>");
 
   for (let i = 0; i < count; i++) {
     try {
@@ -254,70 +298,50 @@ async function startScanning(baseUrl, startNum, count = 100000) {
       const valid = await isValidStream(currentScanningUrl);  
 
       if (valid) {  
-        console.log("✅ شغال! جاري التدقيق لاستخراج اسم القناة والدقة بدون تخطي...");  
+        console.log("✅ شغال! جاري الالتقاط والتحليل بواسطة ChatGPT...");  
 
         const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);  
         const cropImgPath = path.join('/tmp', `crop_${currentScanningNum}.jpg`);  
 
-        let foundName = null;
-        let foundCategory = "عامة";
-        let rawText = "";
+        const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath);  
 
-        // محاولات التدقيق المتكررة بأكثر من طريقة معالجة صور
-        for (let mode = 1; mode <= 3; mode++) {
-          const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath, mode);
-          if (captured) {
-            let extracted = await localOCR(cropImgPath);
-            if (!extracted || extracted.length < 2) {
-              extracted = await localOCR(tempImgPath);
-            }
+        if (captured) {  
+          // 1. استخراج الدقة من النظام عبر ffprobe
+          const res = await getStreamResolution(currentScanningUrl);  
+          const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
 
-            if (extracted && extracted.length >= 2) {
-              const refined = refineChannelDetails(extracted);
-              if (refined && refined.channel_name) {
-                foundName = refined.channel_name;
-                foundCategory = refined.category;
-                rawText = extracted;
-                break; // تم استخراج الاسم بنجاح، الخروج من حلقة المحاولات
-              }
-            }
+          // 2. تحليل اسم القناة والفئة واللغة بـ ChatGPT
+          const analysis = await analyzeScreenshotWithChatGPT(tempImgPath, cropImgPath);  
+
+          if (analysis) {
+            const channelName = analysis.channel_name;  
+            const category = analysis.category;  
+            const language = analysis.language;  
+
+            console.log(`[+] القناة المكتشفة: ${channelName} | ${category} | الدقة: ${res.qualityStr} | الثقة: ${analysis.confidence}%`);  
+
+            const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
+
+            let caption = `✅ <b>قناة جديدة مكتشفة بـ ChatGPT!</b>\n\n`;  
+            caption += `📺 <b>اسم القناة:</b> ${channelName}\n`;  
+            caption += `🏷️ <b>الفئة:</b> ${category}\n`;  
+            caption += `🗣️ <b>اللغة:</b> ${language}\n`;  
+            caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}\n`;
+            caption += `🎯 <b>نسبة الثقة:</b> ${analysis.confidence}%\n`;
+            if (analysis.reason) caption += `📝 <b>ملاحظة:</b> ${analysis.reason}`;
+
+            await sendTelegramPhoto(tempImgPath, caption);  
+            await sendTelegramMessage(`<code>${m3uEntry}</code>`);  
+          } else {
+            console.log("⚠️ لم يتم التأكد من القناة بنسبة ثقة كافية.");
           }
-        }
 
-        // إذا كانت القناة شغالة ولم تظهر نصوص واضحة بعد 3 محاولات تدقيق، يحدد النظام اسمها الاحتياطي دون إهمالها
-        if (!foundName) {
-          foundName = `قناة بث مباشر (${currentScanningNum})`;
-          foundCategory = "عامة";
-        }
-
-        // ترجمة الاسم إلى العربية إذا لم يكن مترجماً
-        if (!foundName.includes("بي إن") && !foundName.includes("إس إس سي") && !foundName.includes("قناة بث")) {
-          try {
-            const res = await createReport(foundName, { to: 'ar' });
-            if (res && res.text) foundName = res.text;
-          } catch (e) {}
-        }
-
-        // استخراج الدقة الحقيقية عبر ffprobe
-        const res = await getStreamResolution(currentScanningUrl);  
-        const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
-
-        console.log(`[+] تم التدقيق وإرسال القناة بنجاح: ${foundName} | ${foundCategory} | الدقة: ${res.qualityStr}`);  
-
-        const m3uEntry = formatM3uEntry(currentScanningUrl, foundName, foundCategory, res.qualityStr);  
-
-        let caption = `✅ <b>قناة جديدة مكتشفة ومحفوطة!</b>\n\n`;  
-        caption += `📺 <b>اسم القناة:</b> ${foundName}\n`;  
-        if (rawText) caption += `🔤 <b>النص المستخرج:</b> <code>${rawText}</code>\n`;  
-        caption += `🏷️ <b>الفئة:</b> ${foundCategory}\n`;  
-        caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}`;  
-
-        await sendTelegramPhoto(tempImgPath, caption);  
-        await sendTelegramMessage(`<code>${m3uEntry}</code>`);  
-
-        // تنظيف الصور المؤقتة  
-        try { if (fs.existsSync(tempImgPath)) fs.unlinkSync(tempImgPath); } catch (e) {}  
-        try { if (fs.existsSync(cropImgPath)) fs.unlinkSync(cropImgPath); } catch (e) {}  
+          // تنظيف الصور المؤقتة  
+          try { if (fs.existsSync(tempImgPath)) fs.unlinkSync(tempImgPath); } catch (e) {}  
+          try { if (fs.existsSync(cropImgPath)) fs.unlinkSync(cropImgPath); } catch (e) {}  
+        } else {  
+          console.log("⚠️ تعذر التقاط صورة البث.");  
+        }  
       } else {  
         console.log("❌ غير شغال");  
       }  
