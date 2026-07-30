@@ -105,11 +105,10 @@ async function getStreamResolution(streamUrl) {
 }
 
 /**
- * التقاط الصورة وإعادة تحجيمها لتخفيض استهلاك التوكنز
+ * التقاط الصورة وإعادة تحجيمها مع إمكانية تحديد القفزة الزمنية (seekTime)
  */
-async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
-  // تصغير الأبعاد لتقليل الـ Tokens
-  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -vf "scale=640:-1" -q:v 3 "${outputPath}"`;
+async function captureLiveFrame(streamUrl, outputPath, cropCornerPath, seekTime = 3) {
+  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss ${seekTime} -i "${streamUrl}" -vframes 1 -vf "scale=640:-1" -q:v 3 "${outputPath}"`;
   await safeExec(cmdFull, 12000);
 
   if (fs.existsSync(outputPath)) {
@@ -121,9 +120,9 @@ async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
 }
 
 /**
- * تحليل اسم القناة والفئة واللغة عبر OpenAI API الرسمي مع حماية Rate Limit
+ * تحليل اسم القناة والفئة عبر OpenAI API
  */
-async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath, retryCount = 0) {
+async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath) {
   if (!fs.existsSync(fullImagePath)) return null;
 
   if (!OPENAI_API_KEY) {
@@ -183,7 +182,7 @@ async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath
     let rawText = response.data.choices[0].message.content.trim();
     const data = JSON.parse(rawText);
 
-    if (data.channel_name && data.confidence >= 85) {
+    if (data.channel_name && data.confidence >= 70) {
       return {
         channel_name: data.channel_name,
         category: data.category || "عامة",
@@ -191,25 +190,13 @@ async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath
         confidence: data.confidence,
         reason: data.reason || ""
       };
-    } else {
-      console.log(`[!] تم تجاهل النتيجة لتدني الثقة (${data.confidence || 0}%): ${data.reason || 'غير محدد'}`);
     }
     return null;
 
   } catch (e) {
-    // معالجة خطأ تجاوز معدل الطلبات (Rate Limit) تلقائياً
     if (e.response && e.response.data && e.response.data.error && e.response.data.error.code === 'rate_limit_exceeded') {
-      if (retryCount < 3) {
-        console.log("⏳ تجاوز مؤقت لمعدل الطلبات في الدقيقة (TPM)، انتظار 3 ثوانٍ وتكرار المحاولة...");
-        await new Promise(res => setTimeout(res, 3000));
-        return await analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath, retryCount + 1);
-      }
-    }
-
-    if (e.response && e.response.data) {
-      console.log(`[!] خطأ OpenAI API الرسمي:`, JSON.stringify(e.response.data));
-    } else {
-      console.log(`[!] خطأ تحليل ChatGPT: ${e.message}`);
+      console.log("⏳ تجاوز مؤقت لمعدل الطلبات، انتظار 3 ثوانٍ...");
+      await new Promise(res => setTimeout(res, 3000));
     }
     return null;
   }
@@ -271,10 +258,10 @@ async function isValidStream(url) {
 }
 
 /**
- * عملية الفحص الرئيسية
+ * عملية الفحص الرئيسية بوجود حلقة إتاحة حتى استخراج معلومات القناة
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص المباشر باستخدام OpenAI ChatGPT الرسمي!</b>");
+  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص المتواصل (بدون تجاوز للقنوات الشغالة)!</b>");
 
   for (let i = 0; i < count; i++) {
     try {
@@ -286,53 +273,61 @@ async function startScanning(baseUrl, startNum, count = 100000) {
       const valid = await isValidStream(currentScanningUrl);  
 
       if (valid) {  
-        console.log("✅ شغال! جاري الالتقاط والتحليل بواسطة ChatGPT الرسمي...");  
+        console.log("✅ شغال! جاري الإعادة والتحليل حتى جلب بيانات القناة بالكامل...");  
 
         const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);  
         const cropImgPath = path.join('/tmp', `crop_${currentScanningNum}.jpg`);  
 
-        const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath);  
+        let analysis = null;
+        let attempts = 0;
+        const maxAttempts = 3; // عدد محاولات التقاط فريمات مختلفة
 
-        if (captured) {  
-          // 1. استخراج الدقة من النظام عبر ffprobe
-          const res = await getStreamResolution(currentScanningUrl);  
-          const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
-
-          // 2. تحليل اسم القناة والفئة واللغة بـ ChatGPT الرسمي
-          const analysis = await analyzeScreenshotWithOfficialChatGPT(tempImgPath, cropImgPath);  
-
-          if (analysis) {
-            const channelName = analysis.channel_name;  
-            const category = analysis.category;  
-            const language = analysis.language;  
-
-            console.log(`[+] القناة المكتشفة: ${channelName} | ${category} | الدقة: ${res.qualityStr} | الثقة: ${analysis.confidence}%`);  
-
-            const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
-
-            let caption = `✅ <b>قناة جديدة مكتشفة بـ ChatGPT الرسمي!</b>\n\n`;  
-            caption += `📺 <b>اسم القناة:</b> ${channelName}\n`;  
-            caption += `🏷️ <b>الفئة:</b> ${category}\n`;  
-            caption += `🗣️ <b>اللغة:</b> ${language}\n`;  
-            caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}\n`;
-            caption += `🎯 <b>نسبة الثقة:</b> ${analysis.confidence}%\n`;
-            if (analysis.reason) caption += `📝 <b>ملاحظة:</b> ${analysis.reason}`;
-
-            await sendTelegramPhoto(tempImgPath, caption);  
-            await sendTelegramMessage(`<code>${m3uEntry}</code>`);  
-          } else {
-            console.log("⚠️ لم يتم التأكد من القناة بنسبة ثقة كافية.");
+        // حلقة تكرار للقناة الشغالة حتى يتم التعرف على اسمها
+        while (!analysis && attempts < maxAttempts) {
+          attempts++;
+          const seekTime = attempts === 1 ? 3 : (attempts === 2 ? 6 : 9);
+          
+          const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath, seekTime);
+          if (captured) {
+            analysis = await analyzeScreenshotWithOfficialChatGPT(tempImgPath, cropImgPath);
           }
 
-          // تنظيف الصور المؤقتة  
-          try { if (fs.existsSync(tempImgPath)) fs.unlinkSync(tempImgPath); } catch (e) {}  
-          try { if (fs.existsSync(cropImgPath)) fs.unlinkSync(cropImgPath); } catch (e) {}  
-        } else {  
-          console.log("⚠️ تعذر التقاط صورة البث.");  
-        }  
+          if (!analysis && attempts < maxAttempts) {
+            console.log(`[!] محاولة تحليل أخرى (${attempts}/${maxAttempts})... إعادة التقاط فريم جديد`);
+            await new Promise(res => setTimeout(res, 2000));
+          }
+        }
 
-        // إضافة فاصل 2.5 ثانية تجنباً لخطأ التوكنز في الدقيقة
-        await new Promise(res => setTimeout(res, 2500));
+        // استخراج الدقة من النظام عبر ffprobe
+        const res = await getStreamResolution(currentScanningUrl);  
+        const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
+
+        // في حال لم يتعرف عليها الذكاء الاصطناعي بعد عدة محاولات، لن نلغي القناة الشغالة بل نرسلها باسم افتراضي
+        const channelName = analysis ? analysis.channel_name : "قناة بث مباشر";  
+        const category = analysis ? analysis.category : "عامة";  
+        const language = analysis ? analysis.language : "العربية";  
+        const confidence = analysis ? analysis.confidence : 50;
+
+        console.log(`[+] تم إرسال القناة: ${channelName} | ${category} | الدقة: ${res.qualityStr}`);  
+
+        const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
+
+        let caption = `✅ <b>قناة جديدة اكتشفت بنجاح!</b>\n\n`;  
+        caption += `📺 <b>اسم القناة:</b> ${channelName}\n`;  
+        caption += `🏷️ <b>الفئة:</b> ${category}\n`;  
+        caption += `🗣️ <b>اللغة:</b> ${language}\n`;  
+        caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}\n`;
+        caption += `🎯 <b>نسبة الثقة:</b> ${confidence}%`;  
+
+        await sendTelegramPhoto(tempImgPath, caption);  
+        await sendTelegramMessage(`<code>${m3uEntry}</code>`);  
+
+        // تنظيف الصور المؤقتة  
+        try { if (fs.existsSync(tempImgPath)) fs.unlinkSync(tempImgPath); } catch (e) {}  
+        try { if (fs.existsSync(cropImgPath)) fs.unlinkSync(cropImgPath); } catch (e) {}  
+
+        // انتظار بسيط قبل الانتقال للقناة التالية
+        await new Promise(res => setTimeout(res, 2000));
       } else {  
         console.log("❌ غير شغال");  
       }  
