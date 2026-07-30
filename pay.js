@@ -226,13 +226,12 @@ Unknown
     }  
 
     const response = await ai.models.generateContent({  
-    model: 'gemini-2.0-flash',  
-    contents: contents,  
-    config: {  
+      model: 'gemini-2.0-flash',  
+      contents: contents,  
+      config: {  
         responseMimeType: "application/json"  
-    }  
-}); 
-
+      }  
+    }); 
 
     let text = response.text.trim().replace(/```json/g, '').replace(/```/g, '').trim();  
     const data = JSON.parse(text);  
@@ -253,8 +252,8 @@ Unknown
 
   } catch (e) {
     if (e.message && e.message.includes('429')) {
-      console.log("⚠️ وصول للحد الأقصى للطلبات (429)، انتظار 4 ثوانٍ...");
-      await new Promise(res => setTimeout(res, 4000));
+      console.log("⚠️ وصول للحد الأقصى للطلبات (429)، انتظار 10 ثوانٍ لتفريغ الحصة...");
+      await new Promise(res => setTimeout(res, 10000));
     } else {
       console.log(`[!] خطأ تحليل Gemini: ${e.message}`);
     }
@@ -378,7 +377,8 @@ async function startScanning(baseUrl, startNum, count = 100000) {
           console.log("⚠️ تعذر التقاط صورة البث.");  
         }  
 
-        await new Promise(res => setTimeout(res, 3000));  
+        // انتظار 6 ثوانٍ بين كل بث شغال لتفادي تجاوز حد الطلبات المسموح بها في الخطة المجانية
+        await new Promise(res => setTimeout(res, 6000));  
       } else {  
         console.log("❌ غير شغال");  
       }  
