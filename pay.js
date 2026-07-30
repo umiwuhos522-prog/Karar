@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { exec } from 'child_process';
+import { GoogleGenAI } from '@google/genai';
 import fs from 'fs';
 import path from 'path';
 import FormData from 'form-data';
@@ -8,8 +9,10 @@ import FormData from 'form-data';
 const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
 const TELEGRAM_CHAT_ID = "6491999046";
 
-// قراءة مفتاح API بأمان من متغيرات البيئة في Railway
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+// قراءة مفتاح Gemini بأمان من متغيرات البيئة في Railway
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY || "DUMMY_KEY" });
 
 let currentScanningUrl = "";
 let currentScanningNum = 0;
@@ -107,7 +110,6 @@ async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
   await safeExec(cmdFull, 10000);
 
   if (fs.existsSync(outputPath)) {
-    // اقتطاع واسع للربع العلوي الأيمن كاملاً مع تكبيره لضمان ظهور أي رقم بجوار الشعار
     const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=1000:-1" -q:v 1 "${cropCornerPath}"`;
     await safeExec(cmdCrop, 6000);
     return true;
@@ -116,13 +118,13 @@ async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
 }
 
 /**
- * تحليل البث باستخدام Anthropic Claude (Claude 3.5 Sonnet)
+ * تحليل البث باستخدام Gemini API
  */
-async function analyzeScreenshotWithClaude(fullImagePath, cropImagePath) {
+async function analyzeScreenshotWithGemini(fullImagePath, cropImagePath) {
   if (!fs.existsSync(fullImagePath)) return null;
 
-  if (!ANTHROPIC_API_KEY) {
-    console.log("[!] خطأ: مفتاح ANTHROPIC_API_KEY غير معرف في متغيرات البيئة (Variables)!");
+  if (!GEMINI_API_KEY) {
+    console.log("[!] خطأ: مفتاح GEMINI_API_KEY غير معرف في متغيرات البيئة (Variables)!");
     return null;
   }
 
@@ -190,7 +192,7 @@ async function analyzeScreenshotWithClaude(fullImagePath, cropImagePath) {
 إذا لم تكن مكتوبة فاكتب:
 Unknown
 
-أعد JSON فقط بدون أي شرح وبدون كتل كود (code blocks).
+أعد JSON فقط بدون أي شرح.
 
 {
   "channel_name": "",
@@ -202,81 +204,58 @@ Unknown
 }`;
 
   try {
-    const fullImageBase64 = fs.readFileSync(fullImagePath).toString('base64');
-    
-    // إعداد الرسالة مع دعم الصور المزدوجة
-    const content = [];
-
-    // إضافة الصورة الكاملة
-    content.push({
-      type: "image",
-      source: {
-        type: "base64",
-        media_type: "image/jpeg",
-        data: fullImageBase64
-      }
-    });
-
-    // إضافة الصورة المقربة إن وجدت
-    if (fs.existsSync(cropImagePath)) {
-      const cropImageBase64 = fs.readFileSync(cropImagePath).toString('base64');
-      content.push({
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: "image/jpeg",
-          data: cropImageBase64
+    const fullImageBuffer = fs.readFileSync(fullImagePath);
+    const contents = [
+      promptText,
+      {
+        inlineData: {
+          mimeType: 'image/jpeg',
+          data: fullImageBuffer.toString('base64')
         }
-      });
-    }
-
-    // إضافة النص المطلوب في النهاية
-    content.push({
-      type: "text",
-      text: promptText
-    });
-
-    // إرسال الطلب لـ Anthropic API
-    const response = await axios.post(
-      'https://api.anthropic.com/v1/messages',
-      {
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: content }]
-      },
-      {
-        headers: {
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json'
-        },
-        timeout: 15000
       }
-    );
+    ];
 
-    let rawText = response.data.content[0].text.trim();
-    rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(rawText);
+    if (fs.existsSync(cropImagePath)) {  
+      const cropImageBuffer = fs.readFileSync(cropImagePath);  
+      contents.push({  
+        inlineData: {  
+          mimeType: 'image/jpeg',  
+          data: cropImageBuffer.toString('base64')  
+        }  
+      });  
+    }  
 
-    if (data.channel_name && data.confidence >= 95) {
-      return {
-        channel_name: data.channel_name,
-        category: data.category || "عامة",
+    const response = await ai.models.generateContent({  
+      model: 'gemini-2.5-flash',  
+      contents: contents,  
+      config: {  
+        responseMimeType: "application/json"  
+      }  
+    });  
+
+    let text = response.text.trim().replace(/```json/g, '').replace(/```/g, '').trim();  
+    const data = JSON.parse(text);  
+
+    if (data.channel_name && data.confidence >= 95) {  
+      return {  
+        channel_name: data.channel_name,  
+        category: data.category || "عامة",  
         language: data.language || "العربية",
         quality: data.quality || "Unknown",
         confidence: data.confidence,
         reason: data.reason || ""
-      };
+      };  
     } else {
-      console.log(`[!] تم تجاهل النتيجة من Claude لتدني نسبة الثقة (${data.confidence || 0}%): ${data.reason || 'غير محدد'}`);
+      console.log(`[!] تم تجاهل النتيجة لتدني نسبة الثقة (${data.confidence || 0}%): ${data.reason || 'غير محدد'}`);
     }
     return null;
 
   } catch (e) {
-    if (e.response && e.response.data) {
-      console.log(`[!] خطأ Anthropic API:`, JSON.stringify(e.response.data));
+    if (e.message && e.message.includes('429')) {
+      console.log("⚠️ وصول للحد الأقصى للطلبات (429)، انتظار 4 ثوانٍ...");
+      await new Promise(res => setTimeout(res, 4000));
     } else {
-      console.log(`[!] خطأ تحليل Claude: ${e.message}`);
+      console.log(`[!] خطأ تحليل Gemini: ${e.message}`);
     }
     return null;
   }
@@ -341,19 +320,19 @@ async function isValidStream(url) {
  * عملية الفحص الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص والتحليل باستخدام Anthropic Claude 3.5 Sonnet!</b>");
+  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص والتحليل باستخدام Google Gemini!</b>");
 
   for (let i = 0; i < count; i++) {
     try {
       currentScanningNum = startNum + i;
       currentScanningUrl = `${baseUrl}${currentScanningNum}.ts`;
 
-      process.stdout.write(`[*] فحص ${currentScanningNum} -> `);  
+      process.stdout.write(`[*] فحص ${currentScanningNum} -> Gemini... `);  
 
       const valid = await isValidStream(currentScanningUrl);  
 
       if (valid) {  
-        console.log("✅ شغال! جاري الالتقاط بزاويتين وتحليل الشعار بـ Claude...");  
+        console.log("✅ شغال! جاري الالتقاط بزاويتين وتحليل الشعار بـ Gemini...");  
 
         const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);  
         const cropImgPath = path.join('/tmp', `crop_${currentScanningNum}.jpg`);  
@@ -364,8 +343,8 @@ async function startScanning(baseUrl, startNum, count = 100000) {
           const res = await getStreamResolution(currentScanningUrl);  
           const streamQualityStr = res.height >= 1080 ? `${res.height}p FHD` : `${res.height}p HD`;  
 
-          // تحليل الشعار بواسطة Claude
-          const analysis = await analyzeScreenshotWithClaude(tempImgPath, cropImgPath);  
+          // تحليل الشعار بواسطة Gemini
+          const analysis = await analyzeScreenshotWithGemini(tempImgPath, cropImgPath);  
 
           if (analysis) {
             const channelName = analysis.channel_name;  
@@ -377,7 +356,7 @@ async function startScanning(baseUrl, startNum, count = 100000) {
 
             const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, logoQuality);  
 
-            let caption = `✅ <b>قناة جديدة مكتشفة بـ Claude!</b>\n\n`;  
+            let caption = `✅ <b>قناة جديدة مكتشفة بـ Gemini!</b>\n\n`;  
             caption += `📺 <b>اسم القناة:</b> ${channelName}\n`;  
             caption += `🏷️ <b>الفئة:</b> ${category}\n`;  
             caption += `🗣️ <b>اللغة:</b> ${language}\n`;  
@@ -398,7 +377,6 @@ async function startScanning(baseUrl, startNum, count = 100000) {
           console.log("⚠️ تعذر التقاط صورة البث.");  
         }  
 
-        // انتظار 3 ثوانٍ بين الطلبات
         await new Promise(res => setTimeout(res, 3000));  
       } else {  
         console.log("❌ غير شغال");  
