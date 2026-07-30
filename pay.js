@@ -9,10 +9,33 @@ import FormData from 'form-data';
 const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
 const TELEGRAM_CHAT_ID = "6491999046";
 
-// قراءة مفتاح Gemini بأمان من متغيرات البيئة في Railway
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+// جلب 4 مفاتيح لـ Gemini من متغيرات البيئة في Railway
+const GEMINI_KEYS = [
+  process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY,
+  process.env.GEMINI_API_KEY_2,
+  process.env.GEMINI_API_KEY_3,
+  process.env.GEMINI_API_KEY_4
+].filter(Boolean); // تصفية القيم الفارغة
 
-const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY || "DUMMY_KEY" });
+let currentKeyIndex = 0;
+
+/**
+ * الحصول على العميل التالي تلقائياً لنظام المداورة
+ */
+function getNextGeminiAI() {
+  if (GEMINI_KEYS.length === 0) {
+    console.log("[!] خطأ: لا يوجد أي مفتاح GEMINI_API_KEY معرف في متغيرات البيئة!");
+    return { ai: null, keyNum: 0 };
+  }
+  const key = GEMINI_KEYS[currentKeyIndex];
+  const keyNum = currentKeyIndex + 1;
+  currentKeyIndex = (currentKeyIndex + 1) % GEMINI_KEYS.length;
+  
+  return {
+    ai: new GoogleGenAI({ apiKey: key }),
+    keyNum: keyNum
+  };
+}
 
 let currentScanningUrl = "";
 let currentScanningNum = 0;
@@ -108,15 +131,13 @@ async function getStreamResolution(streamUrl) {
 }
 
 /**
- * التقاط الصورة وإعادة تحجيمها لتقليل حجم الـ API Payload
+ * التقاط الصورة وإعادة تحجيمها
  */
 async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
-  // التقاط الصورة الكاملة مصغرة لعرض 800px لتقليل استهلاك الـ Tokens
   const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -vf "scale=800:-1" -q:v 2 "${outputPath}"`;
   await safeExec(cmdFull, 12000);
 
   if (fs.existsSync(outputPath)) {
-    // اقتصاص الشعار العلوي مكبر بوضوح
     const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=600:-1" -q:v 2 "${cropCornerPath}"`;
     await safeExec(cmdCrop, 8000);
     return true;
@@ -125,15 +146,10 @@ async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
 }
 
 /**
- * تحليل اسم القناة واللغة والفئة بواسطة Gemini دون تدخل في الدقة
+ * تحليل البث بواسطة Gemini باستخدام نظام المداورة الموزعة
  */
 async function analyzeScreenshotWithGemini(fullImagePath, cropImagePath) {
   if (!fs.existsSync(fullImagePath)) return null;
-
-  if (!GEMINI_API_KEY) {
-    console.log("[!] خطأ: مفتاح GEMINI_API_KEY غير معرف في متغيرات البيئة (Variables)!");
-    return null;
-  }
 
   const promptText = `أنت نظام Visual OCR متخصص في قراءة وتعريف قنوات التلفزيون.
 مرفق صورتان للحدث المباشر (كاملة ومقربة للشعار).
@@ -152,62 +168,70 @@ async function analyzeScreenshotWithGemini(fullImagePath, cropImagePath) {
   "reason": ""
 }`;
 
-  try {
-    const fullImageBuffer = fs.readFileSync(fullImagePath);
-    const contents = [
-      promptText,
-      {
-        inlineData: {
-          mimeType: 'image/jpeg',
-          data: fullImageBuffer.toString('base64')
+  // محاولة التحليل وإعادة المحاولة مع المفتاح التالي إذا حدث 429
+  for (let attempt = 0; attempt < GEMINI_KEYS.length; attempt++) {
+    const { ai, keyNum } = getNextGeminiAI();
+    if (!ai) return null;
+
+    try {
+      const fullImageBuffer = fs.readFileSync(fullImagePath);
+      const contents = [
+        promptText,
+        {
+          inlineData: {
+            mimeType: 'image/jpeg',
+            data: fullImageBuffer.toString('base64')
+          }
         }
-      }
-    ];
+      ];
 
-    if (fs.existsSync(cropImagePath)) {  
-      const cropImageBuffer = fs.readFileSync(cropImagePath);  
-      contents.push({  
-        inlineData: {  
-          mimeType: 'image/jpeg',  
-          data: cropImageBuffer.toString('base64')  
-        }  
-      });  
-    }  
-
-    // استدعاء Gemini والانتظار تلقائياً حتى ينهي التحليل ويرجع النتيجة
-    const response = await ai.models.generateContent({  
-      model: 'gemini-2.0-flash',  
-      contents: contents,  
-      config: {  
-        responseMimeType: "application/json"  
+      if (fs.existsSync(cropImagePath)) {  
+        const cropImageBuffer = fs.readFileSync(cropImagePath);  
+        contents.push({  
+          inlineData: {  
+            mimeType: 'image/jpeg',  
+            data: cropImageBuffer.toString('base64')  
+          }  
+        });  
       }  
-    }); 
 
-    let text = response.text.trim().replace(/```json/g, '').replace(/```/g, '').trim();  
-    const data = JSON.parse(text);  
+      const response = await ai.models.generateContent({  
+        model: 'gemini-2.0-flash',  
+        contents: contents,  
+        config: {  
+          responseMimeType: "application/json"  
+        }  
+      }); 
 
-    if (data.channel_name && data.confidence >= 95) {  
-      return {  
-        channel_name: data.channel_name,  
-        category: data.category || "عامة",  
-        language: data.language || "العربية",
-        confidence: data.confidence,
-        reason: data.reason || ""
-      };  
-    } else {
-      console.log(`[!] تم تجاهل النتيجة لتدني نسبة الثقة (${data.confidence || 0}%): ${data.reason || 'غير محدد'}`);
+      let text = response.text.trim().replace(/```json/g, '').replace(/```/g, '').trim();  
+      const data = JSON.parse(text);  
+
+      if (data.channel_name && data.confidence >= 95) {  
+        return {  
+          channel_name: data.channel_name,  
+          category: data.category || "عامة",  
+          language: data.language || "العربية",
+          confidence: data.confidence,
+          reason: data.reason || "",
+          keyUsed: keyNum
+        };  
+      } else {
+        console.log(`[!] [مفتاح ${keyNum}] تم تجاهل النتيجة لتدني الثقة (${data.confidence || 0}%): ${data.reason || 'غير محدد'}`);
+        return null;
+      }
+
+    } catch (e) {
+      if (e.message && e.message.includes('429')) {
+        console.log(`⚠️ [مفتاح ${keyNum}] وصل للحد الأقصى (429)! الانتقال المباشر للمفتاح التالي...`);
+        // الانتقال للمفتاح الذي يليه في الدورة التالية
+        continue;
+      } else {
+        console.log(`[!] [مفتاح ${keyNum}] خطأ تحليل Gemini: ${e.message}`);
+        return null;
+      }
     }
-    return null;
-
-  } catch (e) {
-    if (e.message && e.message.includes('429')) {
-      console.log("⚠️ تم تجاوز معدل الطلبات (429)، سيتم الانتظار قليلاً لتفريغ الحصة تلقائياً...");
-      await new Promise(res => setTimeout(res, 8000));
-    } else {
-      console.log(`[!] خطأ تحليل Gemini: ${e.message}`);
-    }
-    return null;
   }
+  return null;
 }
 
 /**
@@ -269,7 +293,7 @@ async function isValidStream(url) {
  * عملية الفحص الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص التلقائي والدقيق بـ Gemini والنظام!</b>");
+  await sendTelegramMessage(`🟢 <b>تم تفعيل الفحص بنظام المداورة بين (${GEMINI_KEYS.length}) مفاتيح Gemini!</b>`);
 
   for (let i = 0; i < count; i++) {
     try {
@@ -289,11 +313,11 @@ async function startScanning(baseUrl, startNum, count = 100000) {
         const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath);  
 
         if (captured) {  
-          // 1. استخراج الدقة حقيقياً عبر النظام بعيداً عن Gemini
+          // 1. الدقة من النظام
           const res = await getStreamResolution(currentScanningUrl);  
           const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
 
-          // 2. تحليل اسم القناة والفئة واللغة تلقائياً بـ Gemini
+          // 2. التحليل بـ Gemini عبر نظام المداورة
           const analysis = await analyzeScreenshotWithGemini(tempImgPath, cropImgPath);  
 
           if (analysis) {
@@ -301,7 +325,7 @@ async function startScanning(baseUrl, startNum, count = 100000) {
             const category = analysis.category;  
             const language = analysis.language;  
 
-            console.log(`[+] القناة المكتشفة: ${channelName} | ${category} | الدقة: ${res.qualityStr} | الثقة: ${analysis.confidence}%`);  
+            console.log(`[+] القناة المكتشفة: ${channelName} | ${category} | الدقة: ${res.qualityStr} | (مفتاح ${analysis.keyUsed})`);  
 
             const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
 
@@ -311,6 +335,7 @@ async function startScanning(baseUrl, startNum, count = 100000) {
             caption += `🗣️ <b>اللغة:</b> ${language}\n`;  
             caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}\n`;
             caption += `🎯 <b>نسبة ثقة Gemini:</b> ${analysis.confidence}%\n`;
+            caption += `🔑 <b>المفتاح المستخدم:</b> #${analysis.keyUsed}\n`;
             if (analysis.reason) caption += `📝 <b>ملاحظة:</b> ${analysis.reason}`;
 
             await sendTelegramPhoto(tempImgPath, caption);  
