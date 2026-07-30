@@ -28,7 +28,7 @@ process.on('unhandledRejection', (reason) => {
 /**
  * تنفيذ الأوامر مع حماية من التجميد
  */
-function safeExec(command, timeoutMs = 10000) {
+function safeExec(command, timeoutMs = 15000) {
   return new Promise((resolve) => {
     const child = exec(command, (err, stdout) => {
       if (err) resolve(null);
@@ -74,7 +74,7 @@ async function sendTelegramPhoto(imagePath, caption) {
 
     await axios.post(url, formData, {  
       headers: formData.getHeaders(),  
-      timeout: 12000  
+      timeout: 15000  
     });
   } catch (e) {
     console.log(`[!] فشل إرسال الصورة: ${e.message}`);
@@ -86,7 +86,7 @@ async function sendTelegramPhoto(imagePath, caption) {
  */
 async function getStreamResolution(streamUrl) {
   const cmd = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of json "${streamUrl}"`;
-  const stdout = await safeExec(cmd, 6000);
+  const stdout = await safeExec(cmd, 8000);
 
   if (stdout) {
     try {
@@ -107,18 +107,18 @@ async function getStreamResolution(streamUrl) {
  */
 async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
   const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -q:v 1 "${outputPath}"`;
-  await safeExec(cmdFull, 10000);
+  await safeExec(cmdFull, 12000);
 
   if (fs.existsSync(outputPath)) {
     const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=1000:-1" -q:v 1 "${cropCornerPath}"`;
-    await safeExec(cmdCrop, 6000);
+    await safeExec(cmdCrop, 8000);
     return true;
   }
   return false;
 }
 
 /**
- * تحليل البث باستخدام Gemini API
+ * تحليل البث باستخدام Gemini API بدون استعجال
  */
 async function analyzeScreenshotWithGemini(fullImagePath, cropImagePath) {
   if (!fs.existsSync(fullImagePath)) return null;
@@ -225,6 +225,8 @@ Unknown
       });  
     }  
 
+    // جعل الكود ينتظر Gemini بالكامل بدون استعجال
+    console.log("⏳ جاري انتظار Gemini ليحلل الصورة ويكمل البيانات بالكامل...");
     const response = await ai.models.generateContent({  
       model: 'gemini-2.0-flash',  
       contents: contents,  
@@ -252,8 +254,8 @@ Unknown
 
   } catch (e) {
     if (e.message && e.message.includes('429')) {
-      console.log("⚠️ وصول للحد الأقصى للطلبات (429)، انتظار 10 ثوانٍ لتفريغ الحصة...");
-      await new Promise(res => setTimeout(res, 10000));
+      console.log("⚠️ ضغط طلبات متكرر (429)، سيتم الانتظار 15 ثانية لتفريغ الحصة ثم المتابعة...");
+      await new Promise(res => setTimeout(res, 15000));
     } else {
       console.log(`[!] خطأ تحليل Gemini: ${e.message}`);
     }
@@ -304,7 +306,7 @@ async function startTelegramBotListener() {
 async function isValidStream(url) {
   try {
     const response = await axios.get(url, {
-      timeout: 3500,
+      timeout: 4000,
       responseType: 'stream',
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36' }
     });
@@ -320,19 +322,19 @@ async function isValidStream(url) {
  * عملية الفحص الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص والتحليل باستخدام Google Gemini!</b>");
+  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص والتحليل الدقيق الهادئ بـ Gemini!</b>");
 
   for (let i = 0; i < count; i++) {
     try {
       currentScanningNum = startNum + i;
       currentScanningUrl = `${baseUrl}${currentScanningNum}.ts`;
 
-      process.stdout.write(`[*] فحص ${currentScanningNum} -> Gemini... `);  
+      process.stdout.write(`[*] فحص ${currentScanningNum} -> `);  
 
       const valid = await isValidStream(currentScanningUrl);  
 
       if (valid) {  
-        console.log("✅ شغال! جاري الالتقاط بزاويتين وتحليل الشعار بـ Gemini...");  
+        console.log("✅ شغال! جاري الالتقاط وإرسال الصور لـ Gemini...");  
 
         const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);  
         const cropImgPath = path.join('/tmp', `crop_${currentScanningNum}.jpg`);  
@@ -343,7 +345,7 @@ async function startScanning(baseUrl, startNum, count = 100000) {
           const res = await getStreamResolution(currentScanningUrl);  
           const streamQualityStr = res.height >= 1080 ? `${res.height}p FHD` : `${res.height}p HD`;  
 
-          // تحليل الشعار بواسطة Gemini
+          // تحليل الشعار بواسطة Gemini والانتظار حتى يكتمل التفاعل كلياً
           const analysis = await analyzeScreenshotWithGemini(tempImgPath, cropImgPath);  
 
           if (analysis) {
@@ -377,8 +379,9 @@ async function startScanning(baseUrl, startNum, count = 100000) {
           console.log("⚠️ تعذر التقاط صورة البث.");  
         }  
 
-        // انتظار 6 ثوانٍ بين كل بث شغال لتفادي تجاوز حد الطلبات المسموح بها في الخطة المجانية
-        await new Promise(res => setTimeout(res, 6000));  
+        // انتظار 12 ثوانٍ كاملة بين كل قناة وأخرى لضمان عدم حدوث Rate Limit وحصول Gemini على راحته
+        console.log("⏳ استراحة 12 ثانية قبل الفحص التالي لضمان استقرار API...");
+        await new Promise(res => setTimeout(res, 12000));  
       } else {  
         console.log("❌ غير شغال");  
       }  
