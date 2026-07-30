@@ -9,7 +9,7 @@ const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
 const TELEGRAM_CHAT_ID = "6491999046";
 
 // مفتاح Anthropic API (ضع مفتاحك الجديد المبتدئ بـ sk-ant- هنا)
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "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";
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "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";
 
 let currentScanningUrl = "";
 let currentScanningNum = 0;
