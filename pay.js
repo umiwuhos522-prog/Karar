@@ -103,52 +103,56 @@ async function getStreamResolution(streamUrl) {
 }
 
 /**
- * التقاط الصورة ومعالجتها المتقدمة (عزل الألوان والتباين التام للشعار)
+ * التقاط الفريم بأساليب تحسين متدرجة للتدقيق
  */
-async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
-  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 4 -i "${streamUrl}" -vframes 1 -q:v 1 "${outputPath}"`;
-  await safeExec(cmdFull, 12000);
+async function captureLiveFrame(streamUrl, outputPath, cropCornerPath, mode = 1) {
+  let vfFilter = "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=1200:-1";
+  
+  // تغيير الفلتر حسب محاولة التدقيق
+  if (mode === 2) {
+    vfFilter = "crop=in_w*0.4:in_h*0.3:in_w*0.6:0,hue=s=0,eq=contrast=2.0:brightness=0.1,scale=1400:-1"; // تحويل لأبيض وأسود مع تباين قوي
+  } else if (mode === 3) {
+    vfFilter = "crop=in_w*0.6:in_h*0.4:in_w*0.4:0,unsharp=7:7:2.5:7:7:2.5,scale=1600:-1"; // حدة بصرية عالية جداً
+  }
+
+  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -q:v 1 "${outputPath}"`;
+  await safeExec(cmdFull, 10000);
 
   if (fs.existsSync(outputPath)) {
-    // معالجة بصريّة متقدمة للزاوية العليا (عزل الخلفيات لتوضيح الشعار والأرقام للماكس والـ Premium والـ beIN)
-    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=1200:-1,unsharp=5:5:1.0:5:5:0.0" -q:v 1 "${cropCornerPath}"`;
-    await safeExec(cmdCrop, 8000);
+    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "${vfFilter}" -q:v 1 "${cropCornerPath}"`;
+    await safeExec(cmdCrop, 6000);
     return true;
   }
   return false;
 }
 
 /**
- * محرك استخراج النصوص المعزز والمتقدم محلياً
+ * قراءة النصوص محلياً
  */
-async function advancedOCR(imagePath) {
-  // تشغيل خوارزميات القراءة المتعددة مع التطهير البصري للحروب والأرقام
-  const cmd = `tesseract "${imagePath}" stdout --oem 1 --psm 11 -l eng+ara 2>/dev/null`;
-  const result = await safeExec(cmd, 8000);
-  
+async function localOCR(imagePath) {
+  const cmd = `tesseract "${imagePath}" stdout --oem 1 --psm 6 -l eng+ara 2>/dev/null`;
+  const result = await safeExec(cmd, 6000);
   if (result) {
-    // تنظيف وتدقيق الأحرف المستخرجة
     return result.replace(/[\r\n]+/g, ' ').replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').trim();
   }
   return "";
 }
 
 /**
- * تدقيق اسم القناة والرقم والمؤشرات (MAX, Premium, News, الخ)
+ * تصنيف القنوات والأسماء بدقة
  */
-function refineChannelName(rawText) {
+function refineChannelDetails(rawText) {
   if (!rawText || rawText.length < 2) return null;
 
   let text = rawText.toUpperCase();
   let detectedName = "";
   let category = "عامة";
 
-  // فحص قنوات beIN Sports والأرقام
   if (text.includes("BEIN") || text.includes("SPORTS") || text.includes("بي ان") || text.includes("سبورت")) {
     category = "رياضة";
     detectedName = "بي إن سبورتس";
 
-    if (text.includes("NEWS") || text.includes("الإخبارية") || text.includes("اخبار")) detectedName += " الإخبارية";
+    if (text.includes("NEWS") || text.includes("الإخبارية")) detectedName += " الإخبارية";
     else if (text.includes("PREMIUM 1") || text.includes("PREMIUM1")) detectedName += " بريميوم 1";
     else if (text.includes("PREMIUM 2") || text.includes("PREMIUM2")) detectedName += " بريميوم 2";
     else if (text.includes("PREMIUM 3") || text.includes("PREMIUM3")) detectedName += " بريميوم 3";
@@ -158,68 +162,25 @@ function refineChannelName(rawText) {
     else if (text.includes("MAX 1") || text.includes("MAX1")) detectedName += " ماكس 1";
     else if (text.includes("MAX 2") || text.includes("MAX2")) detectedName += " ماكس 2";
     else if (text.includes("MAX 3") || text.includes("MAX3")) detectedName += " ماكس 3";
-    else if (text.includes("MAX 4") || text.includes("MAX4")) detectedName += " ماكس 4";
-    else if (text.includes("MAX 5") || text.includes("MAX5")) detectedName += " ماكس 5";
-    else if (text.includes("MAX 6") || text.includes("MAX6")) detectedName += " ماكس 6";
     else {
-      // البحث عن أي رقم مكتوب بجوار الشعار (1 إلى 9)
       const numMatch = text.match(/\b([1-9])\b/);
-      if (numMatch) {
-        detectedName += ` ${numMatch[1]}`;
-      }
+      if (numMatch) detectedName += ` ${numMatch[1]}`;
     }
-  } 
-  // فحص قنوات SSC
-  else if (text.includes("SSC")) {
+  } else if (text.includes("SSC")) {
     category = "رياضة";
     detectedName = "إس إس سي";
     const numMatch = text.match(/\b([1-9]|NEWS|EXTRA)\b/);
-    if (numMatch) {
-      detectedName += ` ${numMatch[1]}`;
-    }
-  } 
-  // فحص القنوات الأخرى (أفلام، مسلسلات، أطفال...)
-  else {
+    if (numMatch) detectedName += ` ${numMatch[1]}`;
+  } else {
     if (text.includes("MOVIE") || text.includes("CINEMA") || text.includes("أفلام")) category = "أفلام";
     else if (text.includes("DRAMA") || text.includes("SERIES") || text.includes("مسلسل")) category = "مسلسلات";
     else if (text.includes("KIDS") || text.includes("CN") || text.includes("أطفال")) category = "أطفال";
     else if (text.includes("NEWS") || text.includes("أخبار")) category = "إخبارية";
     
-    detectedName = rawText; // الحفاظ على اسم القناة المكتشف
+    detectedName = rawText;
   }
 
   return { channel_name: detectedName, category: category };
-}
-
-/**
- * تحليل دقيق ومشدد لاسم القناة
- */
-async function analyzeImageStrictly(cropImagePath, fullImagePath) {
-  let rawText = await advancedOCR(cropImagePath);
-  if (!rawText || rawText.length < 2) {
-    rawText = await advancedOCR(fullImagePath);
-  }
-
-  if (!rawText || rawText.length < 2) return null;
-
-  // ترجمة وتدقيق الاسم المكتشف
-  const refined = refineChannelName(rawText);
-  if (!refined || !refined.channel_name) return null;
-
-  // ترجمة للعربية إذا كان اسم القناة نصاً عادياً وليس من القنوات المعروفة المشهورة
-  let finalName = refined.channel_name;
-  if (!finalName.includes("بي إن") && !finalName.includes("إس إس سي")) {
-    try {
-      const res = await createReport(finalName, { to: 'ar' });
-      if (res && res.text) finalName = res.text;
-    } catch (e) {}
-  }
-
-  return {
-    channel_name: finalName,
-    category: refined.category,
-    raw_text: rawText
-  };
 }
 
 /**
@@ -278,10 +239,10 @@ async function isValidStream(url) {
 }
 
 /**
- * عملية الفحص الرئيسية
+ * عملية الفحص الرئيسية بدون تجاوز القنوات الشغالة
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage("🟢 <b>تم تفعيل محرك الفحص الدقيق والتعرف على اسم القناة!</b>");
+  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص التام (يتم التدقيق في القناة حتى استخراج بياناتها كاملة دون تجاهل)!</b>");
 
   for (let i = 0; i < count; i++) {
     try {
@@ -293,49 +254,70 @@ async function startScanning(baseUrl, startNum, count = 100000) {
       const valid = await isValidStream(currentScanningUrl);  
 
       if (valid) {  
-        console.log("✅ شغال! جاري الالتقاط والتحليل البصري التاكتيكي...");  
+        console.log("✅ شغال! جاري التدقيق لاستخراج اسم القناة والدقة بدون تخطي...");  
 
         const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);  
         const cropImgPath = path.join('/tmp', `crop_${currentScanningNum}.jpg`);  
 
-        const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath);  
+        let foundName = null;
+        let foundCategory = "عامة";
+        let rawText = "";
 
-        if (captured) {  
-          // تدقيق وتحليل اسم القناة بدقة شديدة
-          const analysis = await analyzeImageStrictly(cropImgPath, tempImgPath);  
+        // محاولات التدقيق المتكررة بأكثر من طريقة معالجة صور
+        for (let mode = 1; mode <= 3; mode++) {
+          const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath, mode);
+          if (captured) {
+            let extracted = await localOCR(cropImgPath);
+            if (!extracted || extracted.length < 2) {
+              extracted = await localOCR(tempImgPath);
+            }
 
-          // لن يتم الإرسال أو الانتقال حتى يتم التأكد التام من القناة واسمها المكتوب
-          if (!analysis || !analysis.channel_name || analysis.channel_name.length < 2) {
-            console.log("⚠️ تعذر قراءة اسم القناة وتأكيده بدقة -> تم التجاهل والانتقال للتالي.");
-          } else {
-            // استخراج الدقة الحقيقية من النظام عبر ffprobe
-            const res = await getStreamResolution(currentScanningUrl);  
-            const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
-
-            const channelName = analysis.channel_name;  
-            const category = analysis.category;  
-            const rawText = analysis.raw_text;
-
-            console.log(`[+] تم التعرف والتدقيق بنجاح: ${channelName} | الفئة: ${category}`);  
-
-            const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
-
-            let caption = `✅ <b>قناة جديدة مكتشفة ومدققة!</b>\n\n`;  
-            caption += `📺 <b>اسم القناة الرسمي:</b> ${channelName}\n`;  
-            caption += `🔤 <b>النص البصري المكتشف:</b> <code>${rawText}</code>\n`;  
-            caption += `🏷️ <b>الفئة:</b> ${category}\n`;  
-            caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}`;  
-
-            await sendTelegramPhoto(tempImgPath, caption);  
-            await sendTelegramMessage(`<code>${m3uEntry}</code>`);  
+            if (extracted && extracted.length >= 2) {
+              const refined = refineChannelDetails(extracted);
+              if (refined && refined.channel_name) {
+                foundName = refined.channel_name;
+                foundCategory = refined.category;
+                rawText = extracted;
+                break; // تم استخراج الاسم بنجاح، الخروج من حلقة المحاولات
+              }
+            }
           }
+        }
 
-          // تنظيف الصور المؤقتة  
-          try { if (fs.existsSync(tempImgPath)) fs.unlinkSync(tempImgPath); } catch (e) {}  
-          try { if (fs.existsSync(cropImgPath)) fs.unlinkSync(cropImgPath); } catch (e) {}  
-        } else {  
-          console.log("⚠️ تعذر التقاط صورة البث.");  
-        }  
+        // إذا كانت القناة شغالة ولم تظهر نصوص واضحة بعد 3 محاولات تدقيق، يحدد النظام اسمها الاحتياطي دون إهمالها
+        if (!foundName) {
+          foundName = `قناة بث مباشر (${currentScanningNum})`;
+          foundCategory = "عامة";
+        }
+
+        // ترجمة الاسم إلى العربية إذا لم يكن مترجماً
+        if (!foundName.includes("بي إن") && !foundName.includes("إس إس سي") && !foundName.includes("قناة بث")) {
+          try {
+            const res = await createReport(foundName, { to: 'ar' });
+            if (res && res.text) foundName = res.text;
+          } catch (e) {}
+        }
+
+        // استخراج الدقة الحقيقية عبر ffprobe
+        const res = await getStreamResolution(currentScanningUrl);  
+        const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
+
+        console.log(`[+] تم التدقيق وإرسال القناة بنجاح: ${foundName} | ${foundCategory} | الدقة: ${res.qualityStr}`);  
+
+        const m3uEntry = formatM3uEntry(currentScanningUrl, foundName, foundCategory, res.qualityStr);  
+
+        let caption = `✅ <b>قناة جديدة مكتشفة ومحفوطة!</b>\n\n`;  
+        caption += `📺 <b>اسم القناة:</b> ${foundName}\n`;  
+        if (rawText) caption += `🔤 <b>النص المستخرج:</b> <code>${rawText}</code>\n`;  
+        caption += `🏷️ <b>الفئة:</b> ${foundCategory}\n`;  
+        caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}`;  
+
+        await sendTelegramPhoto(tempImgPath, caption);  
+        await sendTelegramMessage(`<code>${m3uEntry}</code>`);  
+
+        // تنظيف الصور المؤقتة  
+        try { if (fs.existsSync(tempImgPath)) fs.unlinkSync(tempImgPath); } catch (e) {}  
+        try { if (fs.existsSync(cropImgPath)) fs.unlinkSync(cropImgPath); } catch (e) {}  
       } else {  
         console.log("❌ غير شغال");  
       }  
