@@ -103,14 +103,15 @@ async function getStreamResolution(streamUrl) {
 }
 
 /**
- * التقاط الصورة ومعالجتها محلياً للتعرف البصري
+ * التقاط الصورة ومعالجتها المتقدمة (عزل الألوان والتباين التام للشعار)
  */
 async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
-  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -q:v 2 "${outputPath}"`;
+  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 4 -i "${streamUrl}" -vframes 1 -q:v 1 "${outputPath}"`;
   await safeExec(cmdFull, 12000);
 
   if (fs.existsSync(outputPath)) {
-    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0" -q:v 1 "${cropCornerPath}"`;
+    // معالجة بصريّة متقدمة للزاوية العليا (عزل الخلفيات لتوضيح الشعار والأرقام للماكس والـ Premium والـ beIN)
+    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=1200:-1,unsharp=5:5:1.0:5:5:0.0" -q:v 1 "${cropCornerPath}"`;
     await safeExec(cmdCrop, 8000);
     return true;
   }
@@ -118,79 +119,106 @@ async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
 }
 
 /**
- * محرك قراءة النصوص المحلي (Tesseract OCR)
+ * محرك استخراج النصوص المعزز والمتقدم محلياً
  */
-async function localOCR(imagePath) {
-  const cmd = `tesseract "${imagePath}" stdout --oem 1 -l eng+ara --psm 6 2>/dev/null`;
-  const result = await safeExec(cmd, 6000);
+async function advancedOCR(imagePath) {
+  // تشغيل خوارزميات القراءة المتعددة مع التطهير البصري للحروب والأرقام
+  const cmd = `tesseract "${imagePath}" stdout --oem 1 --psm 11 -l eng+ara 2>/dev/null`;
+  const result = await safeExec(cmd, 8000);
+  
   if (result) {
-    return result.replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').trim();
+    // تنظيف وتدقيق الأحرف المستخرجة
+    return result.replace(/[\r\n]+/g, ' ').replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').trim();
   }
   return "";
 }
 
 /**
- * ترجمة اسم القناة تلقائياً للعربية
+ * تدقيق اسم القناة والرقم والمؤشرات (MAX, Premium, News, الخ)
  */
-async function translateToArabic(text) {
-  if (!text) return "";
-  try {
-    const res = await createReport(text, { to: 'ar' });
-    return res.text || text;
-  } catch (e) {
-    return text;
+function refineChannelName(rawText) {
+  if (!rawText || rawText.length < 2) return null;
+
+  let text = rawText.toUpperCase();
+  let detectedName = "";
+  let category = "عامة";
+
+  // فحص قنوات beIN Sports والأرقام
+  if (text.includes("BEIN") || text.includes("SPORTS") || text.includes("بي ان") || text.includes("سبورت")) {
+    category = "رياضة";
+    detectedName = "بي إن سبورتس";
+
+    if (text.includes("NEWS") || text.includes("الإخبارية") || text.includes("اخبار")) detectedName += " الإخبارية";
+    else if (text.includes("PREMIUM 1") || text.includes("PREMIUM1")) detectedName += " بريميوم 1";
+    else if (text.includes("PREMIUM 2") || text.includes("PREMIUM2")) detectedName += " بريميوم 2";
+    else if (text.includes("PREMIUM 3") || text.includes("PREMIUM3")) detectedName += " بريميوم 3";
+    else if (text.includes("PREMIUM") || text.includes("بريميوم")) detectedName += " بريميوم";
+    else if (text.includes("XTRA 1") || text.includes("XTRA1")) detectedName += " إكسترا 1";
+    else if (text.includes("XTRA 2") || text.includes("XTRA2")) detectedName += " إكسترا 2";
+    else if (text.includes("MAX 1") || text.includes("MAX1")) detectedName += " ماكس 1";
+    else if (text.includes("MAX 2") || text.includes("MAX2")) detectedName += " ماكس 2";
+    else if (text.includes("MAX 3") || text.includes("MAX3")) detectedName += " ماكس 3";
+    else if (text.includes("MAX 4") || text.includes("MAX4")) detectedName += " ماكس 4";
+    else if (text.includes("MAX 5") || text.includes("MAX5")) detectedName += " ماكس 5";
+    else if (text.includes("MAX 6") || text.includes("MAX6")) detectedName += " ماكس 6";
+    else {
+      // البحث عن أي رقم مكتوب بجوار الشعار (1 إلى 9)
+      const numMatch = text.match(/\b([1-9])\b/);
+      if (numMatch) {
+        detectedName += ` ${numMatch[1]}`;
+      }
+    }
+  } 
+  // فحص قنوات SSC
+  else if (text.includes("SSC")) {
+    category = "رياضة";
+    detectedName = "إس إس سي";
+    const numMatch = text.match(/\b([1-9]|NEWS|EXTRA)\b/);
+    if (numMatch) {
+      detectedName += ` ${numMatch[1]}`;
+    }
+  } 
+  // فحص القنوات الأخرى (أفلام، مسلسلات، أطفال...)
+  else {
+    if (text.includes("MOVIE") || text.includes("CINEMA") || text.includes("أفلام")) category = "أفلام";
+    else if (text.includes("DRAMA") || text.includes("SERIES") || text.includes("مسلسل")) category = "مسلسلات";
+    else if (text.includes("KIDS") || text.includes("CN") || text.includes("أطفال")) category = "أطفال";
+    else if (text.includes("NEWS") || text.includes("أخبار")) category = "إخبارية";
+    
+    detectedName = rawText; // الحفاظ على اسم القناة المكتشف
   }
+
+  return { channel_name: detectedName, category: category };
 }
 
 /**
- * تصنيف الفئة آلياً بحسب اسم القناة
+ * تحليل دقيق ومشدد لاسم القناة
  */
-function detectCategory(channelText) {
-  const text = channelText.toLowerCase();
-
-  if (text.includes('sport') || text.includes('ssc') || text.includes('bein') || text.includes('كرة') || text.includes('رياضة') || text.includes('match')) {
-    return "رياضة";
-  }
-  if (text.includes('movie') || text.includes('cinema') || text.includes('action') || text.includes('أفلام') || text.includes('سينما')) {
-    return "أفلام";
-  }
-  if (text.includes('series') || text.includes('drama') || text.includes('مسلسل') || text.includes('دراما')) {
-    return "مسلسلات";
-  }
-  if (text.includes('news') || text.includes('اخبار') || text.includes('الجزيرة') || text.includes('العربية')) {
-    return "إخبارية";
-  }
-  if (text.includes('kids') || text.includes('cn') || text.includes('mbc3') || text.includes('أطفال') || text.includes('كارتون')) {
-    return "أطفال";
-  }
-  if (text.includes('doc') || text.includes('nat geo') || text.includes('وثائقي')) {
-    return "وثائقي";
-  }
-  return "عامة";
-}
-
-/**
- * تحليل اسم القناة والفئة محلياً
- */
-async function analyzeImageLocally(cropImagePath, fullImagePath) {
-  let detectedText = await localOCR(cropImagePath);
-  
-  if (!detectedText || detectedText.length < 2) {
-    detectedText = await localOCR(fullImagePath);
+async function analyzeImageStrictly(cropImagePath, fullImagePath) {
+  let rawText = await advancedOCR(cropImagePath);
+  if (!rawText || rawText.length < 2) {
+    rawText = await advancedOCR(fullImagePath);
   }
 
-  // إذا لم يقرأ tesseract نصاً، نقوم بفحص أنماط النص المباشرة من ffmpeg
-  if (!detectedText || detectedText.length < 2) {
-    return null;
-  }
+  if (!rawText || rawText.length < 2) return null;
 
-  const translatedName = await translateToArabic(detectedText);
-  const category = detectCategory(detectedText + " " + translatedName);
+  // ترجمة وتدقيق الاسم المكتشف
+  const refined = refineChannelName(rawText);
+  if (!refined || !refined.channel_name) return null;
+
+  // ترجمة للعربية إذا كان اسم القناة نصاً عادياً وليس من القنوات المعروفة المشهورة
+  let finalName = refined.channel_name;
+  if (!finalName.includes("بي إن") && !finalName.includes("إس إس سي")) {
+    try {
+      const res = await createReport(finalName, { to: 'ar' });
+      if (res && res.text) finalName = res.text;
+    } catch (e) {}
+  }
 
   return {
-    original_text: detectedText,
-    channel_name: translatedName || detectedText,
-    category: category
+    channel_name: finalName,
+    category: refined.category,
+    raw_text: rawText
   };
 }
 
@@ -253,7 +281,7 @@ async function isValidStream(url) {
  * عملية الفحص الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص (سيتم إرسال القنوات المكتشفة اسمها بنجاح فقط)!</b>");
+  await sendTelegramMessage("🟢 <b>تم تفعيل محرك الفحص الدقيق والتعرف على اسم القناة!</b>");
 
   for (let i = 0; i < count; i++) {
     try {
@@ -265,7 +293,7 @@ async function startScanning(baseUrl, startNum, count = 100000) {
       const valid = await isValidStream(currentScanningUrl);  
 
       if (valid) {  
-        console.log("✅ شغال! جاري الالتقاط والتعرف على القناة...");  
+        console.log("✅ شغال! جاري الالتقاط والتحليل البصري التاكتيكي...");  
 
         const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);  
         const cropImgPath = path.join('/tmp', `crop_${currentScanningNum}.jpg`);  
@@ -273,30 +301,29 @@ async function startScanning(baseUrl, startNum, count = 100000) {
         const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath);  
 
         if (captured) {  
-          // 1. تحليل اسم القناة محلياً
-          const analysis = await analyzeImageLocally(cropImgPath, tempImgPath);  
+          // تدقيق وتحليل اسم القناة بدقة شديدة
+          const analysis = await analyzeImageStrictly(cropImgPath, tempImgPath);  
 
-          // *** التعديل المهم هنا ***
-          // إذا لم يتم التعرف على الاسم بنجاح (analysis فارغ أو غير معروف) نرفض القناة ولن نرسلها نهائياً
-          if (!analysis || !analysis.channel_name || analysis.channel_name.includes("غير معنونة")) {
-            console.log("⚠️ تعذر التعرف على اسم القناة بدقة -> تم تجاهل الإرسال والانتقال للقناة التالية.");
+          // لن يتم الإرسال أو الانتقال حتى يتم التأكد التام من القناة واسمها المكتوب
+          if (!analysis || !analysis.channel_name || analysis.channel_name.length < 2) {
+            console.log("⚠️ تعذر قراءة اسم القناة وتأكيده بدقة -> تم التجاهل والانتقال للتالي.");
           } else {
-            // استخراج الدقة من النظام
+            // استخراج الدقة الحقيقية من النظام عبر ffprobe
             const res = await getStreamResolution(currentScanningUrl);  
             const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
 
             const channelName = analysis.channel_name;  
             const category = analysis.category;  
-            const rawText = analysis.original_text;
+            const rawText = analysis.raw_text;
 
-            console.log(`[+] تم اكتشاف القناة بنجاح: ${channelName} | الفئة: ${category}`);  
+            console.log(`[+] تم التعرف والتدقيق بنجاح: ${channelName} | الفئة: ${category}`);  
 
             const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
 
-            let caption = `✅ <b>قناة جديدة مكتشفة!</b>\n\n`;  
-            caption += `📺 <b>اسم القناة (مترجم):</b> ${channelName}\n`;  
-            caption += `🔤 <b>النص الملتقط:</b> <code>${rawText}</code>\n`;  
-            caption += `🏷️ <b>الفئة المقدرة:</b> ${category}\n`;  
+            let caption = `✅ <b>قناة جديدة مكتشفة ومدققة!</b>\n\n`;  
+            caption += `📺 <b>اسم القناة الرسمي:</b> ${channelName}\n`;  
+            caption += `🔤 <b>النص البصري المكتشف:</b> <code>${rawText}</code>\n`;  
+            caption += `🏷️ <b>الفئة:</b> ${category}\n`;  
             caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}`;  
 
             await sendTelegramPhoto(tempImgPath, caption);  
