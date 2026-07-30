@@ -8,8 +8,8 @@ import FormData from 'form-data';
 const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
 const TELEGRAM_CHAT_ID = "6491999046";
 
-// مفتاح Anthropic API (ضع مفتاحك الجديد المبتدئ بـ sk-ant- هنا)
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "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";
+// قراءة مفتاح API بأمان من متغيرات البيئة في Railway
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 let currentScanningUrl = "";
 let currentScanningNum = 0;
@@ -120,6 +120,11 @@ async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
  */
 async function analyzeScreenshotWithClaude(fullImagePath, cropImagePath) {
   if (!fs.existsSync(fullImagePath)) return null;
+
+  if (!ANTHROPIC_API_KEY) {
+    console.log("[!] خطأ: مفتاح ANTHROPIC_API_KEY غير معرف في متغيرات البيئة (Variables)!");
+    return null;
+  }
 
   const promptText = `أنت خبير متقدم جداً في تحليل شعارات القنوات التلفزيونية (TV Logo Recognition) وقراءة النصوص الصغيرة (Visual OCR).
 
