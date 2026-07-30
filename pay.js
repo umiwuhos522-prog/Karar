@@ -82,7 +82,7 @@ async function sendTelegramPhoto(imagePath, caption) {
 }
 
 /**
- * استخراج دقة الفيديو الحقيقية من البث عبر ffprobe
+ * استخراج دقة الفيديو الحقيقية من البث عبر النظام (ffprobe)
  */
 async function getStreamResolution(streamUrl) {
   const cmd = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of json "${streamUrl}"`;
@@ -92,25 +92,32 @@ async function getStreamResolution(streamUrl) {
     try {
       const data = JSON.parse(stdout);
       if (data.streams && data.streams.length > 0) {
-        return {
-          width: data.streams[0].width || 1920,
-          height: data.streams[0].height || 1080
-        };
+        const w = data.streams[0].width || 1920;
+        const h = data.streams[0].height || 1080;
+        
+        let qStr = `${h}p HD`;
+        if (h >= 2160) qStr = `${h}p 4K`;
+        else if (h >= 1080) qStr = `${h}p FHD`;
+        else if (h < 720) qStr = `${h}p SD`;
+
+        return { width: w, height: h, qualityStr: qStr };
       }
     } catch (e) {}
   }
-  return { width: 1920, height: 1080 };
+  return { width: 1920, height: 1080, qualityStr: "1080p FHD" };
 }
 
 /**
- * التقاط الصورة الكاملة + أخذ زاوية مكبرة لضمان ألا يخرج الرقم عن الإطار
+ * التقاط الصورة وإعادة تحجيمها لتقليل حجم الـ API Payload
  */
 async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
-  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -q:v 1 "${outputPath}"`;
+  // التقاط الصورة الكاملة مصغرة لعرض 800px لتقليل استهلاك الـ Tokens
+  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -vf "scale=800:-1" -q:v 2 "${outputPath}"`;
   await safeExec(cmdFull, 12000);
 
   if (fs.existsSync(outputPath)) {
-    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=1000:-1" -q:v 1 "${cropCornerPath}"`;
+    // اقتصاص الشعار العلوي مكبر بوضوح
+    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=600:-1" -q:v 2 "${cropCornerPath}"`;
     await safeExec(cmdCrop, 8000);
     return true;
   }
@@ -118,7 +125,7 @@ async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
 }
 
 /**
- * تحليل البث باستخدام Gemini API بدون استعجال
+ * تحليل اسم القناة واللغة والفئة بواسطة Gemini دون تدخل في الدقة
  */
 async function analyzeScreenshotWithGemini(fullImagePath, cropImagePath) {
   if (!fs.existsSync(fullImagePath)) return null;
@@ -128,77 +135,19 @@ async function analyzeScreenshotWithGemini(fullImagePath, cropImagePath) {
     return null;
   }
 
-  const promptText = `أنت خبير متقدم جداً في تحليل شعارات القنوات التلفزيونية (TV Logo Recognition) وقراءة النصوص الصغيرة (Visual OCR).
+  const promptText = `أنت نظام Visual OCR متخصص في قراءة وتعريف قنوات التلفزيون.
+مرفق صورتان للحدث المباشر (كاملة ومقربة للشعار).
 
-سيتم تزويدك بصورة واحدة أو أكثر لنفس البث (صورة كاملة وصورة مقربة).
+المطلوب استخراجه فقط:
+1. اسم القناة الرسمي باللغة العربية مع الرقم الظاهر بجوار الشعار بدقة تامة (مثل: بي إن سبورتس 1, SSC 2). إذا لم يوجد رقم اكتب الاسم فقط بدون تخمين.
+2. الفئة (رياضة | أفلام عربية | أفلام أجنبية | مسلسلات | وثائقي | أطفال | ترفيه | إخبارية | دينية | عامة).
+3. اللغة (العربية | الإنجليزية | الفرنسية | أخرى).
 
-المطلوب:
-
-1. حدد اسم القناة الرسمي كما يظهر على الشاشة.
-2. اقرأ الرقم أو الكلمة المكتوبة بجوار الشعار بدقة تامة.
-3. لا تخمن الرقم إطلاقاً.
-4. إذا لم يكن الرقم واضحاً فاكتب اسم القناة فقط بدون إضافة أي رقم.
-5. إذا كان الشعار يحتوي على كلمات مثل:
-   Premium
-   MAX
-   Xtra
-   News
-   Extra
-   HD
-   4K
-   UHD
-   فقم بإضافتها إذا كانت ظاهرة بوضوح.
-6. لا تعتمد على شكل الشعار فقط، بل اقرأ النص فعلياً.
-7. إذا كانت هناك أكثر من صورة فاعتبرها لنفس القناة واستخرج أفضل نتيجة.
-8. تجاهل نتيجة إذا كانت نسبة الثقة أقل من 95%.
-
-بعد تحديد القناة:
-
-- حدد الفئة:
-  رياضة
-  أفلام عربية
-  أفلام أجنبية
-  مسلسلات
-  وثائقي
-  أطفال
-  ترفيه
-  موسيقى
-  إخبارية
-  دينية
-  تعليمية
-  عامة
-  أخرى
-
-- حدد اللغة الأساسية:
-  العربية
-  الإنجليزية
-  الفرنسية
-  التركية
-  الفارسية
-  الهندية
-  الإسبانية
-  الروسية
-  الصينية
-  اليابانية
-  أخرى
-
-- استخرج الدقة الظاهرة إن كانت مكتوبة داخل الصورة:
-  SD
-  HD
-  FHD
-  UHD
-  4K
-
-إذا لم تكن مكتوبة فاكتب:
-Unknown
-
-أعد JSON فقط بدون أي شرح.
-
+أعد JSON فقط بهذا الهيكل:
 {
   "channel_name": "",
   "category": "",
   "language": "",
-  "quality": "",
   "confidence": 0,
   "reason": ""
 }`;
@@ -225,8 +174,7 @@ Unknown
       });  
     }  
 
-    // جعل الكود ينتظر Gemini بالكامل بدون استعجال
-    console.log("⏳ جاري انتظار Gemini ليحلل الصورة ويكمل البيانات بالكامل...");
+    // استدعاء Gemini والانتظار تلقائياً حتى ينهي التحليل ويرجع النتيجة
     const response = await ai.models.generateContent({  
       model: 'gemini-2.0-flash',  
       contents: contents,  
@@ -243,7 +191,6 @@ Unknown
         channel_name: data.channel_name,  
         category: data.category || "عامة",  
         language: data.language || "العربية",
-        quality: data.quality || "Unknown",
         confidence: data.confidence,
         reason: data.reason || ""
       };  
@@ -254,8 +201,8 @@ Unknown
 
   } catch (e) {
     if (e.message && e.message.includes('429')) {
-      console.log("⚠️ ضغط طلبات متكرر (429)، سيتم الانتظار 15 ثانية لتفريغ الحصة ثم المتابعة...");
-      await new Promise(res => setTimeout(res, 15000));
+      console.log("⚠️ تم تجاوز معدل الطلبات (429)، سيتم الانتظار قليلاً لتفريغ الحصة تلقائياً...");
+      await new Promise(res => setTimeout(res, 8000));
     } else {
       console.log(`[!] خطأ تحليل Gemini: ${e.message}`);
     }
@@ -306,7 +253,7 @@ async function startTelegramBotListener() {
 async function isValidStream(url) {
   try {
     const response = await axios.get(url, {
-      timeout: 4000,
+      timeout: 3500,
       responseType: 'stream',
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36' }
     });
@@ -322,7 +269,7 @@ async function isValidStream(url) {
  * عملية الفحص الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص والتحليل الدقيق الهادئ بـ Gemini!</b>");
+  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص التلقائي والدقيق بـ Gemini والنظام!</b>");
 
   for (let i = 0; i < count; i++) {
     try {
@@ -334,7 +281,7 @@ async function startScanning(baseUrl, startNum, count = 100000) {
       const valid = await isValidStream(currentScanningUrl);  
 
       if (valid) {  
-        console.log("✅ شغال! جاري الالتقاط وإرسال الصور لـ Gemini...");  
+        console.log("✅ شغال! جاري الالتقاط والتحليل الآلي...");  
 
         const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);  
         const cropImgPath = path.join('/tmp', `crop_${currentScanningNum}.jpg`);  
@@ -342,28 +289,28 @@ async function startScanning(baseUrl, startNum, count = 100000) {
         const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath);  
 
         if (captured) {  
+          // 1. استخراج الدقة حقيقياً عبر النظام بعيداً عن Gemini
           const res = await getStreamResolution(currentScanningUrl);  
-          const streamQualityStr = res.height >= 1080 ? `${res.height}p FHD` : `${res.height}p HD`;  
+          const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
 
-          // تحليل الشعار بواسطة Gemini والانتظار حتى يكتمل التفاعل كلياً
+          // 2. تحليل اسم القناة والفئة واللغة تلقائياً بـ Gemini
           const analysis = await analyzeScreenshotWithGemini(tempImgPath, cropImgPath);  
 
           if (analysis) {
             const channelName = analysis.channel_name;  
             const category = analysis.category;  
             const language = analysis.language;  
-            const logoQuality = analysis.quality !== "Unknown" ? analysis.quality : streamQualityStr;
 
-            console.log(`[+] القناة المكتشفة: ${channelName} | ${category} | ${logoQuality} | الثقة: ${analysis.confidence}%`);  
+            console.log(`[+] القناة المكتشفة: ${channelName} | ${category} | الدقة: ${res.qualityStr} | الثقة: ${analysis.confidence}%`);  
 
-            const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, logoQuality);  
+            const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
 
-            let caption = `✅ <b>قناة جديدة مكتشفة بـ Gemini!</b>\n\n`;  
+            let caption = `✅ <b>قناة جديدة مكتشفة!</b>\n\n`;  
             caption += `📺 <b>اسم القناة:</b> ${channelName}\n`;  
             caption += `🏷️ <b>الفئة:</b> ${category}\n`;  
             caption += `🗣️ <b>اللغة:</b> ${language}\n`;  
-            caption += `📐 <b>الدقة المكتشفة:</b> ${logoQuality}\n`;
-            caption += `🎯 <b>نسبة الثقة:</b> ${analysis.confidence}%\n`;
+            caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}\n`;
+            caption += `🎯 <b>نسبة ثقة Gemini:</b> ${analysis.confidence}%\n`;
             if (analysis.reason) caption += `📝 <b>ملاحظة:</b> ${analysis.reason}`;
 
             await sendTelegramPhoto(tempImgPath, caption);  
@@ -378,10 +325,6 @@ async function startScanning(baseUrl, startNum, count = 100000) {
         } else {  
           console.log("⚠️ تعذر التقاط صورة البث.");  
         }  
-
-        // انتظار 12 ثوانٍ كاملة بين كل قناة وأخرى لضمان عدم حدوث Rate Limit وحصول Gemini على راحته
-        console.log("⏳ استراحة 12 ثانية قبل الفحص التالي لضمان استقرار API...");
-        await new Promise(res => setTimeout(res, 12000));  
       } else {  
         console.log("❌ غير شغال");  
       }  
