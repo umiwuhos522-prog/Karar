@@ -3,7 +3,7 @@ import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import FormData from 'form-data';
-import createReport from 'google-translate-api-x'; // للترجمة التلقائية إلى العربية
+import createReport from 'google-translate-api-x';
 
 // ==================== الإعدادات الأساسية ====================
 const TELEGRAM_BOT_TOKEN = "7932535685:AAFNVyAPfmSCmHeptKAA0xc9779l8EethnQ";
@@ -106,13 +106,11 @@ async function getStreamResolution(streamUrl) {
  * التقاط الصورة ومعالجتها محلياً للتعرف البصري
  */
 async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
-  // التقاط الصورة الكاملة
   const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -q:v 2 "${outputPath}"`;
   await safeExec(cmdFull, 12000);
 
   if (fs.existsSync(outputPath)) {
-    // اقتصاص الشعار وزيادة التباين (High Contrast) لقراءة أسهل بواسطة OCR
-    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.45:in_h*0.3:in_w*0.55:0,eq=contrast=1.5:brightness=0.05" -q:v 1 "${cropCornerPath}"`;
+    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0" -q:v 1 "${cropCornerPath}"`;
     await safeExec(cmdCrop, 8000);
     return true;
   }
@@ -123,7 +121,6 @@ async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
  * محرك قراءة النصوص المحلي (Tesseract OCR)
  */
 async function localOCR(imagePath) {
-  // استخدام Tesseract من نظام التشغيل مباشرة
   const cmd = `tesseract "${imagePath}" stdout --oem 1 -l eng+ara --psm 6 2>/dev/null`;
   const result = await safeExec(cmd, 6000);
   if (result) {
@@ -146,7 +143,7 @@ async function translateToArabic(text) {
 }
 
 /**
- * تصنيف الفئة آلياً بحسب الكلمات المفتاحية
+ * تصنيف الفئة آلياً بحسب اسم القناة
  */
 function detectCategory(channelText) {
   const text = channelText.toLowerCase();
@@ -173,7 +170,7 @@ function detectCategory(channelText) {
 }
 
 /**
- * تحليل اسم القناة والفئة محلياً بنسبة 100%
+ * تحليل اسم القناة والفئة محلياً
  */
 async function analyzeImageLocally(cropImagePath, fullImagePath) {
   let detectedText = await localOCR(cropImagePath);
@@ -182,14 +179,12 @@ async function analyzeImageLocally(cropImagePath, fullImagePath) {
     detectedText = await localOCR(fullImagePath);
   }
 
+  // إذا لم يقرأ tesseract نصاً، نقوم بفحص أنماط النص المباشرة من ffmpeg
   if (!detectedText || detectedText.length < 2) {
     return null;
   }
 
-  // 1. ترجمة النص المكتشف إلى العربية
   const translatedName = await translateToArabic(detectedText);
-
-  // 2. تصنيف الفئة آلياً حسب الكلمات المكتشفة
   const category = detectCategory(detectedText + " " + translatedName);
 
   return {
@@ -258,7 +253,7 @@ async function isValidStream(url) {
  * عملية الفحص الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص والتحليل المحلي بالنظام (بدون API)!</b>");
+  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص (سيتم إرسال القنوات المكتشفة اسمها بنجاح فقط)!</b>");
 
   for (let i = 0; i < count; i++) {
     try {
@@ -270,7 +265,7 @@ async function startScanning(baseUrl, startNum, count = 100000) {
       const valid = await isValidStream(currentScanningUrl);  
 
       if (valid) {  
-        console.log("✅ شغال! جاري الالتقاط والتحليل المحلي...");  
+        console.log("✅ شغال! جاري الالتقاط والتعرف على القناة...");  
 
         const tempImgPath = path.join('/tmp', `frame_${currentScanningNum}.jpg`);  
         const cropImgPath = path.join('/tmp', `crop_${currentScanningNum}.jpg`);  
@@ -278,29 +273,35 @@ async function startScanning(baseUrl, startNum, count = 100000) {
         const captured = await captureLiveFrame(currentScanningUrl, tempImgPath, cropImgPath);  
 
         if (captured) {  
-          // 1. استخراج الدقة من النظام عبر ffprobe
-          const res = await getStreamResolution(currentScanningUrl);  
-          const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
-
-          // 2. التحليل المحلي باسم القناة المكتوب + الترجمة + الفئة
+          // 1. تحليل اسم القناة محلياً
           const analysis = await analyzeImageLocally(cropImgPath, tempImgPath);  
 
-          const channelName = analysis ? analysis.channel_name : "قناة غير معنونة";  
-          const category = analysis ? analysis.category : "عامة";  
-          const rawText = analysis ? analysis.original_text : "غير محدد";
+          // *** التعديل المهم هنا ***
+          // إذا لم يتم التعرف على الاسم بنجاح (analysis فارغ أو غير معروف) نرفض القناة ولن نرسلها نهائياً
+          if (!analysis || !analysis.channel_name || analysis.channel_name.includes("غير معنونة")) {
+            console.log("⚠️ تعذر التعرف على اسم القناة بدقة -> تم تجاهل الإرسال والانتقال للقناة التالية.");
+          } else {
+            // استخراج الدقة من النظام
+            const res = await getStreamResolution(currentScanningUrl);  
+            const systemQualityStr = `${res.qualityStr} (${res.width}x${res.height})`;
 
-          console.log(`[+] القناة المكتشفة: ${channelName} | الفئة: ${category} | النص الأصلي: ${rawText}`);  
+            const channelName = analysis.channel_name;  
+            const category = analysis.category;  
+            const rawText = analysis.original_text;
 
-          const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
+            console.log(`[+] تم اكتشاف القناة بنجاح: ${channelName} | الفئة: ${category}`);  
 
-          let caption = `✅ <b>قناة جديدة مكتشفة محلياً!</b>\n\n`;  
-          caption += `📺 <b>اسم القناة (مترجم):</b> ${channelName}\n`;  
-          caption += `🔤 <b>النص الملتقط:</b> <code>${rawText}</code>\n`;  
-          caption += `🏷️ <b>الفئة المقدرة:</b> ${category}\n`;  
-          caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}`;  
+            const m3uEntry = formatM3uEntry(currentScanningUrl, channelName, category, res.qualityStr);  
 
-          await sendTelegramPhoto(tempImgPath, caption);  
-          await sendTelegramMessage(`<code>${m3uEntry}</code>`);  
+            let caption = `✅ <b>قناة جديدة مكتشفة!</b>\n\n`;  
+            caption += `📺 <b>اسم القناة (مترجم):</b> ${channelName}\n`;  
+            caption += `🔤 <b>النص الملتقط:</b> <code>${rawText}</code>\n`;  
+            caption += `🏷️ <b>الفئة المقدرة:</b> ${category}\n`;  
+            caption += `📐 <b>الدقة (من النظام):</b> ${systemQualityStr}`;  
+
+            await sendTelegramPhoto(tempImgPath, caption);  
+            await sendTelegramMessage(`<code>${m3uEntry}</code>`);  
+          }
 
           // تنظيف الصور المؤقتة  
           try { if (fs.existsSync(tempImgPath)) fs.unlinkSync(tempImgPath); } catch (e) {}  
