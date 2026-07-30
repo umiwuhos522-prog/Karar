@@ -105,14 +105,15 @@ async function getStreamResolution(streamUrl) {
 }
 
 /**
- * التقاط الصورة وإعادة تحجيمها
+ * التقاط الصورة وإعادة تحجيمها لتخفيض استهلاك التوكنز
  */
 async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
-  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -vf "scale=800:-1" -q:v 2 "${outputPath}"`;
+  // تصغير الأبعاد لتقليل الـ Tokens
+  const cmdFull = `ffmpeg -y -hide_banner -loglevel error -ss 3 -i "${streamUrl}" -vframes 1 -vf "scale=640:-1" -q:v 3 "${outputPath}"`;
   await safeExec(cmdFull, 12000);
 
   if (fs.existsSync(outputPath)) {
-    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=600:-1" -q:v 2 "${cropCornerPath}"`;
+    const cmdCrop = `ffmpeg -y -hide_banner -loglevel error -i "${outputPath}" -vf "crop=in_w*0.5:in_h*0.35:in_w*0.5:0,scale=500:-1" -q:v 3 "${cropCornerPath}"`;
     await safeExec(cmdCrop, 8000);
     return true;
   }
@@ -120,9 +121,9 @@ async function captureLiveFrame(streamUrl, outputPath, cropCornerPath) {
 }
 
 /**
- * تحليل اسم القناة والفئة واللغة عبر OpenAI API الرسمي
+ * تحليل اسم القناة والفئة واللغة عبر OpenAI API الرسمي مع حماية Rate Limit
  */
-async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath) {
+async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath, retryCount = 0) {
   if (!fs.existsSync(fullImagePath)) return null;
 
   if (!OPENAI_API_KEY) {
@@ -132,9 +133,7 @@ async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath
 
   const promptText = `أنت خبير متقدم جداً في تحليل شعارات القنوات التلفزيونية (TV Logo Recognition) وقراءة النصوص الصغيرة (Visual OCR).
 
-سيتم تزويدك بصورة أو صورتين للبث المباشر (كاملة ومقربة للشعار).
-
-المطلوب استخراجه فقط:
+المطلوب استخراجه من الصورة:
 1. حدد اسم القناة الرسمي باللغة العربية مع الرقم الظاهر بجوار الشعار بدقة تامة (مثال: بي إن سبورتس 1, SSC 2, بي إن سبورتس الإخبارية). إذا لم تجد رقماً مكتوباً اكتب اسم القناة فقط دون تخمين.
 2. حدد الفئة (رياضة | أفلام عربية | أفلام أجنبية | مسلسلات | وثائقي | أطفال | ترفيه | إخبارية | دينية | عامة).
 3. حدد اللغة الأساسية (العربية | الإنجليزية | الفرنسية | أخرى).
@@ -153,25 +152,24 @@ async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath
     
     const messagesContent = [
       { type: "text", text: promptText },
-      { type: "image_url", image_url: { url: `data:image/jpeg;base64,${fullImageBase64}` } }
+      { type: "image_url", image_url: { url: `data:image/jpeg;base64,${fullImageBase64}`, detail: "low" } }
     ];
 
     if (fs.existsSync(cropImagePath)) {
       const cropImageBase64 = fs.readFileSync(cropImagePath).toString('base64');
       messagesContent.push({
         type: "image_url",
-        image_url: { url: `data:image/jpeg;base64,${cropImageBase64}` }
+        image_url: { url: `data:image/jpeg;base64,${cropImageBase64}`, detail: "low" }
       });
     }
 
-    // الطلب المباشر لسيرفرات OpenAI الرسمية
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: messagesContent }],
         response_format: { type: "json_object" },
-        max_tokens: 500
+        max_tokens: 300
       },
       {
         headers: {
@@ -185,7 +183,7 @@ async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath
     let rawText = response.data.choices[0].message.content.trim();
     const data = JSON.parse(rawText);
 
-    if (data.channel_name && data.confidence >= 90) {
+    if (data.channel_name && data.confidence >= 85) {
       return {
         channel_name: data.channel_name,
         category: data.category || "عامة",
@@ -194,11 +192,20 @@ async function analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath
         reason: data.reason || ""
       };
     } else {
-      console.log(`[!] تم تجاهل النتيجة من ChatGPT لتدني الثقة (${data.confidence || 0}%): ${data.reason || 'غير محدد'}`);
+      console.log(`[!] تم تجاهل النتيجة لتدني الثقة (${data.confidence || 0}%): ${data.reason || 'غير محدد'}`);
     }
     return null;
 
   } catch (e) {
+    // معالجة خطأ تجاوز معدل الطلبات (Rate Limit) تلقائياً
+    if (e.response && e.response.data && e.response.data.error && e.response.data.error.code === 'rate_limit_exceeded') {
+      if (retryCount < 3) {
+        console.log("⏳ تجاوز مؤقت لمعدل الطلبات في الدقيقة (TPM)، انتظار 3 ثوانٍ وتكرار المحاولة...");
+        await new Promise(res => setTimeout(res, 3000));
+        return await analyzeScreenshotWithOfficialChatGPT(fullImagePath, cropImagePath, retryCount + 1);
+      }
+    }
+
     if (e.response && e.response.data) {
       console.log(`[!] خطأ OpenAI API الرسمي:`, JSON.stringify(e.response.data));
     } else {
@@ -267,7 +274,7 @@ async function isValidStream(url) {
  * عملية الفحص الرئيسية
  */
 async function startScanning(baseUrl, startNum, count = 100000) {
-  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص والتحليل المباشر باستخدام OpenAI ChatGPT الرسمي (gpt-4o-mini)!</b>");
+  await sendTelegramMessage("🟢 <b>تم تفعيل الفحص المباشر باستخدام OpenAI ChatGPT الرسمي!</b>");
 
   for (let i = 0; i < count; i++) {
     try {
@@ -323,6 +330,9 @@ async function startScanning(baseUrl, startNum, count = 100000) {
         } else {  
           console.log("⚠️ تعذر التقاط صورة البث.");  
         }  
+
+        // إضافة فاصل 2.5 ثانية تجنباً لخطأ التوكنز في الدقيقة
+        await new Promise(res => setTimeout(res, 2500));
       } else {  
         console.log("❌ غير شغال");  
       }  
