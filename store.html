@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>إدارة اشتراكات نتفلكس - Netflix Store</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #e50914;     /* أحمر نتفلكس */
+      --secondary: #f5222d;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+
+      --bg: #080808;          /* أسود غامق */
+      --card: #141414;        /* كرت غامق */
+      --text: #ffffff;
+      --input-bg: #1f1f1f;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Tajawal', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      font-size: 16.5px;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .app-header {
+      background: #141414;
+      color: white;
+      padding: 24px 20px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);
+      border-bottom: 2px solid var(--primary);
+    }
+    .app-header h1 { margin: 0; font-size: 1.8rem; font-weight: 900; color: var(--primary); }
+    .app-header p { margin: 4px 0 0; font-size: 0.95rem; opacity: 0.85; color: #fff; }
+
+    .container { padding: 15px; flex: 1; padding-bottom: 90px; }
+
+    .backup-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .btn-backup {
+      padding: 13px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: #141414;
+      color: white;
+      font-size: 0.95rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-export { border-color: rgba(16,185,129,0.55); color: #34d399; }
+    .btn-import { border-color: rgba(229,9,20,0.55); color: #ffa39e; }
+
+    .stats-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .stat-item {
+      background: var(--card);
+      padding: 14px 6px;
+      border-radius: 12px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .stat-item b { display: block; font-size: 1.2rem; color: #fff; margin-bottom: 4px; font-weight: 900; }
+    .stat-item span { font-size: 0.88rem; color: rgba(255,255,255,0.7); font-weight: 800; }
+
+    .form-card {
+      background: var(--card);
+      padding: 20px;
+      border-radius: 15px;
+      margin-bottom: 18px;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(229,9,20,0.2);
+    }
+    .form-card h2 {
+      font-size: 1.25rem;
+      margin-top: 0;
+      margin-bottom: 15px;
+      color: var(--primary);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 10px;
+      font-weight: 900;
+    }
+
+    .field { margin-bottom: 15px; }
+    label { display: block; font-size: 0.95rem; font-weight: 900; margin-bottom: 7px; color: rgba(255,255,255,0.9); }
+    input, select {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      font-size: 1rem;
+      background: var(--input-bg);
+      color: white;
+      transition: 0.3s;
+    }
+    input:focus, select:focus { border-color: var(--primary); outline: none; }
+
+    .btn-main {
+      width: 100%;
+      padding: 16px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-weight: 900;
+      font-size: 1.15rem;
+      margin-top: 10px;
+      box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
+      cursor: pointer;
+    }
+
+    .customer-card {
+      background: var(--card);
+      border-radius: 15px;
+      padding: 18px;
+      margin-bottom: 15px;
+      position: relative;
+      border-right: 5px solid var(--primary);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      border-left: 1px solid rgba(255,255,255,0.08);
+    }
+    .customer-card.expired { border-right-color: var(--danger); opacity: 0.95; }
+    .customer-card.warning-near { border-right-color: var(--warning); border-right-width: 8px; }
+
+    .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .cust-name { font-weight: 900; font-size: 1.2rem; color: #fff; }
+    .cust-type { font-size: 0.85rem; color: #fff; background: var(--primary); padding: 4px 10px; border-radius: 8px; font-weight: 900; }
+
+    .card-info { font-size: 1.02rem; margin-bottom: 15px; line-height: 1.7; color: rgba(255,255,255,0.88); }
+    .card-info b { color: #fff; }
+
+    .card-actions {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding-top: 15px;
+    }
+
+    .action-btn {
+      border: none;
+      padding: 12px 0;
+      border-radius: 10px;
+      color: white;
+      font-size: 0.9rem;
+      font-weight: 900;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .bg-whatsapp { background: #16a34a; }
+    .bg-messenger { background: #0084ff; }
+    .bg-instagram { background: #e1306c; }
+    .bg-pay { background: var(--success); }
+    .bg-img { background: #e50914; }
+    .bg-del { background: var(--danger); }
+    .bg-edit { background: #2563eb; }
+    .bg-renew { background: #b91c1c; color: #fff; }
+    .bg-warning { background: var(--warning); color: #000; }
+    .bg-reminded { background: #10b981; color: #fff; }
+
+    .countdown-box {
+      background: rgba(229, 9, 20, 0.15);
+      border: 1px dashed var(--primary);
+      padding: 8px;
+      border-radius: 10px;
+      text-align: center;
+      margin-bottom: 12px;
+      font-weight: 900;
+      color: #ff7875;
+    }
+
+    .secret-box {
+      grid-column: span 4;
+      background: #000000;
+      border: 1px solid rgba(229,9,20,0.3);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 5px;
+    }
+    .secret-title { color: var(--primary); font-size: 0.85rem; font-weight: 900; margin-bottom: 5px; }
+
+    .status-tag {
+      font-size: 0.82rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+      margin-right: 5px;
+      font-weight: 900;
+    }
+    .status-paid { background: #064e3b; color: #34d399; }
+    .status-unpaid { background: #7f1d1d; color: #f87171; }
+
+    #hidden-area { position: fixed; left: 0; top: 0; opacity: 0; pointer-events: none; }
+
+    .receipt {
+      width: 650px;
+      background: #000000;
+      color: #ffffff;
+      padding: 45px;
+      text-align: right;
+      border: 4px solid var(--primary);
+      border-radius: 25px;
+    }
+    .receipt h2 {
+      color: var(--primary);
+      text-align: center;
+      margin-bottom: 25px;
+      font-size: 2.5rem;
+      font-weight: 900;
+      border-bottom: 2px solid rgba(255,255,255,0.1);
+      padding-bottom: 15px;
+    }
+    .receipt-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 15px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      padding-bottom: 10px;
+    }
+    .receipt-row span { color: rgba(255,255,255,0.7); font-weight: 900; font-size: 1.3rem; }
+    .receipt-row b { color: #ffffff; font-size: 1.3rem; font-weight: 900; }
+
+    .receipt-footer {
+      text-align: center;
+      margin-top: 30px;
+      padding: 20px;
+      background: rgba(229,9,20,0.05);
+      border-radius: 15px;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 14px;
+    }
+    .modal {
+      width: min(720px, 100%);
+      max-height: 88vh;
+      overflow: auto;
+      background: #141414;
+      border: 1px solid var(--primary);
+      border-radius: 18px;
+      padding: 16px;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .modal-title { font-weight: 900; color: #ffffff; font-size: 1.1rem; }
+    .modal-close { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+    .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 560px) { .modal-grid { grid-template-columns: 1fr; } }
+    
+    .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .btn-secondary { padding: 14px; border-radius: 12px; border: 1px solid #333; background: #000; color: #fff; font-weight: 900; cursor: pointer; }
+    .btn-save { padding: 14px; border-radius: 12px; border: 0; background: var(--primary); color: #fff; font-weight: 900; cursor: pointer; }
+
+    .tabs-bar {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      background: rgba(20,20,20,0.95);
+      backdrop-filter: blur(8px);
+      border-top: 1px solid rgba(255,255,255,0.1);
+      z-index: 999; padding: 10px;
+    }
+    .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-width: 900px; margin: 0 auto; }
+    .tab-btn {
+      position: relative; border: 1px solid rgba(255,255,255,0.1); background: #000;
+      border-radius: 12px; color: rgba(255,255,255,0.7); padding: 8px; cursor: pointer;
+      text-align: center; font-weight: 900; display: flex; flex-direction: column; align-items: center;
+    }
+    .tab-btn.active { border-color: var(--primary); color: #fff; background: rgba(229,9,20,0.2); }
+    .tab-badge { position: absolute; top: -6px; left: 8px; background: #000; border: 1px solid #333; color: #fff; border-radius: 999px; font-size: 0.75rem; padding: 2px 6px; }
+
+    .empty { background: rgba(255,255,255,0.02); border: 1px dashed #333; border-radius: 16px; padding: 20px; color: #888; text-align: center; margin-top: 10px; }
+  </style>
+</head>
+
+<body>
+  <header class="app-header">
+    <h1>NETFLIX STORE 🎬</h1>
+    <p>نظام إدارة اشتراكات الحسابات والبروفايلات</p>
+  </header>
+
+  <div class="container">
+    <div class="backup-controls">
+      <button class="btn-backup btn-export" onclick="exportData()">📥 حفظ نسخة احتياطية</button>
+      <button class="btn-backup btn-import" onclick="document.getElementById('file-input').click()">📤 استعادة نسخة</button>
+      <input type="file" id="file-input" style="display:none" accept=".json" onchange="importData(event)" />
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-item">
+        <b id="stat-count">0</b>
+        <span>إجمالي المشتركين</span>
+      </div>
+      <div class="stat-item">
+        <b id="stat-today-money" style="color:var(--primary)">0</b>
+        <span>دخل اليوم</span>
+      </div>
+      <div class="stat-item">
+        <b id="stat-month-money" style="color:var(--primary)">0</b>
+        <span>ربح الشهر الحرفي</span>
+      </div>
+      <div class="stat-item">
+        <b id="stat-money" style="color:var(--success)">0</b>
+        <span>إجمالي المداخيل</span>
+      </div>
+      <div class="stat-item" style="border-color: var(--danger);">
+        <b id="stat-debt" style="color:var(--danger)">0</b>
+        <span>الديون المطلوبة</span>
+      </div>
+      <div class="stat-item" style="border-color: var(--warning);">
+        <b id="stat-need-reminder" style="color:var(--warning)">0</b>
+        <span>ينتهي قريباً (3 أيام)</span>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <h2>➕ إضافة اشتراك نتفلكس جديد</h2>
+
+      <div class="field">
+        <label>نوع الاشتراك</label>
+        <select id="f-type" onchange="toggleFormType()">
+          <option value="profile">بروفايل خاص</option>
+          <option value="full">حساب كامل (خاص)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>منصة التواصل</label>
+        <select id="f-platform" onchange="togglePlatformInput()">
+          <option value="whatsapp">واتساب 💬</option>
+          <option value="messenger">ماسنجر ⚡</option>
+          <option value="instagram">إنستغرام 📸</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>اسم الزبون</label>
+        <input type="text" id="f-name" placeholder="الاسم الكامل" />
+      </div>
+
+      <div class="field" id="contact-input-box">
+        <label id="platform-label">رقم الواتساب</label>
+        <input type="text" id="f-contact" placeholder="07xxxxxxxxx" />
+      </div>
+
+      <div class="field">
+        <label>البريد الإلكتروني الحساب</label>
+        <input type="email" id="f-email" placeholder="netflix@example.com" style="direction:ltr; text-align:right;" />
+      </div>
+
+      <!-- حقول البروفايل -->
+      <div id="profile-fields-box">
+        <div class="field">
+          <label>اسم البروفايل الخاص بالزبون</label>
+          <input type="text" id="f-profile-name" placeholder="مثال: User 1" />
+        </div>
+
+        <div class="field">
+          <label>كلمة المرور الخاصة بالبروفايل (رمز PIN)</label>
+          <input type="text" id="f-profile-pin" placeholder="مثال: 1234" style="direction:ltr; text-align:right;" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>كلمة مرور الحساب (خاطفة - أنت فقط تراها)</label>
+        <input type="text" id="f-account-pass" placeholder="Password123" style="direction:ltr; text-align:right;" />
+      </div>
+
+      <div class="field">
+        <label>المبلغ (دينار)</label>
+        <input type="number" id="f-price" value="5000" />
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <div class="field" style="flex:1">
+          <label>تاريخ البدء (تلقائي)</label>
+          <input type="date" id="f-start" onchange="updateDate()" />
+        </div>
+        <div class="field" style="flex:1">
+          <label>تاريخ الانتهاء</label>
+          <input type="date" id="f-end" />
+        </div>
+      </div>
+
+      <button class="btn-main" onclick="save()">حفظ بيانات الاشتراك</button>
+    </div>
+
+    <div class="search-area" style="display:flex; gap:8px; margin-bottom:14px;">
+      <input type="text" id="q" placeholder="ابحث باسم الزبون أو الإيميل أو البروفايل..." oninput="render()" style="padding:12px; flex:1" />
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding:0 5px;">
+      <b id="filter-title" style="font-size:1.1rem; color:var(--primary)">كل الاشتراكات</b>
+      <span id="filter-subtitle" style="color:#aaa;">0</span>
+    </div>
+
+    <div id="list"></div>
+  </div>
+
+  <div id="hidden-area">
+    <div id="receipt-box" class="receipt">
+      <h2>NETFLIX STORE</h2>
+      <div id="receipt-data"></div>
+      <div class="receipt-footer">
+        <div style="font-size:1.5rem; color:#fff; font-weight:900; margin-bottom:5px;">شكراً لاختياركم متجرنا 🎬</div>
+        <div style="font-size:1.2rem; color:#aaa;">للتواصل والدعم الفني:</div>
+        <div style="font-size:2rem; color:var(--primary); font-weight:900; direction:ltr;">07782228104</div>
+        <div id="r-date" style="font-size:1rem; color:#666; margin-top:10px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- مودال التعديل -->
+  <div id="edit-overlay" class="modal-overlay" onclick="closeEditIfOutside(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title">✏️ تعديل اشتراك الزبون</div>
+        <button class="modal-close" onclick="closeEdit()">إغلاق</button>
+      </div>
+
+      <div class="modal-grid">
+        <div class="field">
+          <label>نوع الاشتراك</label>
+          <select id="e-type" onchange="toggleEditFormType()">
+            <option value="profile">بروفايل خاص</option>
+            <option value="full">حساب كامل (خاص)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>منصة التواصل</label>
+          <select id="e-platform" onchange="toggleEditPlatformInput()">
+            <option value="whatsapp">واتساب 💬</option>
+            <option value="messenger">ماسنجر ⚡</option>
+            <option value="instagram">إنستغرام 📸</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>اسم الزبون</label>
+          <input type="text" id="e-name" />
+        </div>
+
+        <div class="field">
+          <label id="e-platform-label">معلومات التواصل</label>
+          <input type="text" id="e-contact" />
+        </div>
+
+        <div class="field">
+          <label>البريد الإلكتروني</label>
+          <input type="email" id="e-email" style="direction:ltr; text-align:right;" />
+        </div>
+
+        <div id="e-profile-box" class="field" style="grid-column: span 2; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div>
+            <label>اسم البروفايل</label>
+            <input type="text" id="e-profile-name" />
+          </div>
+          <div>
+            <label>رمز البروفايل PIN</label>
+            <input type="text" id="e-profile-pin" style="direction:ltr; text-align:right;" />
+          </div>
+        </div>
+
+        <div class="field" style="grid-column: span 2;">
+          <label>كلمة مرور الحساب (خاصة بك)</label>
+          <input type="text" id="e-account-pass" style="direction:ltr; text-align:right;" />
+        </div>
+
+        <div class="field">
+          <label>المبلغ (دينار)</label>
+          <input type="number" id="e-price" />
+        </div>
+
+        <div class="field">
+          <label>عدد مرات الاشتراك</label>
+          <input type="number" id="e-renew-count" min="1" />
+        </div>
+
+        <div class="field">
+          <label>تاريخ البدء</label>
+          <input type="date" id="e-start" />
+        </div>
+
+        <div class="field" style="grid-column: span 2;">
+          <label>تاريخ الانتهاء</label>
+          <input type="date" id="e-end" />
+        </div>
+      </div>
+
+      <div style="display:flex; gap:15px; margin-top:10px; background:#000; padding:10px; border-radius:10px;">
+        <label><input type="checkbox" id="e-paid" /> تم الدفع</label>
+        <label><input type="checkbox" id="e-reminded" /> تم التذكير</label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeEdit()">إلغاء</button>
+        <button class="btn-save" onclick="saveEdit()">حفظ التعديلات</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs-bar">
+    <div class="tabs">
+      <button id="tab-all" class="tab-btn active" onclick="setFilter('all')">
+        <span class="tab-badge" id="badge-all">0</span>
+        <span>👥 الكل</span>
+      </button>
+      <button id="tab-unpaid" class="tab-btn" onclick="setFilter('unpaid')">
+        <span class="tab-badge" id="badge-unpaid" style="color:var(--danger)">0</span>
+        <span>💸 لم يدفع بعد</span>
+      </button>
+      <button id="tab-soon" class="tab-btn" onclick="setFilter('soon')">
+        <span class="tab-badge" id="badge-soon" style="color:var(--warning)">0</span>
+        <span>⏳ قريب</span>
+      </button>
+      <button id="tab-expired" class="tab-btn" onclick="setFilter('expired')">
+        <span class="tab-badge" id="badge-expired" style="color:var(--danger)">0</span>
+        <span>⛔ منتهي</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let db = JSON.parse(localStorage.getItem('netflix_store_db')) || [];
+    let currentFilter = 'all';
+    let editingId = null;
+
+    function toggleFormType() {
+      const type = document.getElementById('f-type').value;
+      document.getElementById('profile-fields-box').style.display = (type === 'profile') ? 'block' : 'none';
+      document.getElementById('f-price').value = (type === 'full') ? "10000" : "5000";
+    }
+
+    function togglePlatformInput() {
+      const platform = document.getElementById('f-platform').value;
+      const label = document.getElementById('platform-label');
+      const input = document.getElementById('f-contact');
+
+      if (platform === 'whatsapp') {
+        label.innerText = 'رقم الواتساب';
+        input.placeholder = '07xxxxxxxxx';
+      } else if (platform === 'messenger') {
+        label.innerText = 'معرّف الماسنجر (Username)';
+        input.placeholder = 'مثال: ahmed.alazzawi.794397';
+      } else if (platform === 'instagram') {
+        label.innerText = 'معرف الإنستغرام (Username)';
+        input.placeholder = 'مثال: username';
+      }
+    }
+
+    function toggleEditPlatformInput() {
+      const platform = document.getElementById('e-platform').value;
+      const label = document.getElementById('e-platform-label');
+      const input = document.getElementById('e-contact');
+
+      if (platform === 'whatsapp') {
+        label.innerText = 'رقم الواتساب';
+        input.placeholder = '07xxxxxxxxx';
+      } else if (platform === 'messenger') {
+        label.innerText = 'معرّف الماسنجر (Username)';
+        input.placeholder = 'مثال: ahmed.alazzawi.794397';
+      } else if (platform === 'instagram') {
+        label.innerText = 'معرف الإنستغرام (Username)';
+        input.placeholder = 'مثال: username';
+      }
+    }
+
+    function toggleEditFormType() {
+      const type = document.getElementById('e-type').value;
+      document.getElementById('e-profile-box').style.display = (type === 'profile') ? 'grid' : 'none';
+    }
+
+    function exportData() {
+      if (db.length === 0) return alert("لا توجد بيانات لتصديرها");
+      const dataStr = JSON.stringify(db, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+      const exportFileDefaultName = 'Netflix_Backup_' + new Date().toLocaleDateString() + '.json';
+      let linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const importedDb = JSON.parse(e.target.result);
+          if (Array.isArray(importedDb)) {
+            if (confirm("استبدال البيانات بالحالية؟")) {
+              db = importedDb;
+              localStorage.setItem('netflix_store_db', JSON.stringify(db));
+              render();
+              alert("تمت الاستعادة بنجاح ✅");
+            }
+          } else alert("تنسيق الملف غير صحيح!");
+        } catch (err) { alert("خطأ في قراءة الملف!"); }
+      };
+      reader.readAsText(file);
+    }
+
+    function setInitialDates() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      document.getElementById('f-start').value = `${year}-${month}-${day}`;
+      updateDate();
+    }
+
+    function updateDate() {
+      let startInput = document.getElementById('f-start').value;
+      if (!startInput) return;
+      let start = new Date(startInput);
+      start.setDate(start.getDate() + 30);
+      const year = start.getFullYear();
+      const month = String(start.getMonth() + 1).padStart(2, '0');
+      const day = String(start.getDate()).padStart(2, '0');
+      document.getElementById('f-end').value = `${year}-${month}-${day}`;
+    }
+
+    setInitialDates();
+
+    function normalizeIraqPhone(phone) {
+      phone = (phone || "").replace(/\D/g, '');
+      if (phone.startsWith('964')) phone = '0' + phone.substring(3);
+      else if (phone && !phone.startsWith('0')) phone = '0' + phone;
+      return phone;
+    }
+
+    function cleanUsername(str) {
+      return (str || "").replace('@', '').trim();
+    }
+
+    function calculateTotalDays(startDateStr, endDateStr) {
+      const s = new Date(startDateStr);
+      const e = new Date(endDateStr);
+      const diffTime = Math.abs(e - s);
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    function save() {
+      const type = document.getElementById('f-type').value;
+      const platform = document.getElementById('f-platform').value;
+      const name = document.getElementById('f-name').value.trim();
+      let contact = document.getElementById('f-contact').value.trim();
+      const email = document.getElementById('f-email').value.trim();
+      const profileName = document.getElementById('f-profile-name').value.trim();
+      const profilePin = document.getElementById('f-profile-pin').value.trim();
+      const accountPass = document.getElementById('f-account-pass').value.trim();
+      const price = document.getElementById('f-price').value;
+      const startDate = document.getElementById('f-start').value;
+      const endDate = document.getElementById('f-end').value;
+
+      if (!name || !contact || !email || !endDate) return alert("يرجى ملء جميع البيانات الأساسية!");
+
+      if (platform === 'whatsapp') {
+        contact = normalizeIraqPhone(contact);
+      } else {
+        contact = cleanUsername(contact);
+      }
+
+      const item = {
+        id: crypto.randomUUID(),
+        type, platform, name, contact, email,
+        profileName: type === 'profile' ? profileName : '',
+        profilePin: type === 'profile' ? profilePin : '',
+        accountPass, price,
+        start: startDate, end: endDate,
+        renewCount: 1, // بداية تسجل كأول اشتراك للزبون
+        paid: false, paymentDate: "", reminded: false,
+        createdAt: new Date().toISOString()
+      };
+
+      db.unshift(item);
+      localStorage.setItem('netflix_store_db', JSON.stringify(db));
+
+      document.getElementById('f-name').value = '';
+      document.getElementById('f-contact').value = '';
+      document.getElementById('f-email').value = '';
+      document.getElementById('f-profile-name').value = '';
+      document.getElementById('f-profile-pin').value = '';
+      document.getElementById('f-account-pass').value = '';
+
+      setInitialDates();
+      render();
+    }
+
+    function openEdit(id) {
+      const c = db.find(x => x.id === id);
+      if (!c) return;
+      editingId = id;
+
+      document.getElementById('e-type').value = c.type || 'profile';
+      document.getElementById('e-platform').value = c.platform || 'whatsapp';
+      document.getElementById('e-name').value = c.name || '';
+      document.getElementById('e-contact').value = c.contact || c.phone || '';
+      document.getElementById('e-email').value = c.email || '';
+      document.getElementById('e-profile-name').value = c.profileName || '';
+      document.getElementById('e-profile-pin').value = c.profilePin || '';
+      document.getElementById('e-account-pass').value = c.accountPass || '';
+      document.getElementById('e-price').value = c.price || 0;
+      document.getElementById('e-renew-count').value = c.renewCount || 1;
+      document.getElementById('e-start').value = c.start || '';
+      document.getElementById('e-end').value = c.end || '';
+      document.getElementById('e-paid').checked = !!c.paid;
+      document.getElementById('e-reminded').checked = !!c.reminded;
+
+      toggleEditFormType();
+      toggleEditPlatformInput();
+      document.getElementById('edit-overlay').style.display = 'flex';
+    }
+
+    function closeEdit() { editingId = null; document.getElementById('edit-overlay').style.display = 'none'; }
+    function closeEditIfOutside(e) { if (e.target.id === 'edit-overlay') closeEdit(); }
+
+    function saveEdit() {
+      const i = db.findIndex(x => x.id === editingId);
+      if (i === -1) return;
+
+      const type = document.getElementById('e-type').value;
+      const platform = document.getElementById('e-platform').value;
+      let contact = document.getElementById('e-contact').value.trim();
+
+      if (platform === 'whatsapp') {
+        contact = normalizeIraqPhone(contact);
+      } else {
+        contact = cleanUsername(contact);
+      }
+
+      db[i].type = type;
+      db[i].platform = platform;
+      db[i].name = document.getElementById('e-name').value.trim();
+      db[i].contact = contact;
+      db[i].email = document.getElementById('e-email').value.trim();
+      db[i].profileName = type === 'profile' ? document.getElementById('e-profile-name').value.trim() : '';
+      db[i].profilePin = type === 'profile' ? document.getElementById('e-profile-pin').value.trim() : '';
+      db[i].accountPass = document.getElementById('e-account-pass').value.trim();
+      db[i].price = document.getElementById('e-price').value;
+      db[i].renewCount = parseInt(document.getElementById('e-renew-count').value) || 1;
+      db[i].start = document.getElementById('e-start').value;
+      db[i].end = document.getElementById('e-end').value;
+      db[i].reminded = document.getElementById('e-reminded').checked;
+
+      const wasPaid = db[i].paid;
+      db[i].paid = document.getElementById('e-paid').checked;
+      if (db[i].paid && !wasPaid) db[i].paymentDate = new Date().toISOString();
+
+      localStorage.setItem('netflix_store_db', JSON.stringify(db));
+      closeEdit();
+      render();
+    }
+
+    // ✅ التعديل الرئيسي: زيادتها تلقائياً عند تجديد الاشتراك
+    function renewSubscription(id) {
+      let i = db.findIndex(x => x.id === id);
+      if (i === -1) return;
+
+      if (!confirm("تجديد الاشتراك لمدة 30 يوم من اليوم؟")) return;
+
+      let newStart = new Date();
+      let newEnd = new Date();
+      newEnd.setDate(newEnd.getDate() + 30);
+
+      const fmt = d => d.toISOString().split('T')[0];
+      db[i].start = fmt(newStart);
+      db[i].end = fmt(newEnd);
+      db[i].paid = true;
+      db[i].paymentDate = new Date().toISOString();
+      db[i].reminded = false;
+
+      // زيادة عدد مرّات الاشتراك تلقائياً
+      db[i].renewCount = (db[i].renewCount || 1) + 1;
+
+      localStorage.setItem('netflix_store_db', JSON.stringify(db));
+      render();
+      alert(`تم تجديد الاشتراك بنجاح 🔄 (هذه المرة رقم ${db[i].renewCount} للزبون)`);
+    }
+
+    function togglePay(id) {
+      let i = db.findIndex(x => x.id === id);
+      if (i === -1) return;
+      db[i].paid = !db[i].paid;
+      db[i].paymentDate = db[i].paid ? new Date().toISOString() : "";
+      localStorage.setItem('netflix_store_db', JSON.stringify(db));
+      render();
+    }
+
+    function del(id) {
+      if (confirm("حذف هذا المشترك نهائياً؟")) {
+        db = db.filter(x => x.id !== id);
+        localStorage.setItem('netflix_store_db', JSON.stringify(db));
+        render();
+      }
+    }
+
+    function contactUser(id) {
+      let c = db.find(x => x.id === id);
+      if (!c) return;
+
+      const platform = c.platform || 'whatsapp';
+      const contactVal = c.contact || c.phone || '';
+
+      if (platform === 'whatsapp') {
+        let p = contactVal.replace(/\D/g, '');
+        if (p.startsWith('0')) p = '964' + p.substring(1);
+        window.location.href = `whatsapp://send?phone=${p}`;
+      } else if (platform === 'instagram') {
+        let cleanUser = cleanUsername(contactVal);
+        window.open(`https://ig.me/m/${cleanUser}`, '_blank');
+      } else if (platform === 'messenger') {
+        let cleanUser = cleanUsername(contactVal);
+        window.open(`https://m.me/${cleanUser}`, '_blank');
+      }
+    }
+
+    function sendReminder(id, daysLeft) {
+      let i = db.findIndex(x => x.id === id);
+      if (i === -1) return;
+      let c = db[i];
+
+      const platform = c.platform || 'whatsapp';
+      const contactVal = c.contact || c.phone || '';
+
+      const reminderMessage = `السلام عليكم عزيزي ${c.name} 🎬\n` +
+        `تذكير: باقي ${daysLeft > 0 ? daysLeft : 0} يوم على انتهاء اشتراكك في Netflix بتاريخ (${c.end}).\n` +
+        `إذا تحب تجدد اشتراكك وياك يرجى مراسلتنا والتأكيد. شكراً لاختيارك متجرنا ✨`;
+
+      db[i].reminded = true;
+      localStorage.setItem('netflix_store_db', JSON.stringify(db));
+      render();
+
+      if (platform === 'whatsapp') {
+        let p = contactVal.replace(/\D/g, '');
+        if (p.startsWith('0')) p = '964' + p.substring(1);
+        window.open(`https://api.whatsapp.com/send?phone=${p}&text=${encodeURIComponent(reminderMessage)}`, '_blank');
+      } else if (platform === 'instagram') {
+        let cleanUser = cleanUsername(contactVal);
+        navigator.clipboard.writeText(reminderMessage).then(() => {
+          alert("تم نسخ نص التذكير تلقائياً! جاري تحويلك لمحادثة الإنستغرام للصق الرسالة.");
+          window.open(`https://ig.me/m/${cleanUser}`, '_blank');
+        });
+      } else if (platform === 'messenger') {
+        let cleanUser = cleanUsername(contactVal);
+        navigator.clipboard.writeText(reminderMessage).then(() => {
+          alert("تم نسخ نص التذكير تلقائياً! جاري تحويلك لمحادثة الماسنجر للصق الرسالة.");
+          window.open(`https://m.me/${cleanUser}`, '_blank');
+        });
+      }
+    }
+
+    function snap(id) {
+      let c = db.find(x => x.id === id);
+      if (!c) return;
+      document.getElementById('r-date').innerText = "تاريخ الإيصال: " + new Date().toLocaleDateString('ar-EG');
+
+      const totalDays = calculateTotalDays(c.start, c.end);
+
+      let profileDetailsHtml = c.type === 'profile' ? `
+        <div class="receipt-row"><span>👤 البروفايل:</span> <b>${c.profileName}</b></div>
+        <div class="receipt-row"><span>🔑 رمز PIN:</span> <b>${c.profilePin}</b></div>
+      ` : `
+        <div class="receipt-row"><span>🔑 كلمة مرور الحساب:</span> <b>${c.accountPass}</b></div>
+      `;
+
+      let platformTitle = "واتساب";
+      if(c.platform === 'instagram') platformTitle = "إنستغرام";
+      if(c.platform === 'messenger') platformTitle = "ماسنجر";
+
+      document.getElementById('receipt-data').innerHTML = `
+        <div class="receipt-row"><span>👤 الزبون:</span> <b>${c.name}</b></div>
+        <div class="receipt-row"><span>💬 المنصة:</span> <b>${platformTitle} (${c.contact || c.phone})</b></div>
+        <div class="receipt-row"><span>🎬 نوع الاشتراك:</span> <b>${c.type === 'profile' ? 'بروفايل خاص' : 'حساب كامل خاص'}</b></div>
+        <div class="receipt-row"><span>📧 البريد:</span> <b>${c.email}</b></div>
+        ${profileDetailsHtml}
+        <div class="receipt-row"><span>⏳ مدة الاشتراك:</span> <b>${totalDays} يوم</b></div>
+        <div class="receipt-row"><span>📅 الانتهاء:</span> <b>${c.end}</b></div>
+        <div class="receipt-row"><span>💰 المبلغ:</span> <b style="color:var(--primary);">${parseInt(c.price).toLocaleString()} د.ع</b></div>
+        <div class="receipt-row"><span>💳 حالة الدفع:</span> <b style="color:${c.paid ? '#10b981' : '#ef4444'};">${c.paid ? 'تم الدفع ✅' : 'لم يدفع بعد ⏳'}</b></div>
+      `;
+
+      html2canvas(document.getElementById('receipt-box'), { backgroundColor: '#000' }).then(canvas => {
+        let a = document.createElement('a');
+        a.download = `Netflix-${c.name}.png`;
+        a.href = canvas.toDataURL();
+        a.click();
+      });
+    }
+
+    // ✅ التعديل: إظهار عدد مرات الاشتراك بالكرت
+    function buildCard(c, flags) {
+      const { isExpired, isSoon, daysLeft } = flags;
+      const totalDays = calculateTotalDays(c.start, c.end);
+      const renewCount = c.renewCount || 1;
+
+      let countdownText = isExpired ? 
+        `<div class="countdown-box" style="color:var(--danger); border-color:var(--danger);">⛔ الاشتراك انتهى منذ ${Math.abs(daysLeft)} يوم</div>` :
+        `<div class="countdown-box">⏳ متبقي على انتهاء الاشتراك: ${daysLeft} يوم (من أصل ${totalDays} يوم)</div>`;
+
+      let reminderBtnHtml = '';
+      if (isSoon || isExpired) {
+        if (c.reminded) {
+          reminderBtnHtml = `<div class="action-btn bg-reminded" style="grid-column: span 4;">تم إرسال التذكير ✅</div>`;
+        } else {
+          reminderBtnHtml = `<div class="action-btn bg-warning" style="grid-column: span 4;" onclick="sendReminder('${c.id}', ${daysLeft})">إرسال تذكير ينتهي خلال (${daysLeft >= 0 ? daysLeft : 0} يوم) 💬</div>`;
+        }
+      }
+
+      let secretAccountHtml = `
+        <div class="secret-box">
+          <div class="secret-title">🔒 كلمة مرور الحساب (خاطفة سرية لك):</div>
+          <div style="font-family:monospace; direction:ltr; text-align:right; font-weight:900; color:#fff;">${c.accountPass || 'غير مضافة'}</div>
+        </div>
+      `;
+
+      let profileHtml = '';
+      if (c.type === 'profile') {
+        profileHtml = `
+          <div>👤 البروفايل: <b>${c.profileName || 'عام'}</b></div>
+          <div>🔑 رمز البروفايل (PIN): <b>${c.profilePin || 'بدون رمز'}</b></div>
+        `;
+      }
+
+      const platform = c.platform || 'whatsapp';
+      const contactVal = c.contact || c.phone || 'غير مضاف';
+
+      let platformDisplay = '';
+      let actionBtnClass = 'bg-whatsapp';
+      let actionBtnText = 'تواصل مباشر 💬';
+
+      if (platform === 'whatsapp') {
+        platformDisplay = `💬 الواتساب: <b>${contactVal}</b>`;
+        actionBtnClass = 'bg-whatsapp';
+        actionBtnText = 'تواصل مباشر 💬';
+      } else if (platform === 'instagram') {
+        platformDisplay = `📸 إنستغرام: <b>@${contactVal.replace('@','')}</b>`;
+        actionBtnClass = 'bg-instagram';
+        actionBtnText = 'رسائل إنستغرام 📸';
+      } else if (platform === 'messenger') {
+        platformDisplay = `⚡ ماسنجر: <b>@${contactVal.replace('@','')}</b>`;
+        actionBtnClass = 'bg-messenger';
+        actionBtnText = 'رسائل ماسنجر ⚡';
+      }
+
+      const card = document.createElement('div');
+      card.className = `customer-card ${isExpired ? 'expired' : ''} ${isSoon ? 'warning-near' : ''}`;
+
+      card.innerHTML = `
+        <div class="card-top">
+          <div class="cust-name">${c.name}</div>
+          <div class="cust-type">${c.type === 'profile' ? 'بروفايل خاص' : 'حساب كامل خاص'}</div>
+        </div>
+        ${countdownText}
+        <div class="card-info">
+          <div>📧 الإيميل: <b>${c.email}</b></div>
+          ${profileHtml}
+          <div>${platformDisplay}</div>
+          <div>🔄 عدد مرات الاشتراك: <b style="color:var(--warning);">${renewCount} مرّة/مرّات</b></div>
+          <div>⏳ المدة التراكمية: <b>${totalDays} يوم</b></div>
+          <div>📅 النهاية: <b>${c.end}</b></div>
+          <div>💰 المبلغ: ${parseInt(c.price).toLocaleString()} د.ع 
+            <span class="status-tag ${c.paid ? 'status-paid' : 'status-unpaid'}">${c.paid ? 'تم الدفع ✅' : 'لم يدفع بعد ⏳'}</span>
+          </div>
+        </div>
+        
+        <div class="card-actions">
+          ${secretAccountHtml}
+          ${reminderBtnHtml}
+          <div class="action-btn bg-renew" style="grid-column: span 4;" onclick="renewSubscription('${c.id}')">تجديد الاشتراك (30 يوم) 🔄</div>
+          <div class="action-btn bg-edit" onclick="openEdit('${c.id}')">تعديل ✏️</div>
+          <div class="action-btn bg-pay" onclick="togglePay('${c.id}')">${c.paid ? 'إلغاء الدفع' : 'تأكيد الدفع'}</div>
+          <div class="action-btn ${actionBtnClass}" onclick="contactUser('${c.id}')">${actionBtnText}</div>
+          <div class="action-btn bg-img" onclick="snap('${c.id}')">صورة 📸</div>
+          <div class="action-btn bg-del" style="grid-column: span 4;" onclick="del('${c.id}')">حذف 🗑️</div>
+        </div>
+      `;
+      return card;
+    }
+
+    function computeFlags(c, todayStart) {
+      const endDate = new Date(c.end);
+      endDate.setHours(0,0,0,0);
+      const diffDays = Math.round((endDate.getTime() - todayStart.getTime()) / (1000 * 3600 * 24));
+      return { isExpired: diffDays < 0, isSoon: diffDays >= 0 && diffDays <= 3, daysLeft: diffDays };
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      ['all','unpaid','soon','expired'].forEach(t => {
+        document.getElementById('tab-' + t).classList.toggle('active', t === filter);
+      });
+      render();
+    }
+
+    function render() {
+      const q = (document.getElementById('q').value || "").toLowerCase();
+      const list = document.getElementById('list');
+      list.innerHTML = '';
+
+      let totalMoney = 0, todayMoney = 0, monthMoney = 0, totalDebt = 0;
+      let expiredCount = 0, soonCount = 0, unpaidCount = 0;
+
+      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      const todayStr = todayStart.toISOString().split('T')[0];
+      const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+
+      db.forEach(c => {
+        const price = parseInt(c.price) || 0;
+        if (c.paid) {
+          totalMoney += price;
+          if (c.paymentDate) {
+            const payDate = new Date(c.paymentDate);
+            if (c.paymentDate.split('T')[0] === todayStr) todayMoney += price;
+            if (payDate >= monthStart) monthMoney += price;
+          }
+        } else {
+          totalDebt += price; unpaidCount++;
+        }
+
+        const flags = computeFlags(c, todayStart);
+        if (flags.isExpired) expiredCount++;
+        if (flags.isSoon) soonCount++;
+      });
+
+      document.getElementById('badge-all').innerText = db.length;
+      document.getElementById('badge-unpaid').innerText = unpaidCount;
+      document.getElementById('badge-soon').innerText = soonCount;
+      document.getElementById('badge-expired').innerText = expiredCount;
+
+      document.getElementById('stat-count').innerText = db.length;
+      document.getElementById('stat-money').innerText = totalMoney.toLocaleString() + " د.ع";
+      document.getElementById('stat-today-money').innerText = todayMoney.toLocaleString() + " د.ع";
+      document.getElementById('stat-month-money').innerText = monthMoney.toLocaleString() + " د.ع";
+      document.getElementById('stat-debt').innerText = totalDebt.toLocaleString() + " د.ع";
+      document.getElementById('stat-need-reminder').innerText = soonCount;
+
+      let shown = 0;
+      db.forEach(c => {
+        const flags = computeFlags(c, todayStart);
+        const match = (c.name || "").toLowerCase().includes(q) ||
+                      (c.email || "").toLowerCase().includes(q) ||
+                      (c.contact || c.phone || "").toLowerCase().includes(q) ||
+                      (c.profileName || "").toLowerCase().includes(q);
+        if (!match) return;
+
+        let pass = true;
+        if (currentFilter === 'unpaid') pass = !c.paid;
+        else if (currentFilter === 'soon') pass = flags.isSoon;
+        else if (currentFilter === 'expired') pass = flags.isExpired;
+        if (!pass) return;
+
+        list.appendChild(buildCard(c, flags));
+        shown++;
+      });
+
+      document.getElementById('filter-subtitle').innerText = `${shown} نتيجة`;
+      if (shown === 0) {
+        list.innerHTML = `<div class="empty">لا توجد نتائج هنا</div>`;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>
