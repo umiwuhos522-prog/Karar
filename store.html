@@ -339,18 +339,22 @@
         <span>دخل اليوم</span>
       </div>
       <div class="stat-item">
+        <b id="stat-week-money" style="color:#38bdf8">0</b>
+        <span>دخل الأسبوع (7 أيام)</span>
+      </div>
+      <div class="stat-item">
         <b id="stat-month-money" style="color:var(--primary)">0</b>
         <span>ربح الشهر الحرفي</span>
       </div>
       <div class="stat-item">
         <b id="stat-money" style="color:var(--success)">0</b>
-        <span>إجمالي المداخيل</span>
+        <span>إجمالي المداخيل المسددة</span>
       </div>
       <div class="stat-item" style="border-color: var(--danger);">
         <b id="stat-debt" style="color:var(--danger)">0</b>
         <span>الديون المطلوبة</span>
       </div>
-      <div class="stat-item" style="border-color: var(--warning);">
+      <div class="stat-item" style="border-color: var(--warning); grid-column: span 2;">
         <b id="stat-need-reminder" style="color:var(--warning)">0</b>
         <span>ينتهي قريباً (3 أيام)</span>
       </div>
@@ -713,7 +717,7 @@
         profilePin: type === 'profile' ? profilePin : '',
         accountPass, price,
         start: startDate, end: endDate,
-        renewCount: 1, // بداية تسجل كأول اشتراك للزبون
+        renewCount: 1,
         paid: false, paymentDate: "", reminded: false,
         createdAt: new Date().toISOString()
       };
@@ -791,13 +795,13 @@
       const wasPaid = db[i].paid;
       db[i].paid = document.getElementById('e-paid').checked;
       if (db[i].paid && !wasPaid) db[i].paymentDate = new Date().toISOString();
+      if (!db[i].paid) db[i].paymentDate = "";
 
       localStorage.setItem('netflix_store_db', JSON.stringify(db));
       closeEdit();
       render();
     }
 
-    // ✅ التعديل الرئيسي: زيادتها تلقائياً عند تجديد الاشتراك
     function renewSubscription(id) {
       let i = db.findIndex(x => x.id === id);
       if (i === -1) return;
@@ -814,8 +818,6 @@
       db[i].paid = true;
       db[i].paymentDate = new Date().toISOString();
       db[i].reminded = false;
-
-      // زيادة عدد مرّات الاشتراك تلقائياً
       db[i].renewCount = (db[i].renewCount || 1) + 1;
 
       localStorage.setItem('netflix_store_db', JSON.stringify(db));
@@ -933,7 +935,6 @@
       });
     }
 
-    // ✅ التعديل: إظهار عدد مرات الاشتراك بالكرت
     function buildCard(c, flags) {
       const { isExpired, isSoon, daysLeft } = flags;
       const totalDays = calculateTotalDays(c.start, c.end);
@@ -1043,24 +1044,46 @@
       const list = document.getElementById('list');
       list.innerHTML = '';
 
-      let totalMoney = 0, todayMoney = 0, monthMoney = 0, totalDebt = 0;
+      let totalMoney = 0, todayMoney = 0, weekMoney = 0, monthMoney = 0, totalDebt = 0;
       let expiredCount = 0, soonCount = 0, unpaidCount = 0;
 
-      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-      const todayStr = todayStart.toISOString().split('T')[0];
-      const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      const sevenDaysAgo = new Date(todayStart);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
 
       db.forEach(c => {
         const price = parseInt(c.price) || 0;
-        if (c.paid) {
+        
+        // الديون تحسب فقط للاشتراكات غير المدفوعة
+        if (!c.paid) {
+          totalDebt += price; 
+          unpaidCount++;
+        } else {
+          // الحسابات المالية تعتمد حصرياً على عمليات الدفع المؤكدة
           totalMoney += price;
+          
           if (c.paymentDate) {
             const payDate = new Date(c.paymentDate);
-            if (c.paymentDate.split('T')[0] === todayStr) todayMoney += price;
-            if (payDate >= monthStart) monthMoney += price;
+            const payDayStart = new Date(payDate.getFullYear(), payDate.getMonth(), payDate.getDate());
+
+            // دخل اليوم
+            if (payDayStart.getTime() === todayStart.getTime()) {
+              todayMoney += price;
+            }
+
+            // دخل الأسبوع (آخر 7 أيام)
+            if (payDayStart >= sevenDaysAgo && payDayStart <= todayStart) {
+              weekMoney += price;
+            }
+
+            // ربح الشهر الحرفي
+            if (payDate >= monthStart) {
+              monthMoney += price;
+            }
           }
-        } else {
-          totalDebt += price; unpaidCount++;
         }
 
         const flags = computeFlags(c, todayStart);
@@ -1076,6 +1099,7 @@
       document.getElementById('stat-count').innerText = db.length;
       document.getElementById('stat-money').innerText = totalMoney.toLocaleString() + " د.ع";
       document.getElementById('stat-today-money').innerText = todayMoney.toLocaleString() + " د.ع";
+      document.getElementById('stat-week-money').innerText = weekMoney.toLocaleString() + " د.ع";
       document.getElementById('stat-month-money').innerText = monthMoney.toLocaleString() + " د.ع";
       document.getElementById('stat-debt').innerText = totalDebt.toLocaleString() + " د.ع";
       document.getElementById('stat-need-reminder').innerText = soonCount;
