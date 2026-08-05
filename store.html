@@ -330,6 +330,21 @@
     </div>
 
     <div class="stats-bar">
+      <!-- إحصائيات حركة الزبون الجدد -->
+      <div class="stat-item" style="border-color: #a855f7;">
+        <b id="stat-new-today" style="color:#c084fc">0</b>
+        <span>زبائن جدد (اليوم)</span>
+      </div>
+      <div class="stat-item" style="border-color: #a855f7;">
+        <b id="stat-new-week" style="color:#c084fc">0</b>
+        <span>زبائن جدد (الأسبوع)</span>
+      </div>
+      <div class="stat-item" style="border-color: #a855f7; grid-column: span 2;">
+        <b id="stat-new-month" style="color:#c084fc">0</b>
+        <span>زبائن جدد (الشهر الحالي)</span>
+      </div>
+
+      <!-- إحصائيات الإجماليات والمالية -->
       <div class="stat-item">
         <b id="stat-count">0</b>
         <span>إجمالي المشتركين</span>
@@ -1045,6 +1060,7 @@
       list.innerHTML = '';
 
       let totalMoney = 0, todayMoney = 0, weekMoney = 0, monthMoney = 0, totalDebt = 0;
+      let newToday = 0, newWeek = 0, newMonth = 0;
       let expiredCount = 0, soonCount = 0, unpaidCount = 0;
 
       const now = new Date();
@@ -1057,7 +1073,26 @@
       db.forEach(c => {
         const price = parseInt(c.price) || 0;
         
-        // الديون تحسب فقط للاشتراكات غير المدفوعة
+        // 1. حساب المشتركين الجدد (حسب تاريخ الإضافة createdAt)
+        if (c.createdAt) {
+          const createDate = new Date(c.createdAt);
+          const createDayStart = new Date(createDate.getFullYear(), createDate.getMonth(), createDate.getDate());
+
+          // اليوم
+          if (createDayStart.getTime() === todayStart.getTime()) {
+            newToday++;
+          }
+          // الأسبوع (آخر 7 أيام)
+          if (createDayStart >= sevenDaysAgo && createDayStart <= todayStart) {
+            newWeek++;
+          }
+          // الشهر الحرفي الحالي
+          if (createDate >= monthStart) {
+            newMonth++;
+          }
+        }
+
+        // 2. الديون تحسب فقط للاشتراكات غير المدفوعة
         if (!c.paid) {
           totalDebt += price; 
           unpaidCount++;
@@ -1096,6 +1131,12 @@
       document.getElementById('badge-soon').innerText = soonCount;
       document.getElementById('badge-expired').innerText = expiredCount;
 
+      // تحديث عدادات المشتركين الجدد
+      document.getElementById('stat-new-today').innerText = newToday;
+      document.getElementById('stat-new-week').innerText = newWeek;
+      document.getElementById('stat-new-month').innerText = newMonth;
+
+      // تحديث العدادات المالية العامة
       document.getElementById('stat-count').innerText = db.length;
       document.getElementById('stat-money').innerText = totalMoney.toLocaleString() + " د.ع";
       document.getElementById('stat-today-money').innerText = todayMoney.toLocaleString() + " د.ع";
