@@ -867,8 +867,8 @@
       if (platform === 'whatsapp') {
         let p = contactVal.replace(/\D/g, '');
         if (p.startsWith('0')) p = '964' + p.substring(1);
-        // التوجيه المباشر لواتساب الأعمال
-        window.open(`https://api.whatsapp.com/send?phone=${p}`, '_blank');
+        // التوجيه المباشر لواتساب الأعمال حصراً عبر URL Scheme
+        window.open(`whatsapp://send?phone=${p}`, '_blank');
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
         window.open(`https://ig.me/m/${cleanUser}`, '_blank');
@@ -897,8 +897,8 @@
       if (platform === 'whatsapp') {
         let p = contactVal.replace(/\D/g, '');
         if (p.startsWith('0')) p = '964' + p.substring(1);
-        // التوجيه المباشر لواتساب الأعمال مع الرسالة
-        window.open(`https://api.whatsapp.com/send?phone=${p}&text=${encodeURIComponent(reminderMessage)}`, '_blank');
+        // التوجيه المباشر لواتساب الأعمال مع الرسالة عبر URL Scheme
+        window.open(`whatsapp://send?phone=${p}&text=${encodeURIComponent(reminderMessage)}`, '_blank');
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
         navigator.clipboard.writeText(reminderMessage).then(() => {
