@@ -330,7 +330,7 @@
     </div>
 
     <div class="stats-bar">
-      <!-- إحصائيات حركة الزبون الجدد -->
+      <!-- إحصائيات حركة الزبائن الجدد -->
       <div class="stat-item" style="border-color: #a855f7;">
         <b id="stat-new-today" style="color:#c084fc">0</b>
         <span>زبائن جدد (اليوم)</span>
@@ -867,7 +867,8 @@
       if (platform === 'whatsapp') {
         let p = contactVal.replace(/\D/g, '');
         if (p.startsWith('0')) p = '964' + p.substring(1);
-        window.location.href = `whatsapp://send?phone=${p}`;
+        // التوجيه المباشر لواتساب الأعمال
+        window.open(`https://api.whatsapp.com/send?phone=${p}`, '_blank');
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
         window.open(`https://ig.me/m/${cleanUser}`, '_blank');
@@ -896,6 +897,7 @@
       if (platform === 'whatsapp') {
         let p = contactVal.replace(/\D/g, '');
         if (p.startsWith('0')) p = '964' + p.substring(1);
+        // التوجيه المباشر لواتساب الأعمال مع الرسالة
         window.open(`https://api.whatsapp.com/send?phone=${p}&text=${encodeURIComponent(reminderMessage)}`, '_blank');
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
