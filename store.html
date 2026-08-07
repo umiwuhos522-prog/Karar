@@ -181,6 +181,7 @@
     }
 
     .bg-whatsapp-biz { background: #075e54; }
+    .bg-whatsapp-reg { background: #25D366; color: #000; }
     .bg-messenger { background: #0084ff; }
     .bg-instagram { background: #e1306c; }
     .bg-pay { background: var(--success); }
@@ -390,6 +391,7 @@
         <label>منصة التواصل</label>
         <select id="f-platform" onchange="togglePlatformInput()">
           <option value="whatsapp_biz">واتساب الأعمال 💼</option>
+          <option value="whatsapp_reg">واتساب العادي 💬</option>
           <option value="messenger">ماسنجر ⚡</option>
           <option value="instagram">إنستغرام 📸</option>
         </select>
@@ -402,7 +404,7 @@
 
       <div class="field" id="contact-input-box">
         <label id="platform-label">رقم الواتساب أو المعرّف</label>
-        <input type="text" id="f-contact" placeholder="07xxxxxxxxx أو username@" />
+        <input type="text" id="f-contact" placeholder="07xxxxxxxxx أو Musti7@" />
       </div>
 
       <div class="field">
@@ -493,6 +495,7 @@
           <label>منصة التواصل</label>
           <select id="e-platform" onchange="toggleEditPlatformInput()">
             <option value="whatsapp_biz">واتساب الأعمال 💼</option>
+            <option value="whatsapp_reg">واتساب العادي 💬</option>
             <option value="messenger">ماسنجر ⚡</option>
             <option value="instagram">إنستغرام 📸</option>
           </select>
@@ -599,7 +602,7 @@
       const label = document.getElementById('platform-label');
       const input = document.getElementById('f-contact');
 
-      if (platform === 'whatsapp_biz') {
+      if (platform === 'whatsapp_biz' || platform === 'whatsapp_reg') {
         label.innerText = 'رقم الواتساب أو المعرّف';
         input.placeholder = '07xxxxxxxxx أو username@';
       } else if (platform === 'messenger') {
@@ -616,7 +619,7 @@
       const label = document.getElementById('e-platform-label');
       const input = document.getElementById('e-contact');
 
-      if (platform === 'whatsapp_biz') {
+      if (platform === 'whatsapp_biz' || platform === 'whatsapp_reg') {
         label.innerText = 'رقم الواتساب أو المعرّف';
         input.placeholder = '07xxxxxxxxx أو username@';
       } else if (platform === 'messenger') {
@@ -654,7 +657,6 @@
           if (Array.isArray(importedDb)) {
             if (confirm("استبدال البيانات بالحالية؟")) {
               db = importedDb;
-              // تحويل الاشتراكات القديمة (whatsapp) إلى whatsapp_biz
               db.forEach(item => {
                 if (item.platform === 'whatsapp') item.platform = 'whatsapp_biz';
               });
@@ -691,7 +693,7 @@
     setInitialDates();
 
     function isUsernameInput(str) {
-      return /[a-zA-Z]/.test(str) || (str || "").trim().startsWith('@');
+      return /[a-zA-Z]/.test(str) || (str || "").trim().startsWith('@') || (str || "").includes('wa.me');
     }
 
     function normalizeIraqPhone(phone) {
@@ -702,7 +704,7 @@
     }
 
     function cleanUsername(str) {
-      return (str || "").replace('@', '').trim();
+      return (str || "").replace('https://wa.me/', '').replace('wa.me/', '').replace('@', '').trim();
     }
 
     function calculateTotalDays(startDateStr, endDateStr) {
@@ -727,7 +729,7 @@
 
       if (!name || !contact || !email || !endDate) return alert("يرجى ملء جميع البيانات الأساسية!");
 
-      if (platform === 'whatsapp_biz') {
+      if (platform === 'whatsapp_biz' || platform === 'whatsapp_reg') {
         if (isUsernameInput(contact)) {
           contact = cleanUsername(contact);
         } else {
@@ -802,7 +804,7 @@
       const platform = document.getElementById('e-platform').value;
       let contact = document.getElementById('e-contact').value.trim();
 
-      if (platform === 'whatsapp_biz') {
+      if (platform === 'whatsapp_biz' || platform === 'whatsapp_reg') {
         if (isUsernameInput(contact)) {
           contact = cleanUsername(contact);
         } else {
@@ -883,14 +885,19 @@
       const platform = c.platform || 'whatsapp_biz';
       const contactVal = c.contact || c.phone || '';
 
-      if (platform === 'whatsapp_biz' || platform === 'whatsapp') {
-        if (isUsernameInput(contactVal)) {
-          let cleanUser = cleanUsername(contactVal);
-          window.open(`https://wa.me/${cleanUser}`, '_blank');
-        } else {
+      if (platform === 'whatsapp_biz' || platform === 'whatsapp_reg' || platform === 'whatsapp') {
+        let cleanUser = cleanUsername(contactVal);
+        let target = cleanUser;
+        if (!isUsernameInput(contactVal)) {
           let p = contactVal.replace(/\D/g, '');
           if (p.startsWith('0')) p = '964' + p.substring(1);
-          window.open(`https://wa.me/${p}`, '_blank');
+          target = p;
+        }
+
+        if (platform === 'whatsapp_biz') {
+          window.open(`whatsapp-business://send?phone=${target}`, '_blank') || window.open(`https://wa.me/${target}`, '_blank');
+        } else {
+          window.open(`https://wa.me/${target}`, '_blank');
         }
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
@@ -917,14 +924,19 @@
       localStorage.setItem('netflix_store_db', JSON.stringify(db));
       render();
 
-      if (platform === 'whatsapp_biz' || platform === 'whatsapp') {
-        if (isUsernameInput(contactVal)) {
-          let cleanUser = cleanUsername(contactVal);
-          window.open(`https://wa.me/${cleanUser}?text=${encodeURIComponent(reminderMessage)}`, '_blank');
-        } else {
+      if (platform === 'whatsapp_biz' || platform === 'whatsapp_reg' || platform === 'whatsapp') {
+        let cleanUser = cleanUsername(contactVal);
+        let target = cleanUser;
+        if (!isUsernameInput(contactVal)) {
           let p = contactVal.replace(/\D/g, '');
           if (p.startsWith('0')) p = '964' + p.substring(1);
-          window.open(`https://wa.me/${p}?text=${encodeURIComponent(reminderMessage)}`, '_blank');
+          target = p;
+        }
+
+        if (platform === 'whatsapp_biz') {
+          window.open(`whatsapp-business://send?phone=${target}&text=${encodeURIComponent(reminderMessage)}`, '_blank') || window.open(`https://wa.me/${target}?text=${encodeURIComponent(reminderMessage)}`, '_blank');
+        } else {
+          window.open(`https://wa.me/${target}?text=${encodeURIComponent(reminderMessage)}`, '_blank');
         }
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
@@ -956,6 +968,7 @@
       `;
 
       let platformTitle = "واتساب الأعمال";
+      if(c.platform === 'whatsapp_reg') platformTitle = "واتساب العادي";
       if(c.platform === 'instagram') platformTitle = "إنستغرام";
       if(c.platform === 'messenger') platformTitle = "ماسنجر";
 
@@ -1021,16 +1034,22 @@
 
       if (platform === 'whatsapp_biz' || platform === 'whatsapp') {
         const isUser = isUsernameInput(contactVal);
-        const displayVal = isUser ? `@${contactVal.replace('@','')}` : contactVal;
+        const displayVal = isUser ? `@${cleanUsername(contactVal)}` : contactVal;
         platformDisplay = `💼 واتساب الأعمال: <b>${displayVal}</b>`;
         actionBtnClass = 'bg-whatsapp-biz';
         actionBtnText = 'واتساب الأعمال 💼';
+      } else if (platform === 'whatsapp_reg') {
+        const isUser = isUsernameInput(contactVal);
+        const displayVal = isUser ? `@${cleanUsername(contactVal)}` : contactVal;
+        platformDisplay = `💬 واتساب العادي: <b>${displayVal}</b>`;
+        actionBtnClass = 'bg-whatsapp-reg';
+        actionBtnText = 'واتساب العادي 💬';
       } else if (platform === 'instagram') {
-        platformDisplay = `📸 إنستغرام: <b>@${contactVal.replace('@','')}</b>`;
+        platformDisplay = `📸 إنستغرام: <b>@${cleanUsername(contactVal)}</b>`;
         actionBtnClass = 'bg-instagram';
         actionBtnText = 'رسائل إنستغرام 📸';
       } else if (platform === 'messenger') {
-        platformDisplay = `⚡ ماسنجر: <b>@${contactVal.replace('@','')}</b>`;
+        platformDisplay = `⚡ ماسنجر: <b>@${cleanUsername(contactVal)}</b>`;
         actionBtnClass = 'bg-messenger';
         actionBtnText = 'رسائل ماسنجر ⚡';
       }
