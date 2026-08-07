@@ -711,13 +711,27 @@
       return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     }
 
-    // فتح تطبيق واتساب الأعمال المباشر عبر المعرف com.whatsapp.w4b
+    // فتح تطبيق واتساب الأعمال المباشر سواء برقم هاتف أو معرّف (User) عبر البكج com.whatsapp.w4b
     function openWhatsAppBusiness(targetPhoneOrUser, textMsg = "") {
+      const cleanTarget = cleanUsername(targetPhoneOrUser);
       const encodedMsg = encodeURIComponent(textMsg);
-      const fallbackUrl = textMsg ? `https://wa.me/${targetPhoneOrUser}?text=${encodedMsg}` : `https://wa.me/${targetPhoneOrUser}`;
 
-      // الرابط يستهدف تطبيق com.whatsapp.w4b المباشر في الأندرويد مع رابط احتياطي
-      const intentUrl = `intent://send?phone=${targetPhoneOrUser}&text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
+      // الرابط الاحتياطي للفتح في حالة المتصفح العادي
+      const fallbackUrl = textMsg ? `https://wa.me/${cleanTarget}?text=${encodedMsg}` : `https://wa.me/${cleanTarget}`;
+
+      // رابط الـ Intent المباشر لاستهداف تطبيق com.whatsapp.w4b
+      let intentUrl = "";
+
+      if (isUsernameInput(targetPhoneOrUser)) {
+        // توجيه المعرفات واليوزرات عبر رابط الشير الخاص بالواتساب نحو البكج
+        intentUrl = `intent://send?text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=https;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
+        // فتح الرابط المباشر للمعرف أولاً
+        window.location.href = `https://wa.me/${cleanTarget}?text=${encodedMsg}`;
+        return;
+      } else {
+        // توجيه الأرقام المباشرة للبكج com.whatsapp.w4b
+        intentUrl = `intent://send?phone=${cleanTarget}&text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
+      }
 
       window.location.href = intentUrl;
     }
