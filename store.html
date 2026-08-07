@@ -594,13 +594,12 @@
   <div id="wa-modal-overlay" class="modal-overlay" onclick="closeWaModalIfOutside(event)">
     <div class="modal" onclick="event.stopPropagation()" style="max-width: 450px; text-align: center;">
       <div class="modal-header">
-        <div class="modal-title">📲 اختر تطبيق الواتساب للمراسلة</div>
+        <div class="modal-title">📲 فتح المحادثة عبر الواتساب</div>
         <button class="modal-close" onclick="closeWaModal()">إغلاق</button>
       </div>
-      <p style="color: #ccc; margin-top: 10px;">اختر التطبيق الذي ترغب بفتح المحادثة من خلاله:</p>
+      <p style="color: #ccc; margin-top: 10px;">اضغط على الزر أدناه ليتم توجيهك مباشرة للتطبيق وتجهيز الرسالة:</p>
       <div class="wa-choice-container">
-        <button class="wa-choice-btn wa-biz-btn" onclick="executeWaChoice('biz')">واتساب الأعمال 💼</button>
-        <button class="wa-choice-btn wa-reg-btn" onclick="executeWaChoice('reg')">واتساب العادي 💬</button>
+        <button class="wa-choice-btn wa-biz-btn" onclick="executeWaChoice()">فتح الواتساب والبدء بالمحادثة 💬</button>
       </div>
     </div>
   </div>
@@ -772,16 +771,13 @@
       if (e.target.id === 'wa-modal-overlay') closeWaModal();
     }
 
-    function executeWaChoice(type) {
+    function executeWaChoice() {
       if (!pendingWaTarget) return closeWaModal();
-      const textParam = pendingWaText ? `&text=${encodeURIComponent(pendingWaText)}` : '';
-      const textParamWeb = pendingWaText ? `?text=${encodeURIComponent(pendingWaText)}` : '';
-
-      if (type === 'biz') {
-        window.open(`whatsapp-business://send?phone=${pendingWaTarget}${textParam}`, '_blank') || window.open(`https://wa.me/${pendingWaTarget}${textParamWeb}`, '_blank');
-      } else {
-        window.open(`https://wa.me/${pendingWaTarget}${textParamWeb}`, '_blank');
-      }
+      const textParam = pendingWaText ? `?text=${encodeURIComponent(pendingWaText)}` : '';
+      
+      // الرابط الرسمي والمضمون لفتح تطبيق الواتساب مباشرة
+      const finalUrl = `https://wa.me/${pendingWaTarget}${textParam}`;
+      window.open(finalUrl, '_blank');
       closeWaModal();
     }
 
