@@ -769,7 +769,6 @@
       editingId = id;
 
       document.getElementById('e-type').value = c.type || 'profile';
-      // التعامل مع الاشتراكات القديمة (whatsapp) لجعلها تظهر (whatsapp_biz)
       let currentPlatform = c.platform || 'whatsapp_biz';
       if(currentPlatform === 'whatsapp') currentPlatform = 'whatsapp_biz';
 
@@ -881,7 +880,7 @@
       let c = db.find(x => x.id === id);
       if (!c) return;
 
-      const platform = c.platform || 'whatsapp_biz'; // الديفولت للاشتراكات القديمة
+      const platform = c.platform || 'whatsapp_biz';
       const contactVal = c.contact || c.phone || '';
 
       if (platform === 'whatsapp_biz' || platform === 'whatsapp') {
@@ -891,7 +890,7 @@
         } else {
           let p = contactVal.replace(/\D/g, '');
           if (p.startsWith('0')) p = '964' + p.substring(1);
-          window.open(`whatsapp-business://send?phone=${p}`, '_blank');
+          window.open(`https://wa.me/${p}`, '_blank');
         }
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
@@ -907,7 +906,7 @@
       if (i === -1) return;
       let c = db[i];
 
-      const platform = c.platform || 'whatsapp_biz'; // الديفولت
+      const platform = c.platform || 'whatsapp_biz';
       const contactVal = c.contact || c.phone || '';
 
       const reminderMessage = `السلام عليكم عزيزي ${c.name} 🎬\n` +
@@ -925,7 +924,7 @@
         } else {
           let p = contactVal.replace(/\D/g, '');
           if (p.startsWith('0')) p = '964' + p.substring(1);
-          window.open(`whatsapp-business://send?phone=${p}&text=${encodeURIComponent(reminderMessage)}`, '_blank');
+          window.open(`https://wa.me/${p}?text=${encodeURIComponent(reminderMessage)}`, '_blank');
         }
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
@@ -1013,7 +1012,6 @@
         `;
       }
 
-      // دعم الاشتراكات القديمة (whatsapp)
       const platform = c.platform || 'whatsapp_biz';
       const contactVal = c.contact || c.phone || 'غير مضاف';
 
