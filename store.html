@@ -181,6 +181,7 @@
     }
 
     .bg-whatsapp-biz { background: #075e54; }
+    .bg-whatsapp-reg { background: #25D366; color: #000; }
     .bg-messenger { background: #0084ff; }
     .bg-instagram { background: #e1306c; }
     .bg-pay { background: var(--success); }
@@ -390,6 +391,7 @@
         <label>منصة التواصل</label>
         <select id="f-platform" onchange="togglePlatformInput()">
           <option value="whatsapp_biz">واتساب الأعمال 💼</option>
+          <option value="whatsapp_reg">واتساب العادي 💬</option>
           <option value="messenger">ماسنجر ⚡</option>
           <option value="instagram">إنستغرام 📸</option>
         </select>
@@ -493,6 +495,7 @@
           <label>منصة التواصل</label>
           <select id="e-platform" onchange="toggleEditPlatformInput()">
             <option value="whatsapp_biz">واتساب الأعمال 💼</option>
+            <option value="whatsapp_reg">واتساب العادي 💬</option>
             <option value="messenger">ماسنجر ⚡</option>
             <option value="instagram">إنستغرام 📸</option>
           </select>
@@ -599,7 +602,7 @@
       const label = document.getElementById('platform-label');
       const input = document.getElementById('f-contact');
 
-      if (platform === 'whatsapp_biz') {
+      if (platform === 'whatsapp_biz' || platform === 'whatsapp_reg') {
         label.innerText = 'رقم الواتساب أو المعرّف';
         input.placeholder = '07xxxxxxxxx أو username@';
       } else if (platform === 'messenger') {
@@ -616,7 +619,7 @@
       const label = document.getElementById('e-platform-label');
       const input = document.getElementById('e-contact');
 
-      if (platform === 'whatsapp_biz') {
+      if (platform === 'whatsapp_biz' || platform === 'whatsapp_reg') {
         label.innerText = 'رقم الواتساب أو المعرّف';
         input.placeholder = '07xxxxxxxxx أو username@';
       } else if (platform === 'messenger') {
@@ -654,9 +657,6 @@
           if (Array.isArray(importedDb)) {
             if (confirm("استبدال البيانات بالحالية؟")) {
               db = importedDb;
-              db.forEach(item => {
-                if (item.platform === 'whatsapp' || item.platform === 'whatsapp_reg') item.platform = 'whatsapp_biz';
-              });
               localStorage.setItem('netflix_store_db', JSON.stringify(db));
               render();
               alert("تمت الاستعادة بنجاح ✅");
@@ -711,31 +711,24 @@
       return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     }
 
-    // إجبار النظام على فتح تطبيق com.whatsapp.w4b للأرقام والمعرفات بدون فتح الواتساب العادي
+    // فتح تطبيق com.whatsapp.w4b المباشر حصراً دون التأثير على البيانات
     function openWhatsAppBusiness(targetPhoneOrUser, textMsg = "") {
       const cleanTarget = cleanUsername(targetPhoneOrUser);
       const encodedMsg = encodeURIComponent(textMsg);
       const isUser = isUsernameInput(targetPhoneOrUser);
 
+      let intentUrl = "";
+
       if (isUser) {
-        // إجبار فتح تطبيق واتساب الأعمال (com.whatsapp.w4b) عند إدخال معرف/Username
-        const waBizUsernameIntent = `intent://qr/${cleanTarget}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;S.browser_fallback_url=${encodeURIComponent(`https://wa.me/qr/${cleanTarget}` logic = `intent://send?text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=https;` )};end`;
-
-        // استخدام الـ Intent الصارم الموجه لحزمة الأعمال
-        const directIntent = `intent://send?text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;S.whatsapp_target=${cleanTarget};S.browser_fallback_url=${encodeURIComponent(`https://wa.me/${cleanTarget}?text=${encodedMsg}`)};end`;
+        // فتح محادثة اليوزر من خلال البكج المباشر com.whatsapp.w4b
+        intentUrl = `intent://send?text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;S.browser_fallback_url=${encodeURIComponent(`https://wa.me/${cleanTarget}?text=${encodedMsg}`)};end`;
         
-        // المحاولة المباشرة عبر البروتوكول المخصص لبكج Business
-        window.location.href = `whatsapp://send?text=${encodedMsg}&phone=${cleanTarget}`;
-        
-        setTimeout(() => {
-          window.location.href = directIntent;
-        }, 300);
-
+        window.location.href = intentUrl;
       } else {
-        // إجبار فتح تطبيق واتساب الأعمال برقم الهاتف
-        const directPhoneIntent = `intent://send?phone=${cleanTarget}&text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;end`;
+        // فتح رقم الهاتف المباشر من خلال البكج com.whatsapp.w4b
+        intentUrl = `intent://send?phone=${cleanTarget}&text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;end`;
         
-        window.location.href = directPhoneIntent;
+        window.location.href = intentUrl;
       }
     }
 
@@ -754,7 +747,7 @@
 
       if (!name || !contact || !email || !endDate) return alert("يرجى ملء جميع البيانات الأساسية!");
 
-      if (platform === 'whatsapp_biz') {
+      if (platform === 'whatsapp_biz' || platform === 'whatsapp_reg') {
         if (isUsernameInput(contact)) {
           contact = cleanUsername(contact);
         } else {
@@ -797,7 +790,6 @@
 
       document.getElementById('e-type').value = c.type || 'profile';
       let currentPlatform = c.platform || 'whatsapp_biz';
-      if(currentPlatform === 'whatsapp' || currentPlatform === 'whatsapp_reg') currentPlatform = 'whatsapp_biz';
 
       document.getElementById('e-platform').value = currentPlatform;
       document.getElementById('e-name').value = c.name || '';
@@ -829,7 +821,7 @@
       const platform = document.getElementById('e-platform').value;
       let contact = document.getElementById('e-contact').value.trim();
 
-      if (platform === 'whatsapp_biz') {
+      if (platform === 'whatsapp_biz' || platform === 'whatsapp_reg') {
         if (isUsernameInput(contact)) {
           contact = cleanUsername(contact);
         } else {
@@ -985,6 +977,7 @@
       `;
 
       let platformTitle = "واتساب الأعمال";
+      if(c.platform === 'whatsapp_reg') platformTitle = "واتساب العادي";
       if(c.platform === 'instagram') platformTitle = "إنستغرام";
       if(c.platform === 'messenger') platformTitle = "ماسنجر";
 
@@ -1051,7 +1044,7 @@
       if (platform === 'whatsapp_biz' || platform === 'whatsapp' || platform === 'whatsapp_reg') {
         const isUser = isUsernameInput(contactVal);
         const displayVal = isUser ? `@${cleanUsername(contactVal)}` : contactVal;
-        platformDisplay = `💼 واتساب الأعمال: <b>${displayVal}</b>`;
+        platformDisplay = `💼 واتساب: <b>${displayVal}</b>`;
         actionBtnClass = 'bg-whatsapp-biz';
         actionBtnText = 'واتساب الأعمال 💼';
       } else if (platform === 'instagram') {
