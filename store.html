@@ -401,8 +401,8 @@
       </div>
 
       <div class="field" id="contact-input-box">
-        <label id="platform-label">رقم الواتساب</label>
-        <input type="text" id="f-contact" placeholder="07xxxxxxxxx" />
+        <label id="platform-label">رقم الواتساب أو المعرّف</label>
+        <input type="text" id="f-contact" placeholder="07xxxxxxxxx أو username@" />
       </div>
 
       <div class="field">
@@ -504,7 +504,7 @@
         </div>
 
         <div class="field">
-          <label id="e-platform-label">معلومات التواصل</label>
+          <label id="e-platform-label">رقم الواتساب أو المعرّف</label>
           <input type="text" id="e-contact" />
         </div>
 
@@ -600,8 +600,8 @@
       const input = document.getElementById('f-contact');
 
       if (platform === 'whatsapp') {
-        label.innerText = 'رقم الواتساب';
-        input.placeholder = '07xxxxxxxxx';
+        label.innerText = 'رقم الواتساب أو المعرّف';
+        input.placeholder = '07xxxxxxxxx أو username@';
       } else if (platform === 'messenger') {
         label.innerText = 'معرّف الماسنجر (Username)';
         input.placeholder = 'مثال: ahmed.alazzawi.794397';
@@ -617,8 +617,8 @@
       const input = document.getElementById('e-contact');
 
       if (platform === 'whatsapp') {
-        label.innerText = 'رقم الواتساب';
-        input.placeholder = '07xxxxxxxxx';
+        label.innerText = 'رقم الواتساب أو المعرّف';
+        input.placeholder = '07xxxxxxxxx أو username@';
       } else if (platform === 'messenger') {
         label.innerText = 'معرّف الماسنجر (Username)';
         input.placeholder = 'مثال: ahmed.alazzawi.794397';
@@ -686,6 +686,10 @@
 
     setInitialDates();
 
+    function isUsernameInput(str) {
+      return /[a-zA-Z]/.test(str) || (str || "").trim().startsWith('@');
+    }
+
     function normalizeIraqPhone(phone) {
       phone = (phone || "").replace(/\D/g, '');
       if (phone.startsWith('964')) phone = '0' + phone.substring(3);
@@ -720,7 +724,11 @@
       if (!name || !contact || !email || !endDate) return alert("يرجى ملء جميع البيانات الأساسية!");
 
       if (platform === 'whatsapp') {
-        contact = normalizeIraqPhone(contact);
+        if (isUsernameInput(contact)) {
+          contact = cleanUsername(contact);
+        } else {
+          contact = normalizeIraqPhone(contact);
+        }
       } else {
         contact = cleanUsername(contact);
       }
@@ -788,7 +796,11 @@
       let contact = document.getElementById('e-contact').value.trim();
 
       if (platform === 'whatsapp') {
-        contact = normalizeIraqPhone(contact);
+        if (isUsernameInput(contact)) {
+          contact = cleanUsername(contact);
+        } else {
+          contact = normalizeIraqPhone(contact);
+        }
       } else {
         contact = cleanUsername(contact);
       }
@@ -865,10 +877,14 @@
       const contactVal = c.contact || c.phone || '';
 
       if (platform === 'whatsapp') {
-        let p = contactVal.replace(/\D/g, '');
-        if (p.startsWith('0')) p = '964' + p.substring(1);
-        // التوجيه المباشر لواتساب الأعمال حصراً عبر URL Scheme
-        window.open(`whatsapp://send?phone=${p}`, '_blank');
+        if (isUsernameInput(contactVal)) {
+          let cleanUser = cleanUsername(contactVal);
+          window.open(`https://wa.me/${cleanUser}`, '_blank');
+        } else {
+          let p = contactVal.replace(/\D/g, '');
+          if (p.startsWith('0')) p = '964' + p.substring(1);
+          window.open(`whatsapp://send?phone=${p}`, '_blank');
+        }
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
         window.open(`https://ig.me/m/${cleanUser}`, '_blank');
@@ -895,10 +911,14 @@
       render();
 
       if (platform === 'whatsapp') {
-        let p = contactVal.replace(/\D/g, '');
-        if (p.startsWith('0')) p = '964' + p.substring(1);
-        // التوجيه المباشر لواتساب الأعمال مع الرسالة عبر URL Scheme
-        window.open(`whatsapp://send?phone=${p}&text=${encodeURIComponent(reminderMessage)}`, '_blank');
+        if (isUsernameInput(contactVal)) {
+          let cleanUser = cleanUsername(contactVal);
+          window.open(`https://wa.me/${cleanUser}?text=${encodeURIComponent(reminderMessage)}`, '_blank');
+        } else {
+          let p = contactVal.replace(/\D/g, '');
+          if (p.startsWith('0')) p = '964' + p.substring(1);
+          window.open(`whatsapp://send?phone=${p}&text=${encodeURIComponent(reminderMessage)}`, '_blank');
+        }
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
         navigator.clipboard.writeText(reminderMessage).then(() => {
@@ -993,7 +1013,9 @@
       let actionBtnText = 'تواصل مباشر 💬';
 
       if (platform === 'whatsapp') {
-        platformDisplay = `💬 الواتساب: <b>${contactVal}</b>`;
+        const isUser = isUsernameInput(contactVal);
+        const displayVal = isUser ? `@${contactVal.replace('@','')}` : contactVal;
+        platformDisplay = `💬 الواتساب: <b>${displayVal}</b>`;
         actionBtnClass = 'bg-whatsapp';
         actionBtnText = 'تواصل مباشر 💬';
       } else if (platform === 'instagram') {
@@ -1074,49 +1096,40 @@
 
       db.forEach(c => {
         const price = parseInt(c.price) || 0;
-        
-        // 1. حساب المشتركين الجدد (حسب تاريخ الإضافة createdAt)
+
         if (c.createdAt) {
           const createDate = new Date(c.createdAt);
           const createDayStart = new Date(createDate.getFullYear(), createDate.getMonth(), createDate.getDate());
 
-          // اليوم
           if (createDayStart.getTime() === todayStart.getTime()) {
             newToday++;
           }
-          // الأسبوع (آخر 7 أيام)
           if (createDayStart >= sevenDaysAgo && createDayStart <= todayStart) {
             newWeek++;
           }
-          // الشهر الحرفي الحالي
           if (createDate >= monthStart) {
             newMonth++;
           }
         }
 
-        // 2. الديون تحسب فقط للاشتراكات غير المدفوعة
         if (!c.paid) {
           totalDebt += price; 
           unpaidCount++;
         } else {
-          // الحسابات المالية تعتمد حصرياً على عمليات الدفع المؤكدة
           totalMoney += price;
           
           if (c.paymentDate) {
             const payDate = new Date(c.paymentDate);
             const payDayStart = new Date(payDate.getFullYear(), payDate.getMonth(), payDate.getDate());
 
-            // دخل اليوم
             if (payDayStart.getTime() === todayStart.getTime()) {
               todayMoney += price;
             }
 
-            // دخل الأسبوع (آخر 7 أيام)
             if (payDayStart >= sevenDaysAgo && payDayStart <= todayStart) {
               weekMoney += price;
             }
 
-            // ربح الشهر الحرفي
             if (payDate >= monthStart) {
               monthMoney += price;
             }
@@ -1133,12 +1146,10 @@
       document.getElementById('badge-soon').innerText = soonCount;
       document.getElementById('badge-expired').innerText = expiredCount;
 
-      // تحديث عدادات المشتركين الجدد
       document.getElementById('stat-new-today').innerText = newToday;
       document.getElementById('stat-new-week').innerText = newWeek;
       document.getElementById('stat-new-month').innerText = newMonth;
 
-      // تحديث العدادات المالية العامة
       document.getElementById('stat-count').innerText = db.length;
       document.getElementById('stat-money').innerText = totalMoney.toLocaleString() + " د.ع";
       document.getElementById('stat-today-money').innerText = todayMoney.toLocaleString() + " د.ع";
