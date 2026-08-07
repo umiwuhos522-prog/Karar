@@ -314,6 +314,31 @@
     .tab-badge { position: absolute; top: -6px; left: 8px; background: #000; border: 1px solid #333; color: #fff; border-radius: 999px; font-size: 0.75rem; padding: 2px 6px; }
 
     .empty { background: rgba(255,255,255,0.02); border: 1px dashed #333; border-radius: 16px; padding: 20px; color: #888; text-align: center; margin-top: 10px; }
+
+    /* أنماط نافذة اختيار نوع الواتساب */
+    .wa-choice-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 15px;
+    }
+    .wa-choice-btn {
+      padding: 16px;
+      border-radius: 12px;
+      font-weight: 900;
+      font-size: 1.1rem;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: transform 0.2s;
+    }
+    .wa-choice-btn:active { transform: scale(0.98); }
+    .wa-biz-btn { background: #075e54; }
+    .wa-reg-btn { background: #25D366; color: #000; }
   </style>
 </head>
 
@@ -565,6 +590,21 @@
     </div>
   </div>
 
+  <!-- مودال اختيار نوع الواتساب -->
+  <div id="wa-modal-overlay" class="modal-overlay" onclick="closeWaModalIfOutside(event)">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width: 450px; text-align: center;">
+      <div class="modal-header">
+        <div class="modal-title">📲 اختر تطبيق الواتساب للمراسلة</div>
+        <button class="modal-close" onclick="closeWaModal()">إغلاق</button>
+      </div>
+      <p style="color: #ccc; margin-top: 10px;">اختر التطبيق الذي ترغب بفتح المحادثة من خلاله:</p>
+      <div class="wa-choice-container">
+        <button class="wa-choice-btn wa-biz-btn" onclick="executeWaChoice('biz')">واتساب الأعمال 💼</button>
+        <button class="wa-choice-btn wa-reg-btn" onclick="executeWaChoice('reg')">واتساب العادي 💬</button>
+      </div>
+    </div>
+  </div>
+
   <div class="tabs-bar">
     <div class="tabs">
       <button id="tab-all" class="tab-btn active" onclick="setFilter('all')">
@@ -590,6 +630,8 @@
     let db = JSON.parse(localStorage.getItem('netflix_store_db')) || [];
     let currentFilter = 'all';
     let editingId = null;
+    let pendingWaTarget = null;
+    let pendingWaText = "";
 
     function toggleFormType() {
       const type = document.getElementById('f-type').value;
@@ -712,6 +754,35 @@
       const e = new Date(endDateStr);
       const diffTime = Math.abs(e - s);
       return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    function openWaModal(targetPhoneOrUser, textMsg = "") {
+      pendingWaTarget = targetPhoneOrUser;
+      pendingWaText = textMsg;
+      document.getElementById('wa-modal-overlay').style.display = 'flex';
+    }
+
+    function closeWaModal() {
+      pendingWaTarget = null;
+      pendingWaText = "";
+      document.getElementById('wa-modal-overlay').style.display = 'none';
+    }
+
+    function closeWaModalIfOutside(e) {
+      if (e.target.id === 'wa-modal-overlay') closeWaModal();
+    }
+
+    function executeWaChoice(type) {
+      if (!pendingWaTarget) return closeWaModal();
+      const textParam = pendingWaText ? `&text=${encodeURIComponent(pendingWaText)}` : '';
+      const textParamWeb = pendingWaText ? `?text=${encodeURIComponent(pendingWaText)}` : '';
+
+      if (type === 'biz') {
+        window.open(`whatsapp-business://send?phone=${pendingWaTarget}${textParam}`, '_blank') || window.open(`https://wa.me/${pendingWaTarget}${textParamWeb}`, '_blank');
+      } else {
+        window.open(`https://wa.me/${pendingWaTarget}${textParamWeb}`, '_blank');
+      }
+      closeWaModal();
     }
 
     function save() {
@@ -894,11 +965,7 @@
           target = p;
         }
 
-        if (platform === 'whatsapp_biz') {
-          window.open(`whatsapp-business://send?phone=${target}`, '_blank') || window.open(`https://wa.me/${target}`, '_blank');
-        } else {
-          window.open(`https://wa.me/${target}`, '_blank');
-        }
+        openWaModal(target, "");
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
         window.open(`https://ig.me/m/${cleanUser}`, '_blank');
@@ -933,11 +1000,7 @@
           target = p;
         }
 
-        if (platform === 'whatsapp_biz') {
-          window.open(`whatsapp-business://send?phone=${target}&text=${encodeURIComponent(reminderMessage)}`, '_blank') || window.open(`https://wa.me/${target}?text=${encodeURIComponent(reminderMessage)}`, '_blank');
-        } else {
-          window.open(`https://wa.me/${target}?text=${encodeURIComponent(reminderMessage)}`, '_blank');
-        }
+        openWaModal(target, reminderMessage);
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
         navigator.clipboard.writeText(reminderMessage).then(() => {
@@ -1030,20 +1093,14 @@
 
       let platformDisplay = '';
       let actionBtnClass = 'bg-whatsapp-biz';
-      let actionBtnText = 'واتساب الأعمال 💼';
+      let actionBtnText = 'مراسلة عبر الواتساب 💬';
 
-      if (platform === 'whatsapp_biz' || platform === 'whatsapp') {
+      if (platform === 'whatsapp_biz' || platform === 'whatsapp' || platform === 'whatsapp_reg') {
         const isUser = isUsernameInput(contactVal);
         const displayVal = isUser ? `@${cleanUsername(contactVal)}` : contactVal;
-        platformDisplay = `💼 واتساب الأعمال: <b>${displayVal}</b>`;
+        platformDisplay = `💬 واتساب: <b>${displayVal}</b>`;
         actionBtnClass = 'bg-whatsapp-biz';
-        actionBtnText = 'واتساب الأعمال 💼';
-      } else if (platform === 'whatsapp_reg') {
-        const isUser = isUsernameInput(contactVal);
-        const displayVal = isUser ? `@${cleanUsername(contactVal)}` : contactVal;
-        platformDisplay = `💬 واتساب العادي: <b>${displayVal}</b>`;
-        actionBtnClass = 'bg-whatsapp-reg';
-        actionBtnText = 'واتساب العادي 💬';
+        actionBtnText = 'مراسلة عبر الواتساب 💬';
       } else if (platform === 'instagram') {
         platformDisplay = `📸 إنستغرام: <b>@${cleanUsername(contactVal)}</b>`;
         actionBtnClass = 'bg-instagram';
