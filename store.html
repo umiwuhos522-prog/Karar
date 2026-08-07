@@ -711,29 +711,32 @@
       return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     }
 
-    // فتح تطبيق واتساب الأعمال المباشر سواء برقم هاتف أو معرّف (User) عبر البكج com.whatsapp.w4b
+    // إجبار النظام على فتح تطبيق com.whatsapp.w4b للأرقام والمعرفات بدون فتح الواتساب العادي
     function openWhatsAppBusiness(targetPhoneOrUser, textMsg = "") {
       const cleanTarget = cleanUsername(targetPhoneOrUser);
       const encodedMsg = encodeURIComponent(textMsg);
+      const isUser = isUsernameInput(targetPhoneOrUser);
 
-      // الرابط الاحتياطي للفتح في حالة المتصفح العادي
-      const fallbackUrl = textMsg ? `https://wa.me/${cleanTarget}?text=${encodedMsg}` : `https://wa.me/${cleanTarget}`;
+      if (isUser) {
+        // إجبار فتح تطبيق واتساب الأعمال (com.whatsapp.w4b) عند إدخال معرف/Username
+        const waBizUsernameIntent = `intent://qr/${cleanTarget}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;S.browser_fallback_url=${encodeURIComponent(`https://wa.me/qr/${cleanTarget}` logic = `intent://send?text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=https;` )};end`;
 
-      // رابط الـ Intent المباشر لاستهداف تطبيق com.whatsapp.w4b
-      let intentUrl = "";
+        // استخدام الـ Intent الصارم الموجه لحزمة الأعمال
+        const directIntent = `intent://send?text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;S.whatsapp_target=${cleanTarget};S.browser_fallback_url=${encodeURIComponent(`https://wa.me/${cleanTarget}?text=${encodedMsg}`)};end`;
+        
+        // المحاولة المباشرة عبر البروتوكول المخصص لبكج Business
+        window.location.href = `whatsapp://send?text=${encodedMsg}&phone=${cleanTarget}`;
+        
+        setTimeout(() => {
+          window.location.href = directIntent;
+        }, 300);
 
-      if (isUsernameInput(targetPhoneOrUser)) {
-        // توجيه المعرفات واليوزرات عبر رابط الشير الخاص بالواتساب نحو البكج
-        intentUrl = `intent://send?text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=https;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
-        // فتح الرابط المباشر للمعرف أولاً
-        window.location.href = `https://wa.me/${cleanTarget}?text=${encodedMsg}`;
-        return;
       } else {
-        // توجيه الأرقام المباشرة للبكج com.whatsapp.w4b
-        intentUrl = `intent://send?phone=${cleanTarget}&text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
+        // إجبار فتح تطبيق واتساب الأعمال برقم الهاتف
+        const directPhoneIntent = `intent://send?phone=${cleanTarget}&text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;end`;
+        
+        window.location.href = directPhoneIntent;
       }
-
-      window.location.href = intentUrl;
     }
 
     function save() {
