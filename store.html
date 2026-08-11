@@ -720,14 +720,10 @@
       let intentUrl = "";
 
       if (isUser) {
-        // فتح محادثة اليوزر من خلال البكج المباشر com.whatsapp.w4b
         intentUrl = `intent://send?text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;S.browser_fallback_url=${encodeURIComponent(`https://wa.me/${cleanTarget}?text=${encodedMsg}`)};end`;
-        
         window.location.href = intentUrl;
       } else {
-        // فتح رقم الهاتف المباشر من خلال البكج com.whatsapp.w4b
         intentUrl = `intent://send?phone=${cleanTarget}&text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;end`;
-        
         window.location.href = intentUrl;
       }
     }
@@ -757,20 +753,55 @@
         contact = cleanUsername(contact);
       }
 
-      const item = {
-        id: crypto.randomUUID(),
-        type, platform, name, contact, email,
-        profileName: type === 'profile' ? profileName : '',
-        profilePin: type === 'profile' ? profilePin : '',
-        accountPass, price,
-        start: startDate, end: endDate,
-        renewCount: 1,
-        paid: false, paymentDate: "", reminded: false,
-        createdAt: new Date().toISOString()
-      };
+      // البحث عن زبون مطبق مسبقاً بنفس الاسم والتواصل لتجنب التكرار
+      const existingIndex = db.findIndex(x => 
+        (x.name || "").trim().toLowerCase() === name.toLowerCase() && 
+        (x.contact || x.phone || "").trim().toLowerCase() === contact.toLowerCase()
+      );
 
-      db.unshift(item);
-      localStorage.setItem('netflix_store_db', JSON.stringify(db));
+      if (existingIndex !== -1) {
+        // الزبون موجود مسبقاً -> نقوم بتجديد اشتراكه وتحديث البيانات بدلاً من إنشاء كرت جديد
+        let existingUser = db[existingIndex];
+        
+        let newStart = new Date(startDate || new Date());
+        let newEnd = new Date(newStart);
+        newEnd.setDate(newEnd.getDate() + 30);
+
+        const fmt = d => d.toISOString().split('T')[0];
+
+        existingUser.type = type;
+        existingUser.platform = platform;
+        existingUser.email = email;
+        existingUser.profileName = type === 'profile' ? profileName : '';
+        existingUser.profilePin = type === 'profile' ? profilePin : '';
+        existingUser.accountPass = accountPass || existingUser.accountPass;
+        existingUser.price = price;
+        existingUser.start = fmt(newStart);
+        existingUser.end = fmt(newEnd);
+        existingUser.renewCount = (existingUser.renewCount || 1) + 1;
+        existingUser.reminded = false;
+
+        db[existingIndex] = existingUser;
+        localStorage.setItem('netflix_store_db', JSON.stringify(db));
+
+        alert(`تم التعرف على الزبون (${name}) مسبقاً وتجديد اشتراكه بنجاح بدون تكرار! 🔄 (الاشتراك رقم ${existingUser.renewCount})`);
+      } else {
+        // زبون جديد تماماً -> إضافة كرت جديد
+        const item = {
+          id: crypto.randomUUID(),
+          type, platform, name, contact, email,
+          profileName: type === 'profile' ? profileName : '',
+          profilePin: type === 'profile' ? profilePin : '',
+          accountPass, price,
+          start: startDate, end: endDate,
+          renewCount: 1,
+          paid: false, paymentDate: "", reminded: false,
+          createdAt: new Date().toISOString()
+        };
+
+        db.unshift(item);
+        localStorage.setItem('netflix_store_db', JSON.stringify(db));
+      }
 
       document.getElementById('f-name').value = '';
       document.getElementById('f-contact').value = '';
@@ -1126,7 +1157,8 @@
       db.forEach(c => {
         const price = parseInt(c.price) || 0;
 
-        if (c.createdAt) {
+        // لا يحسب ضمن الزبائن الجدد إلا إذا كان دافعاً (c.paid)
+        if (c.createdAt && c.paid) {
           const createDate = new Date(c.createdAt);
           const createDayStart = new Date(createDate.getFullYear(), createDate.getMonth(), createDate.getDate());
 
