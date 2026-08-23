@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VLC Stream Hub - السحابي</title>
+    <style>
+        :root {
+            --bg-body: #07090e;
+            --card-bg: rgba(19, 23, 34, 0.85);
+            --card-hover: rgba(30, 36, 54, 0.95);
+            --vlc-primary: #ff7700;
+            --vlc-glow: rgba(255, 119, 0, 0.4);
+            --accent-red: #ff334b;
+            --accent-cyan: #00f2fe;
+            --text-main: #ffffff;
+            --text-muted: #8e9bb0;
+            --border-glow: rgba(255, 119, 0, 0.25);
+            --border-card: rgba(255, 255, 255, 0.07);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 0%, #171c2c 0%, #07090e 70%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        header {
+            background: rgba(10, 13, 20, 0.85);
+            backdrop-filter: blur(18px);
+            border-bottom: 1px solid var(--border-card);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.25rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #ff9900, #ff4400);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .container {
+            flex: 1;
+            max-width: 950px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px 16px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .view-section {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .view-section.active {
+            display: flex;
+        }
+
+        .card-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border-card);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(10, 13, 20, 0.6);
+            border: 1px solid var(--border-card);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            border-color: var(--vlc-primary);
+            box-shadow: 0 0 15px rgba(255, 119, 0, 0.2);
+        }
+
+        input[type="file"]::file-selector-button {
+            background: linear-gradient(135deg, #ff8800, #ff4500);
+            color: white;
+            padding: 8px 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            margin-left: 10px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #ff8800, #ff4500);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 700;
+            box-shadow: 0 4px 18px rgba(255, 69, 0, 0.35);
+            transition: 0.2s;
+            text-align: center;
+        }
+
+        .btn:active { transform: scale(0.96); }
+        .btn-danger { background: linear-gradient(135deg, #ff334b, #c5112e); box-shadow: 0 4px 18px rgba(255, 51, 75, 0.35); }
+        .btn-secondary { background: rgba(255,255,255,0.08); box-shadow: none; border: 1px solid var(--border-card); }
+        .btn-info { background: linear-gradient(135deg, #00c6ff, #0072ff); box-shadow: 0 4px 18px rgba(0, 114, 255, 0.35); }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .users-table th, .users-table td {
+            padding: 12px;
+            text-align: right;
+            border-bottom: 1px solid var(--border-card);
+            font-size: 0.85rem;
+        }
+        .users-table th { color: var(--text-muted); font-weight: 700; }
+        
+        .badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .badge-active { background: rgba(0, 242, 254, 0.15); color: #00f2fe; }
+        .badge-banned { background: rgba(255, 51, 75, 0.15); color: #ff334b; }
+        .badge-count { background: rgba(255, 119, 0, 0.15); color: #ff7700; }
+
+        .channels-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 12px;
+            list-style: none;
+        }
+
+        .channel-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-card);
+            border-radius: 14px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.25s;
+            backdrop-filter: blur(10px);
+        }
+
+        .channel-card:hover {
+            background: var(--card-hover);
+            border-color: rgba(255, 119, 0, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .ch-info { display: flex; flex-direction: column; gap: 4px; overflow: hidden; flex: 1; }
+        .ch-name { font-size: 0.95rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ch-meta { font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 6px; }
+        .ch-badge { background: rgba(255,255,255,0.08); color: #d1d5db; padding: 2px 6px; border-radius: 6px; font-size: 0.7rem; }
+
+        .play-btn-circle {
+            width: 40px; height: 40px; min-width: 40px;
+            background: linear-gradient(135deg, #ff8800, #ff4400);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 0.9rem;
+            box-shadow: 0 4px 14px rgba(255, 68, 0, 0.4);
+        }
+
+        .toast {
+            position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: rgba(18, 22, 33, 0.95); border: 1px solid var(--vlc-primary); color: #fff;
+            padding: 12px 24px; border-radius: 30px; font-size: 0.9rem; font-weight: 700;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7); backdrop-filter: blur(10px);
+            display: flex; align-items: center; gap: 10px; transition: transform 0.3s; z-index: 1000;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">
+            <span>🏮 VLC Stream Hub</span>
+        </div>
+        <div id="headerActions" style="display: none;">
+            <button class="btn btn-secondary" onclick="logout()" style="padding: 6px 14px; font-size: 0.8rem;">تسجيل الخروج</button>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- 1. شاشة تسجيل الدخول العامة -->
+        <div id="loginView" class="view-section active">
+            <div class="card-box" style="max-width: 400px; margin: 40px auto; width: 100%;">
+                <h3 style="margin-bottom: 20px; font-size: 1.2rem; text-align: center;">تسجيل الدخول إلى البث</h3>
+                <div class="form-group">
+                    <label>اسم المستخدم</label>
+                    <input type="text" id="loginUsername" class="form-control" placeholder="أدخل اسم المستخدم...">
+                </div>
+                <div class="form-group">
+                    <label>كلمة المرور</label>
+                    <input type="password" id="loginPassword" class="form-control" placeholder="أدخل كلمة المرور...">
+                </div>
+                <button class="btn" onclick="handleLogin()" style="width: 100%;">دخول 🚀</button>
+            </div>
+        </div>
+
+        <!-- 2. لوحة تحكم الأدمن (Aqeel) -->
+        <div id="adminView" class="view-section">
+            <div class="card-box">
+                <h2 style="margin-bottom: 15px; font-size: 1.2rem; color: var(--vlc-primary);">➕ إضافة مستخدم جديد وإرفاق ملف قنوات</h2>
+                <div class="form-group">
+                    <label>اسم المستخدم الجديد</label>
+                    <input type="text" id="newUsername" class="form-control" placeholder="مثال: sargon">
+                </div>
+                <div class="form-group">
+                    <label>كلمة المرور للمستخدم</label>
+                    <input type="text" id="newPassword" class="form-control" placeholder="مثال: 1234">
+                </div>
+                <div class="form-group">
+                    <label>ملف القنوات الأساسي (M3U / M3U8 / TXT)</label>
+                    <input type="file" id="newUserFile" class="form-control" accept=".m3u,.m3u8,.txt">
+                </div>
+                <button class="btn" onclick="addNewUser()">حفظ المستخدم وإضافة القنوات</button>
+            </div>
+
+            <div class="card-box">
+                <h2 style="font-size: 1.2rem; color: var(--vlc-primary); margin-bottom: 15px;">⚙️ إدارة المشتركين وزيادة قنواتهم السحابية</h2>
+                <div style="overflow-x: auto;">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>المستخدم</th>
+                                <th>كلمة المرور</th>
+                                <th>عدد القنوات</th>
+                                <th>الحالة</th>
+                                <th>الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <tr><td colspan="5" style="text-align:center; color:var(--text-muted);">جاري الاتصال بقاعدة البيانات السحابية...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. شاشة قنوات المستخدم -->
+        <div id="userChannelsView" class="view-section">
+            <div class="card-box" style="background: linear-gradient(135deg, rgba(255, 119, 0, 0.12) 0%, rgba(255, 51, 75, 0.05) 100%); border-color: var(--border-glow);">
+                <h2 style="font-size: 1.1rem; margin-bottom: 5px;">أهلاً بك، <span id="welcomeUser" style="color: var(--vlc-primary);"></span> 👋</h2>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">هذه هي قنواتك السحابية الخاصة. اضغط على أي قناة ليتم فتحها بشكل مباشر في **تطبيق VLC**.</p>
+            </div>
+
+            <div class="form-group">
+                <input type="text" id="searchInput" class="form-control" placeholder="ابحث عن قناة..." oninput="filterChannels()">
+            </div>
+
+            <ul class="channels-grid" id="channelsContainer">
+                <!-- قنوات المستخدم -->
+            </ul>
+        </div>
+
+    </div>
+
+    <div id="toast" class="toast">
+        <span id="toastIcon">🚀</span>
+        <span id="toastText">رسالة...</span>
+    </div>
+
+    <!-- Firebase السحابي بمفاتيحك الحقيقية -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyArdZ2FMa4ScY-skhvAPcrVpWsISh8Hb4Q",
+            authDomain: "vlc-stream-b0a50.firebaseapp.com",
+            projectId: "vlc-stream-b0a50",
+            storageBucket: "vlc-stream-b0a50.firebasestorage.app",
+            messagingSenderId: "519724431196",
+            appId: "1:519724431196:web:acc631d4c8dbcb12cbf399",
+            measurementId: "G-D87B8ZQZHJ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let currentChannelsList = [];
+
+        window.handleLogin = async function() {
+            const usernameInput = document.getElementById('loginUsername').value.trim();
+            const passwordInput = document.getElementById('loginPassword').value.trim();
+
+            if (!usernameInput || !passwordInput) {
+                showToast('يرجى إدخال اسم المستخدم وكلمة المرور', '⚠️');
+                return;
+            }
+
+            if (usernameInput === 'Aqeel' && passwordInput === '112233') {
+                localStorage.setItem('vlc_session', JSON.stringify({ role: 'admin', name: 'Aqeel' }));
+                showView('adminView');
+                loadAdminDashboard();
+                showToast('مرحباً بك يا مدير النظام Aqeel', '⚙️');
+                return;
+            }
+
+            try {
+                showToast('جاري التحقق من السحابة...', '⏳');
+                const docRef = doc(db, "users", usernameInput);
+                const docSnap = await getDoc(docRef);
+
+                if (!docSnap.exists()) {
+                    showToast('اسم المستخدم غير موجود!', '❌');
+                    return;
+                }
+
+                const userData = docSnap.data();
+                if (userData.password !== passwordInput) {
+                    showToast('كلمة المرور غير صحيحة!', '❌');
+                    return;
+                }
+
+                if (userData.status === 'banned') {
+                    showToast('عذراً، هذا الحساب محظور من قِبل المسؤول!', '🚫');
+                    return;
+                }
+
+                localStorage.setItem('vlc_session', JSON.stringify({ role: 'user', name: usernameInput }));
+                showView('userChannelsView');
+                loadUserChannels(userData.channels || []);
+                document.getElementById('welcomeUser').innerText = usernameInput;
+                showToast(`أهلاً بك ${usernameInput}`, '🎉');
+            } catch (err) {
+                console.error(err);
+                showToast('خطأ في الاتصال بقاعدة البيانات', '❌');
+            }
+        };
+
+        function showView(viewId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            document.getElementById('headerActions').style.display = (viewId !== 'loginView') ? 'block' : 'none';
+        }
+
+        window.logout = function() {
+            localStorage.removeItem('vlc_session');
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+            showView('loginView');
+            showToast('تم تسجيل الخروج بنجاح', '🔒');
+        };
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const session = JSON.parse(localStorage.getItem('vlc_session'));
+            if (session) {
+                if (session.role === 'admin') {
+                    showView('adminView');
+                    loadAdminDashboard();
+                } else {
+                    try {
+                        const docRef = doc(db, "users", session.name);
+                        const docSnap = await getDoc(docRef);
+                        if (docSnap.exists() && docSnap.data().status === 'active') {
+                            showView('userChannelsView');
+                            loadUserChannels(docSnap.data().channels || []);
+                            document.getElementById('welcomeUser').innerText = session.name;
+                        } else {
+                            window.logout();
+                        }
+                    } catch(e) {
+                        window.logout();
+                    }
+                }
+            }
+        });
+
+        window.loadAdminDashboard = async function() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "users"));
+                const tbody = document.getElementById('usersTableBody');
+                tbody.innerHTML = '';
+
+                if (querySnapshot.empty) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">لا توجد حسابات مسجلة سحابياً.</td></tr>`;
+                    return;
+                }
+
+                querySnapshot.forEach((documentSnap) => {
+                    const u = documentSnap.data();
+                    const count = u.channels ? u.channels.length : 0;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><b>${u.username}</b></td>
+                        <td><code>${u.password}</code></td>
+                        <td><span class="badge badge-count">${count} قناة</span></td>
+                        <td><span class="badge ${u.status === 'active' ? 'badge-active' : 'badge-banned'}">${u.status === 'active' ? 'نشط' : 'محظور'}</span></td>
+                        <td>
+                            <input type="file" id="file_input_${u.username}" accept=".m3u,.m3u8,.txt" style="display:none" onchange="window.appendFileToUser('${u.username}', event)">
+                            <button class="btn btn-info" style="padding: 4px 8px; font-size: 0.75rem;" onclick="document.getElementById('file_input_${u.username}').click()">➕ إضافة ملف</button>
+                            
+                            <button class="btn ${u.status === 'active' ? 'btn-danger' : 'btn'}" style="padding: 4px 8px; font-size: 0.75rem;" onclick="window.toggleUserStatus('${u.username}', '${u.status}')">${u.status === 'active' ? 'حظر' : 'تفعيل'}</button>
+                            
+                            <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.75rem; background: #333;" onclick="window.deleteUser('${u.username}')">حذف</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error(err);
+                showToast('خطأ في جلب البيانات من السحابة', '❌');
+            }
+        };
+
+        window.addNewUser = async function() {
+            const username = document.getElementById('newUsername').value.trim();
+            const password = document.getElementById('newPassword').value.trim();
+            const fileInput = document.getElementById('newUserFile');
+
+            if (!username || !password) {
+                showToast('يرجى كتابة اسم المستخدم وكلمة المرور', '⚠️');
+                return;
+            }
+
+            if (username === 'Aqeel') {
+                showToast('هذا الاسم محجوز للأدمن!', '⚠️');
+                return;
+            }
+
+            if (fileInput.files.length === 0) {
+                showToast('يرجى اختيار ملف قنوات M3U أولاً', '⚠️');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const newChannels = parseM3UContent(e.target.result);
+                try {
+                    showToast('جاري الرفع للسحابة...', '⏳');
+                    await setDoc(doc(db, "users", username), {
+                        username: username,
+                        password: password,
+                        status: 'active',
+                        channels: newChannels
+                    });
+
+                    document.getElementById('newUsername').value = '';
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('newUserFile').value = '';
+
+                    loadAdminDashboard();
+                    showToast(`تم حفظ المستخدم ${username} مع ${newChannels.length} قناة سحابياً! ✅`, '🎉');
+                } catch (err) {
+                    console.error(err);
+                    showToast('فشل حفظ المستخدم في السحابة', '❌');
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        window.appendFileToUser = async function(username, event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const additionalChannels = parseM3UContent(e.target.result);
+                try {
+                    showToast('جاري تحديث القنوات سحابياً...', '⏳');
+                    const userRef = doc(db, "users", username);
+                    const userSnap = await getDoc(userRef);
+                    
+                    if (userSnap.exists()) {
+                        let existingChannels = userSnap.data().channels || [];
+                        let updatedChannels = existingChannels.concat(additionalChannels);
+
+                        await updateDoc(userRef, {
+                            channels: updatedChannels
+                        });
+
+                        loadAdminDashboard();
+                        showToast(`تمت إضافة ${additionalChannels.length} قناة جديدة للمستخدم ${username} بنجاح! 📈`, '🎉');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showToast('فشل تحديث القنوات في السحابة', '❌');
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        window.toggleUserStatus = async function(username, currentStatus) {
+            try {
+                const newStatus = currentStatus === 'active' ? 'banned' : 'active';
+                await updateDoc(doc(db, "users", username), { status: newStatus });
+                loadAdminDashboard();
+                showToast('تم تحديث حالة الحساب سحابياً', '🔄');
+            } catch (err) {
+                showToast('حدث خطأ أثناء تحديث الحالة', '❌');
+            }
+        };
+
+        window.deleteUser = async function(username) {
+            if (!confirm(`هل أنت متأكد من حذف المستخدم ${username}؟`)) return;
+            try {
+                await deleteDoc(doc(db, "users", username));
+                loadAdminDashboard();
+                showToast('تم حذف المستخدم من السحابة بنجاح', '🗑️');
+            } catch (err) {
+                showToast('حدث خطأ أثناء الحذف', '❌');
+            }
+        };
+
+        function parseM3UContent(content) {
+            if (!content) return [];
+            const lines = content.split('\n');
+            let list = [];
+            let tempName = '';
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (!line) continue;
+
+                if (line.startsWith('#EXTINF:')) {
+                    const parts = line.split(',');
+                    tempName = parts.length > 1 ? parts.slice(1).join(',').trim() : 'قناة بث مباشر';
+                } else if (!line.startsWith('#') && (line.startsWith('http://') || line.startsWith('https://'))) {
+                    list.push({
+                        name: tempName || `قناة #${list.length + 1}`,
+                        url: line
+                    });
+                    tempName = '';
+                }
+            }
+            return list;
+        }
+
+        function loadUserChannels(channelsArray) {
+            currentChannelsList = channelsArray;
+            renderChannels(currentChannelsList);
+        }
+
+        function renderChannels(channels) {
+            const container = document.getElementById('channelsContainer');
+            container.innerHTML = '';
+
+            if (channels.length === 0) {
+                container.innerHTML = `<p style="color:var(--text-muted); text-align:center; grid-column:1/-1;">لا توجد قنوات متاحة في حسابك حالياً.</p>`;
+                return;
+            }
+
+            channels.forEach((ch, idx) => {
+                const li = document.createElement('li');
+                li.className = 'channel-card';
+                li.innerHTML = `
+                    <div class="ch-info">
+                        <span class="ch-name">${ch.name}</span>
+                        <div class="ch-meta">
+                            <span class="ch-badge">LIVE</span>
+                            <span>#${idx + 1}</span>
+                        </div>
+                    </div>
+                    <div class="play-btn-circle">▶</div>
+                `;
+                li.onclick = () => window.launchVLCApp(ch);
+                container.appendChild(li);
+            });
+        }
+
+        window.launchVLCApp = function(channel) {
+            showToast(`🚀 جاري فتح تطبيق VLC لـ: ${channel.name}`);
+            const rawUrl = channel.url.trim();
+            const scheme = rawUrl.startsWith('https') ? 'https' : 'http';
+            const cleanUrl = rawUrl.replace(/^https?:\/\//i, '');
+            const encodedTitle = encodeURIComponent(channel.name);
+
+            const vlcIntent = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;package=org.videolan.vlc;S.user_agent=IPTVSmartersPro/1.0.0;S.title=${encodedTitle};end`;
+            window.location.href = vlcIntent;
+        };
+
+        window.filterChannels = function() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const filtered = currentChannelsList.filter(c => c.name.toLowerCase().includes(query) || c.url.includes(query));
+            renderChannels(filtered);
+        };
+
+        function showToast(text, icon = '🚀') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastIcon').innerText = icon;
+            document.getElementById('toastText').innerText = text;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+    </script>
+</body>
+</html>
