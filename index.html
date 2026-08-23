@@ -313,7 +313,7 @@
         <span id="toastText">رسالة...</span>
     </div>
 
-    <!-- Firebase السحابي بمفاتيحك الحقيقية -->
+    <!-- Firebase السحابي -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -613,15 +613,48 @@
             });
         }
 
+        /* دالة التشغيل الذكية الشاملة لجميع الأنظمة والأجهزة */
         window.launchVLCApp = function(channel) {
             showToast(`🚀 جاري فتح تطبيق VLC لـ: ${channel.name}`);
             const rawUrl = channel.url.trim();
-            const scheme = rawUrl.startsWith('https') ? 'https' : 'http';
-            const cleanUrl = rawUrl.replace(/^https?:\/\//i, '');
-            const encodedTitle = encodeURIComponent(channel.name);
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+            const isAndroid = /android/i.test(userAgent);
 
-            const vlcIntent = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;package=org.videolan.vlc;S.user_agent=IPTVSmartersPro/1.0.0;S.title=${encodedTitle};end`;
-            window.location.href = vlcIntent;
+            if (isIOS) {
+                // آيفون / آيباد
+                const iosVlcUrl = `vlc-x-callback://x-callback-url/stream?url=${encodeURIComponent(rawUrl)}`;
+                const appStoreUrl = "https://apps.apple.com/app/vlc-for-mobile/id650377963";
+
+                const startTime = Date.now();
+                window.location.href = iosVlcUrl;
+
+                setTimeout(() => {
+                    // إذا لم يخرج المتصفح للتطبيق خلال 2.5 ثانية (التطبيق غير مثبت)
+                    if (Date.now() - startTime < 3000 && !document.hidden) {
+                        if (confirm("تطبيق VLC غير مثبت لديك أو لم يتم فتحه. هل ترغب في تنزيله الآن من App Store؟")) {
+                            window.location.href = appStoreUrl;
+                        }
+                    }
+                }, 2500);
+
+            } else if (isAndroid) {
+                // أندرويد / تلفزيونات أندرويد (Google TV / Android TV)
+                const scheme = rawUrl.startsWith('https') ? 'https' : 'http';
+                const cleanUrl = rawUrl.replace(/^https?:\/\//i, '');
+                const encodedTitle = encodeURIComponent(channel.name);
+                const playStoreUrl = encodeURIComponent("https://play.google.com/store/apps/details?id=org.videolan.vlc");
+
+                const vlcIntent = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;package=org.videolan.vlc;S.user_agent=IPTVSmartersPro/1.0.0;S.title=${encodedTitle};S.browser_fallback_url=${playStoreUrl};end`;
+                window.location.href = vlcIntent;
+
+            } else {
+                // كمبيوتر أو متصفح ذكي آخر
+                const isOpened = window.open(`vlc://${rawUrl}`, '_blank');
+                if (!isOpened) {
+                    window.location.href = rawUrl;
+                }
+            }
         };
 
         window.filterChannels = function() {
