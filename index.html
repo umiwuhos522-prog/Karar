@@ -3,32 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VLC Stream Hub - السحابي</title>
+    <title>VLC Stream Hub • PRO السحابي</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-body: #07090e;
-            --card-bg: rgba(19, 23, 34, 0.85);
-            --card-hover: rgba(30, 36, 54, 0.95);
-            --vlc-primary: #ff7700;
-            --vlc-glow: rgba(255, 119, 0, 0.4);
-            --accent-red: #ff334b;
+            --bg-body: #05070d;
+            --card-bg: rgba(16, 22, 36, 0.7);
+            --card-hover: rgba(28, 38, 64, 0.9);
+            --vlc-primary: #ff6a00;
+            --vlc-secondary: #ee0979;
+            --vlc-glow: rgba(255, 106, 0, 0.45);
             --accent-cyan: #00f2fe;
+            --accent-green: #00ff88;
+            --accent-red: #ff3366;
+            --accent-purple: #7928ca;
             --text-main: #ffffff;
-            --text-muted: #8e9bb0;
-            --border-glow: rgba(255, 119, 0, 0.25);
-            --border-card: rgba(255, 255, 255, 0.07);
+            --text-muted: #94a3b8;
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-glow: rgba(255, 106, 0, 0.35);
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", sans-serif;
+            font-family: 'Cairo', -apple-system, BlinkMacSystemFont, sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
 
         body {
-            background: radial-gradient(circle at 50% 0%, #171c2c 0%, #07090e 70%);
+            background: radial-gradient(circle at 50% -20%, #1e1b4b 0%, #080c1a 45%, #03060c 100%);
             color: var(--text-main);
             min-height: 100vh;
             display: flex;
@@ -36,254 +42,644 @@
             overflow-x: hidden;
         }
 
+        /* Ambient Glow Background */
+        .ambient-glow {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100vw;
+            height: 400px;
+            background: radial-gradient(circle, rgba(255, 106, 0, 0.15) 0%, rgba(121, 40, 202, 0.1) 50%, transparent 80%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
         header {
-            background: rgba(10, 13, 20, 0.85);
-            backdrop-filter: blur(18px);
-            border-bottom: 1px solid var(--border-card);
-            padding: 14px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(8, 12, 22, 0.75);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border-bottom: 1px solid var(--border-glass);
+            padding: 14px 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 15px;
         }
 
         .brand {
             display: flex;
             align-items: center;
             gap: 12px;
-            font-size: 1.25rem;
+            font-size: 1.3rem;
             font-weight: 900;
-            background: linear-gradient(135deg, #ff9900, #ff4400);
+            background: linear-gradient(135deg, #ff9900, #ff4400, #ee0979);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 25px rgba(255, 106, 0, 0.3);
+        }
+
+        .brand-icon {
+            font-size: 1.6rem;
+            filter: drop-shadow(0 0 10px rgba(255, 106, 0, 0.6));
+            animation: pulse 2.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
         }
 
         .container {
             flex: 1;
-            max-width: 950px;
+            max-width: 1050px;
             width: 100%;
             margin: 0 auto;
-            padding: 20px 16px 40px;
+            padding: 24px 16px 50px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 24px;
+            position: relative;
+            z-index: 1;
         }
 
         .view-section {
             display: none;
             flex-direction: column;
-            gap: 20px;
+            gap: 22px;
+            animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
         .view-section.active {
             display: flex;
         }
 
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px) scale(0.99); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
         .card-box {
             background: var(--card-bg);
-            border: 1px solid var(--border-card);
-            border-radius: 16px;
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
             padding: 24px;
-            backdrop-filter: blur(12px);
-            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: border 0.3s ease;
+        }
+
+        .card-box:hover {
+            border-color: rgba(255, 255, 255, 0.15);
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            margin-bottom: 15px;
+            margin-bottom: 16px;
         }
 
         .form-group label {
             font-size: 0.85rem;
             color: var(--text-muted);
             font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .form-control {
             width: 100%;
-            padding: 12px 16px;
-            background: rgba(10, 13, 20, 0.6);
-            border: 1px solid var(--border-card);
-            border-radius: 12px;
+            padding: 13px 18px;
+            background: rgba(7, 10, 19, 0.7);
+            border: 1px solid var(--border-glass);
+            border-radius: 14px;
             color: #fff;
             font-size: 0.95rem;
+            font-weight: 600;
             outline: none;
-            transition: all 0.3s;
+            transition: all 0.25s ease;
         }
 
         .form-control:focus {
             border-color: var(--vlc-primary);
-            box-shadow: 0 0 15px rgba(255, 119, 0, 0.2);
+            box-shadow: 0 0 20px var(--vlc-glow);
+            background: rgba(10, 15, 28, 0.9);
         }
 
         input[type="file"]::file-selector-button {
-            background: linear-gradient(135deg, #ff8800, #ff4500);
+            background: linear-gradient(135deg, #ff7700, #ee0979);
             color: white;
-            padding: 8px 14px;
+            padding: 9px 16px;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
             font-weight: 700;
-            margin-left: 10px;
+            font-size: 0.85rem;
+            margin-left: 12px;
+            box-shadow: 0 4px 12px rgba(255, 106, 0, 0.3);
+            transition: 0.2s;
+        }
+
+        input[type="file"]::file-selector-button:hover {
+            filter: brightness(1.15);
         }
 
         .btn {
-            background: linear-gradient(135deg, #ff8800, #ff4500);
+            background: linear-gradient(135deg, #ff7700, #ff334b);
             color: #fff;
-            padding: 12px 20px;
-            border-radius: 12px;
+            padding: 13px 24px;
+            border-radius: 14px;
             border: none;
             cursor: pointer;
             font-size: 0.95rem;
             font-weight: 700;
-            box-shadow: 0 4px 18px rgba(255, 69, 0, 0.35);
-            transition: 0.2s;
+            box-shadow: 0 6px 20px rgba(255, 106, 0, 0.35);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             text-align: center;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
-        .btn:active { transform: scale(0.96); }
-        .btn-danger { background: linear-gradient(135deg, #ff334b, #c5112e); box-shadow: 0 4px 18px rgba(255, 51, 75, 0.35); }
-        .btn-secondary { background: rgba(255,255,255,0.08); box-shadow: none; border: 1px solid var(--border-card); }
-        .btn-info { background: linear-gradient(135deg, #00c6ff, #0072ff); box-shadow: 0 4px 18px rgba(0, 114, 255, 0.35); }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 106, 0, 0.5);
+            filter: brightness(1.08);
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff3366, #b8002e);
+            box-shadow: 0 6px 20px rgba(255, 51, 102, 0.35);
+        }
+        .btn-danger:hover {
+            box-shadow: 0 8px 25px rgba(255, 51, 102, 0.5);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: none;
+            border: 1px solid var(--border-glass);
+            color: var(--text-muted);
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #00f2fe, #4facfe);
+            color: #050b14;
+            box-shadow: 0 6px 20px rgba(0, 242, 254, 0.35);
+        }
+        .btn-info:hover {
+            box-shadow: 0 8px 25px rgba(0, 242, 254, 0.5);
+        }
+
+        /* Stats Cards in Admin */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            margin-bottom: 15px;
+        }
+
+        .stat-card {
+            background: rgba(12, 17, 30, 0.6);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .stat-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            background: rgba(255, 106, 0, 0.15);
+            color: var(--vlc-primary);
+        }
+
+        .stat-info h4 {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .stat-info span {
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: #fff;
+        }
+
+        /* Users Table */
+        .users-table-wrapper {
+            overflow-x: auto;
+            border-radius: 14px;
+            border: 1px solid var(--border-glass);
+        }
 
         .users-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
-        }
-        .users-table th, .users-table td {
-            padding: 12px;
             text-align: right;
-            border-bottom: 1px solid var(--border-card);
-            font-size: 0.85rem;
         }
-        .users-table th { color: var(--text-muted); font-weight: 700; }
-        
-        .badge {
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 0.75rem;
+
+        .users-table th, .users-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-glass);
+            font-size: 0.9rem;
+        }
+
+        .users-table th {
+            background: rgba(7, 10, 20, 0.8);
+            color: var(--text-muted);
             font-weight: 700;
         }
-        .badge-active { background: rgba(0, 242, 254, 0.15); color: #00f2fe; }
-        .badge-banned { background: rgba(255, 51, 75, 0.15); color: #ff334b; }
-        .badge-count { background: rgba(255, 119, 0, 0.15); color: #ff7700; }
 
+        .users-table tbody tr {
+            transition: background 0.2s;
+        }
+
+        .users-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .badge-active { background: rgba(0, 255, 136, 0.15); color: var(--accent-green); border: 1px solid rgba(0, 255, 136, 0.3); }
+        .badge-banned { background: rgba(255, 51, 102, 0.15); color: var(--accent-red); border: 1px solid rgba(255, 51, 102, 0.3); }
+        .badge-count { background: rgba(0, 242, 254, 0.12); color: var(--accent-cyan); border: 1px solid rgba(0, 242, 254, 0.3); }
+
+        /* User Header Banner */
+        .user-welcome-banner {
+            background: linear-gradient(135deg, rgba(255, 106, 0, 0.15) 0%, rgba(121, 40, 202, 0.15) 100%);
+            border: 1px solid var(--border-glow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .user-welcome-banner::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        /* Categories Filter Chips */
+        .category-chips {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 4px 0 10px;
+            scrollbar-width: none;
+        }
+
+        .category-chips::-webkit-scrollbar { display: none; }
+
+        .chip {
+            padding: 7px 16px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .chip:hover, .chip.active {
+            background: var(--vlc-primary);
+            color: #fff;
+            border-color: var(--vlc-primary);
+            box-shadow: 0 0 15px var(--vlc-glow);
+        }
+
+        /* Channels Grid */
         .channels-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
             list-style: none;
         }
 
         .channel-card {
             background: var(--card-bg);
-            border: 1px solid var(--border-card);
-            border-radius: 14px;
-            padding: 14px 16px;
+            border: 1px solid var(--border-glass);
+            border-radius: 18px;
+            padding: 16px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 12px;
+            gap: 14px;
             cursor: pointer;
-            transition: all 0.25s;
-            backdrop-filter: blur(10px);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(15px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .channel-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(180deg, var(--vlc-primary), var(--vlc-secondary));
+            opacity: 0;
+            transition: opacity 0.3s;
         }
 
         .channel-card:hover {
             background: var(--card-hover);
-            border-color: rgba(255, 119, 0, 0.4);
-            transform: translateY(-2px);
+            border-color: var(--border-glow);
+            transform: translateY(-3px) scale(1.01);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 106, 0, 0.15);
         }
 
-        .ch-info { display: flex; flex-direction: column; gap: 4px; overflow: hidden; flex: 1; }
-        .ch-name { font-size: 0.95rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .ch-meta { font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 6px; }
-        .ch-badge { background: rgba(255,255,255,0.08); color: #d1d5db; padding: 2px 6px; border-radius: 6px; font-size: 0.7rem; }
+        .channel-card:hover::before {
+            opacity: 1;
+        }
+
+        .channel-card:active {
+            transform: scale(0.98);
+        }
+
+        .ch-logo-wrap {
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            overflow: hidden;
+        }
+
+        .ch-logo-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .ch-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            overflow: hidden;
+            flex: 1;
+        }
+
+        .ch-name {
+            font-size: 0.98rem;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ch-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ch-badge {
+            background: rgba(0, 242, 254, 0.1);
+            color: var(--accent-cyan);
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .ch-group {
+            background: rgba(255, 255, 255, 0.06);
+            color: #d1d5db;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            max-width: 110px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
         .play-btn-circle {
-            width: 40px; height: 40px; min-width: 40px;
-            background: linear-gradient(135deg, #ff8800, #ff4400);
+            width: 42px;
+            height: 42px;
+            min-width: 42px;
+            background: linear-gradient(135deg, #ff7700, #ee0979);
             border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 0.9rem;
-            box-shadow: 0 4px 14px rgba(255, 68, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1rem;
+            box-shadow: 0 4px 15px rgba(255, 106, 0, 0.4);
+            transition: all 0.25s;
         }
 
-        .toast {
-            position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%) translateY(100px);
-            background: rgba(18, 22, 33, 0.95); border: 1px solid var(--vlc-primary); color: #fff;
-            padding: 12px 24px; border-radius: 30px; font-size: 0.9rem; font-weight: 700;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.7); backdrop-filter: blur(10px);
-            display: flex; align-items: center; gap: 10px; transition: transform 0.3s; z-index: 1000;
+        .channel-card:hover .play-btn-circle {
+            transform: scale(1.12) rotate(5deg);
+            box-shadow: 0 6px 20px rgba(255, 106, 0, 0.7);
         }
-        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%) translateY(120px);
+            background: rgba(15, 20, 35, 0.95);
+            border: 1px solid var(--vlc-primary);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 40px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8), 0 0 25px var(--vlc-glow);
+            backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1000;
+            max-width: 90%;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block;
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            border-top-color: var(--vlc-primary);
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
 
+    <div class="ambient-glow"></div>
+
     <header>
         <div class="brand">
-            <span>🏮 VLC Stream Hub</span>
+            <span class="brand-icon">🏮</span>
+            <span>VLC Stream Hub</span>
         </div>
         <div id="headerActions" style="display: none;">
-            <button class="btn btn-secondary" onclick="logout()" style="padding: 6px 14px; font-size: 0.8rem;">تسجيل الخروج</button>
+            <button class="btn btn-secondary" onclick="triggerAction(logout)" style="padding: 8px 16px; font-size: 0.85rem;">
+                <span>🔒</span> تسجيل الخروج
+            </button>
         </div>
     </header>
 
     <div class="container">
 
-        <!-- 1. شاشة تسجيل الدخول العامة -->
+        <!-- 1. شاشة تسجيل الدخول -->
         <div id="loginView" class="view-section active">
-            <div class="card-box" style="max-width: 400px; margin: 40px auto; width: 100%;">
-                <h3 style="margin-bottom: 20px; font-size: 1.2rem; text-align: center;">تسجيل الدخول إلى البث</h3>
-                <div class="form-group">
-                    <label>اسم المستخدم</label>
-                    <input type="text" id="loginUsername" class="form-control" placeholder="أدخل اسم المستخدم...">
+            <div class="card-box" style="max-width: 420px; margin: 40px auto; width: 100%;">
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <div style="font-size: 3rem; margin-bottom: 8px;">🚀</div>
+                    <h3 style="font-size: 1.4rem; font-weight: 900;">تسجيل الدخول إلى البث</h3>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">أدخل بيانات حسابك للمشاهدة المباشرة</p>
                 </div>
+
                 <div class="form-group">
-                    <label>كلمة المرور</label>
-                    <input type="password" id="loginPassword" class="form-control" placeholder="أدخل كلمة المرور...">
+                    <label><span>👤</span> اسم المستخدم</label>
+                    <input type="text" id="loginUsername" class="form-control" placeholder="أدخل اسم المشترك..." autocomplete="username">
                 </div>
-                <button class="btn" onclick="handleLogin()" style="width: 100%;">دخول 🚀</button>
+
+                <div class="form-group">
+                    <label><span>🔑</span> كلمة المرور</label>
+                    <input type="password" id="loginPassword" class="form-control" placeholder="أدخل كلمة المرور..." autocomplete="current-password">
+                </div>
+
+                <button class="btn" onclick="triggerAction(handleLogin)" style="width: 100%; margin-top: 10px; font-size: 1rem;">
+                    <span>⚡</span> دخول فوري
+                </button>
             </div>
         </div>
 
         <!-- 2. لوحة تحكم الأدمن (Aqeel) -->
         <div id="adminView" class="view-section">
-            <div class="card-box">
-                <h2 style="margin-bottom: 15px; font-size: 1.2rem; color: var(--vlc-primary);">➕ إضافة مستخدم جديد وإرفاق ملف قنوات</h2>
-                <div class="form-group">
-                    <label>اسم المستخدم الجديد</label>
-                    <input type="text" id="newUsername" class="form-control" placeholder="مثال: sargon">
+            
+            <!-- إحصائيات سريعة -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-info">
+                        <h4>إجمالي المشتركين</h4>
+                        <span id="statTotalUsers">0</span>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>كلمة المرور للمستخدم</label>
-                    <input type="text" id="newPassword" class="form-control" placeholder="مثال: 1234">
+                <div class="stat-card">
+                    <div class="stat-icon" style="color: var(--accent-green); background: rgba(0,255,136,0.15);">🟢</div>
+                    <div class="stat-info">
+                        <h4>الحسابات النشطة</h4>
+                        <span id="statActiveUsers">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="color: var(--accent-cyan); background: rgba(0,242,254,0.15);">📡</div>
+                    <div class="stat-info">
+                        <h4>إجمالي القنوات</h4>
+                        <span id="statTotalChannels">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- إضافة مشترك جديد -->
+            <div class="card-box">
+                <h2 style="margin-bottom: 18px; font-size: 1.25rem; color: var(--vlc-primary); display: flex; align-items: center; gap: 8px;">
+                    <span>➕</span> إضافة مستخدم جديد وإرفاق ملف قنوات
+                </h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+                    <div class="form-group">
+                        <label>اسم المستخدم الجديد</label>
+                        <input type="text" id="newUsername" class="form-control" placeholder="مثال: sargon">
+                    </div>
+                    <div class="form-group">
+                        <label>كلمة المرور للمستخدم</label>
+                        <input type="text" id="newPassword" class="form-control" placeholder="مثال: 1234">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>ملف القنوات الأساسي (M3U / M3U8 / TXT)</label>
                     <input type="file" id="newUserFile" class="form-control" accept=".m3u,.m3u8,.txt">
                 </div>
-                <button class="btn" onclick="addNewUser()">حفظ المستخدم وإضافة القنوات</button>
+                <button class="btn" onclick="triggerAction(addNewUser)">
+                    <span>💾</span> حفظ المستخدم ورفع القنوات
+                </button>
             </div>
 
+            <!-- إدارة المشتركين -->
             <div class="card-box">
-                <h2 style="font-size: 1.2rem; color: var(--vlc-primary); margin-bottom: 15px;">⚙️ إدارة المشتركين وزيادة قنواتهم السحابية</h2>
-                <div style="overflow-x: auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+                    <h2 style="font-size: 1.2rem; color: var(--vlc-primary); display: flex; align-items: center; gap: 8px;">
+                        <span>⚙️</span> إدارة المشتركين وزيادة قنواتهم السحابية
+                    </h2>
+                    <input type="text" id="adminSearchInput" class="form-control" placeholder="بحث عن مستخدم..." oninput="filterAdminUsers()" style="max-width: 220px; padding: 8px 14px; font-size: 0.85rem;">
+                </div>
+
+                <div class="users-table-wrapper">
                     <table class="users-table">
                         <thead>
                             <tr>
                                 <th>المستخدم</th>
                                 <th>كلمة المرور</th>
-                                <th>عدد القنوات</th>
+                                <th>القنوات</th>
                                 <th>الحالة</th>
                                 <th>الإجراءات</th>
                             </tr>
                         </thead>
                         <tbody id="usersTableBody">
-                            <tr><td colspan="5" style="text-align:center; color:var(--text-muted);">جاري الاتصال بقاعدة البيانات السحابية...</td></tr>
+                            <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding: 24px;"><div class="spinner"></div> جاري الاتصال بالسحابة...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -292,28 +688,121 @@
 
         <!-- 3. شاشة قنوات المستخدم -->
         <div id="userChannelsView" class="view-section">
-            <div class="card-box" style="background: linear-gradient(135deg, rgba(255, 119, 0, 0.12) 0%, rgba(255, 51, 75, 0.05) 100%); border-color: var(--border-glow);">
-                <h2 style="font-size: 1.1rem; margin-bottom: 5px;">أهلاً بك، <span id="welcomeUser" style="color: var(--vlc-primary);"></span> 👋</h2>
-                <p style="font-size: 0.85rem; color: var(--text-muted);">هذه هي قنواتك السحابية الخاصة. اضغط على أي قناة ليتم فتحها بشكل مباشر في **تطبيق VLC**.</p>
+            <div class="card-box user-welcome-banner">
+                <h2 style="font-size: 1.3rem; margin-bottom: 6px;">أهلاً بك، <span id="welcomeUser" style="color: var(--vlc-primary); font-weight: 900;"></span> 👋</h2>
+                <p style="font-size: 0.9rem; color: var(--text-muted);">هذه هي باقتك السحابية الخاصة. اضغط على أي قناة ليتم فتحها بشكل فوري ومباشر في **تطبيق VLC**.</p>
             </div>
 
-            <div class="form-group">
-                <input type="text" id="searchInput" class="form-control" placeholder="ابحث عن قناة..." oninput="filterChannels()">
+            <!-- شريط البحث والفلترة -->
+            <div class="form-group" style="margin-bottom: 8px;">
+                <input type="text" id="searchInput" class="form-control" placeholder="🔍 ابحث عن اسم القناة أو الرابط..." oninput="filterChannels()">
             </div>
 
+            <!-- تصنيفات القنوات -->
+            <div class="category-chips" id="categoryChipsContainer">
+                <div class="chip active" onclick="setCategoryFilter('الكل', this)">🌟 الكل</div>
+            </div>
+
+            <!-- شبكة القنوات -->
             <ul class="channels-grid" id="channelsContainer">
-                <!-- قنوات المستخدم -->
+                <!-- قنوات المستخدم ديناميكياً -->
             </ul>
         </div>
 
     </div>
 
+    <!-- الإشعار السريع -->
     <div id="toast" class="toast">
-        <span id="toastIcon">🚀</span>
+        <span id="toastIcon" style="font-size: 1.2rem;">🚀</span>
         <span id="toastText">رسالة...</span>
     </div>
 
-    <!-- Firebase السحابي -->
+    <!-- المحرك الصوتي الداخلي التفاعلي (Web Audio API) -->
+    <script>
+        const AudioEngine = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            playTap() {
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.05);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.05);
+            },
+            playSuccess() {
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99].forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.08);
+                    gain.gain.setValueAtTime(0.25, now + i * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.25);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.08);
+                    osc.stop(now + i * 0.08 + 0.25);
+                });
+            },
+            playError() {
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.setValueAtTime(160, now + 0.1);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            },
+            playLaunch() {
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.25);
+                gain.gain.setValueAtTime(0.35, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+        };
+
+        function triggerAction(fn, ...args) {
+            AudioEngine.playTap();
+            fn(...args);
+        }
+    </script>
+
+    <!-- Firebase السحابي والمنطق الأساسي -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -332,21 +821,25 @@
         const db = getFirestore(app);
 
         let currentChannelsList = [];
+        let allAdminUsers = [];
+        let activeCategory = 'الكل';
 
         window.handleLogin = async function() {
             const usernameInput = document.getElementById('loginUsername').value.trim();
             const passwordInput = document.getElementById('loginPassword').value.trim();
 
             if (!usernameInput || !passwordInput) {
+                AudioEngine.playError();
                 showToast('يرجى إدخال اسم المستخدم وكلمة المرور', '⚠️');
                 return;
             }
 
             if (usernameInput === 'Aqeel' && passwordInput === '112233') {
+                AudioEngine.playSuccess();
                 localStorage.setItem('vlc_session', JSON.stringify({ role: 'admin', name: 'Aqeel' }));
                 showView('adminView');
                 loadAdminDashboard();
-                showToast('مرحباً بك يا مدير النظام Aqeel', '⚙️');
+                showToast('مرحباً بك يا مدير النظام Aqeel', '👑');
                 return;
             }
 
@@ -356,28 +849,33 @@
                 const docSnap = await getDoc(docRef);
 
                 if (!docSnap.exists()) {
+                    AudioEngine.playError();
                     showToast('اسم المستخدم غير موجود!', '❌');
                     return;
                 }
 
                 const userData = docSnap.data();
                 if (userData.password !== passwordInput) {
+                    AudioEngine.playError();
                     showToast('كلمة المرور غير صحيحة!', '❌');
                     return;
                 }
 
                 if (userData.status === 'banned') {
+                    AudioEngine.playError();
                     showToast('عذراً، هذا الحساب محظور من قِبل المسؤول!', '🚫');
                     return;
                 }
 
+                AudioEngine.playSuccess();
                 localStorage.setItem('vlc_session', JSON.stringify({ role: 'user', name: usernameInput }));
                 showView('userChannelsView');
                 loadUserChannels(userData.channels || []);
                 document.getElementById('welcomeUser').innerText = usernameInput;
-                showToast(`أهلاً بك ${usernameInput}`, '🎉');
+                showToast(`أهلاً بك مجدداً ${usernameInput}`, '🎉');
             } catch (err) {
                 console.error(err);
+                AudioEngine.playError();
                 showToast('خطأ في الاتصال بقاعدة البيانات', '❌');
             }
         };
@@ -389,6 +887,7 @@
         }
 
         window.logout = function() {
+            AudioEngine.playTap();
             localStorage.removeItem('vlc_session');
             document.getElementById('loginUsername').value = '';
             document.getElementById('loginPassword').value = '';
@@ -423,38 +922,65 @@
         window.loadAdminDashboard = async function() {
             try {
                 const querySnapshot = await getDocs(collection(db, "users"));
-                const tbody = document.getElementById('usersTableBody');
-                tbody.innerHTML = '';
-
-                if (querySnapshot.empty) {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">لا توجد حسابات مسجلة سحابياً.</td></tr>`;
-                    return;
-                }
+                allAdminUsers = [];
+                let totalChannels = 0;
+                let activeCount = 0;
 
                 querySnapshot.forEach((documentSnap) => {
-                    const u = documentSnap.data();
-                    const count = u.channels ? u.channels.length : 0;
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td><b>${u.username}</b></td>
-                        <td><code>${u.password}</code></td>
-                        <td><span class="badge badge-count">${count} قناة</span></td>
-                        <td><span class="badge ${u.status === 'active' ? 'badge-active' : 'badge-banned'}">${u.status === 'active' ? 'نشط' : 'محظور'}</span></td>
-                        <td>
-                            <input type="file" id="file_input_${u.username}" accept=".m3u,.m3u8,.txt" style="display:none" onchange="window.appendFileToUser('${u.username}', event)">
-                            <button class="btn btn-info" style="padding: 4px 8px; font-size: 0.75rem;" onclick="document.getElementById('file_input_${u.username}').click()">➕ إضافة ملف</button>
-                            
-                            <button class="btn ${u.status === 'active' ? 'btn-danger' : 'btn'}" style="padding: 4px 8px; font-size: 0.75rem;" onclick="window.toggleUserStatus('${u.username}', '${u.status}')">${u.status === 'active' ? 'حظر' : 'تفعيل'}</button>
-                            
-                            <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.75rem; background: #333;" onclick="window.deleteUser('${u.username}')">حذف</button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
+                    const data = documentSnap.data();
+                    allAdminUsers.push(data);
+                    totalChannels += (data.channels ? data.channels.length : 0);
+                    if (data.status === 'active') activeCount++;
                 });
+
+                document.getElementById('statTotalUsers').innerText = allAdminUsers.length;
+                document.getElementById('statActiveUsers').innerText = activeCount;
+                document.getElementById('statTotalChannels').innerText = totalChannels.toLocaleString();
+
+                renderAdminTable(allAdminUsers);
             } catch (err) {
                 console.error(err);
+                AudioEngine.playError();
                 showToast('خطأ في جلب البيانات من السحابة', '❌');
             }
+        };
+
+        function renderAdminTable(users) {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '';
+
+            if (users.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding: 20px;">لا توجد حسابات مسجلة سحابياً.</td></tr>`;
+                return;
+            }
+
+            users.forEach((u) => {
+                const count = u.channels ? u.channels.length : 0;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><b style="color: #fff;">${u.username}</b></td>
+                    <td><code style="background: rgba(255,255,255,0.06); padding: 4px 8px; border-radius: 6px; color: var(--accent-cyan);">${u.password}</code></td>
+                    <td><span class="badge badge-count">📡 ${count} قناة</span></td>
+                    <td><span class="badge ${u.status === 'active' ? 'badge-active' : 'badge-banned'}">${u.status === 'active' ? '● نشط' : '✕ محظور'}</span></td>
+                    <td>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <input type="file" id="file_input_${u.username}" accept=".m3u,.m3u8,.txt" style="display:none" onchange="window.appendFileToUser('${u.username}', event)">
+                            <button class="btn btn-info" style="padding: 6px 10px; font-size: 0.78rem;" onclick="document.getElementById('file_input_${u.username}').click()">➕ إضافة ملف</button>
+                            
+                            <button class="btn ${u.status === 'active' ? 'btn-danger' : 'btn'}" style="padding: 6px 10px; font-size: 0.78rem;" onclick="window.toggleUserStatus('${u.username}', '${u.status}')">${u.status === 'active' ? 'حظر' : 'تفعيل'}</button>
+                            
+                            <button class="btn btn-danger" style="padding: 6px 10px; font-size: 0.78rem;" onclick="window.deleteUser('${u.username}')">🗑️</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.filterAdminUsers = function() {
+            const q = document.getElementById('adminSearchInput').value.toLowerCase().trim();
+            const filtered = allAdminUsers.filter(u => u.username.toLowerCase().includes(q));
+            renderAdminTable(filtered);
         };
 
         window.addNewUser = async function() {
@@ -463,16 +989,19 @@
             const fileInput = document.getElementById('newUserFile');
 
             if (!username || !password) {
+                AudioEngine.playError();
                 showToast('يرجى كتابة اسم المستخدم وكلمة المرور', '⚠️');
                 return;
             }
 
-            if (username === 'Aqeel') {
+            if (username.toLowerCase() === 'aqeel') {
+                AudioEngine.playError();
                 showToast('هذا الاسم محجوز للأدمن!', '⚠️');
                 return;
             }
 
             if (fileInput.files.length === 0) {
+                AudioEngine.playError();
                 showToast('يرجى اختيار ملف قنوات M3U أولاً', '⚠️');
                 return;
             }
@@ -494,10 +1023,12 @@
                     document.getElementById('newPassword').value = '';
                     document.getElementById('newUserFile').value = '';
 
+                    AudioEngine.playSuccess();
                     loadAdminDashboard();
-                    showToast(`تم حفظ المستخدم ${username} مع ${newChannels.length} قناة سحابياً! ✅`, '🎉');
+                    showToast(`تم حفظ المستخدم ${username} مع ${newChannels.length} قناة! ✅`, '🎉');
                 } catch (err) {
                     console.error(err);
+                    AudioEngine.playError();
                     showToast('فشل حفظ المستخدم في السحابة', '❌');
                 }
             };
@@ -520,15 +1051,15 @@
                         let existingChannels = userSnap.data().channels || [];
                         let updatedChannels = existingChannels.concat(additionalChannels);
 
-                        await updateDoc(userRef, {
-                            channels: updatedChannels
-                        });
+                        await updateDoc(userRef, { channels: updatedChannels });
 
+                        AudioEngine.playSuccess();
                         loadAdminDashboard();
-                        showToast(`تمت إضافة ${additionalChannels.length} قناة جديدة للمستخدم ${username} بنجاح! 📈`, '🎉');
+                        showToast(`تمت إضافة ${additionalChannels.length} قناة جديدة للمستخدم ${username}! 📈`, '🎉');
                     }
                 } catch (err) {
                     console.error(err);
+                    AudioEngine.playError();
                     showToast('فشل تحديث القنوات في السحابة', '❌');
                 }
             };
@@ -537,45 +1068,66 @@
 
         window.toggleUserStatus = async function(username, currentStatus) {
             try {
+                AudioEngine.playTap();
                 const newStatus = currentStatus === 'active' ? 'banned' : 'active';
                 await updateDoc(doc(db, "users", username), { status: newStatus });
                 loadAdminDashboard();
                 showToast('تم تحديث حالة الحساب سحابياً', '🔄');
             } catch (err) {
+                AudioEngine.playError();
                 showToast('حدث خطأ أثناء تحديث الحالة', '❌');
             }
         };
 
         window.deleteUser = async function(username) {
-            if (!confirm(`هل أنت متأكد من حذف المستخدم ${username}؟`)) return;
+            AudioEngine.playTap();
+            if (!confirm(`هل أنت متأكد تماماً من حذف المستخدم ${username} وجميع قنواته؟`)) return;
             try {
                 await deleteDoc(doc(db, "users", username));
+                AudioEngine.playSuccess();
                 loadAdminDashboard();
                 showToast('تم حذف المستخدم من السحابة بنجاح', '🗑️');
             } catch (err) {
+                AudioEngine.playError();
                 showToast('حدث خطأ أثناء الحذف', '❌');
             }
         };
 
+        /* المحلل الذكي لملفات M3U مع استخراج الشعارات والتصنيفات */
         function parseM3UContent(content) {
             if (!content) return [];
             const lines = content.split('\n');
             let list = [];
             let tempName = '';
+            let tempLogo = '';
+            let tempGroup = 'عامة';
 
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i].trim();
                 if (!line) continue;
 
                 if (line.startsWith('#EXTINF:')) {
+                    // استخراج الشعار
+                    const logoMatch = line.match(/tvg-logo="([^"]+)"/i);
+                    tempLogo = logoMatch ? logoMatch[1] : '';
+
+                    // استخراج المجموعة / التصنيف
+                    const groupMatch = line.match(/group-title="([^"]+)"/i);
+                    tempGroup = groupMatch ? groupMatch[1] : 'عامة';
+
+                    // استخراج اسم القناة
                     const parts = line.split(',');
                     tempName = parts.length > 1 ? parts.slice(1).join(',').trim() : 'قناة بث مباشر';
                 } else if (!line.startsWith('#') && (line.startsWith('http://') || line.startsWith('https://'))) {
                     list.push({
                         name: tempName || `قناة #${list.length + 1}`,
-                        url: line
+                        url: line,
+                        logo: tempLogo,
+                        group: tempGroup
                     });
                     tempName = '';
+                    tempLogo = '';
+                    tempGroup = 'عامة';
                 }
             }
             return list;
@@ -583,27 +1135,64 @@
 
         function loadUserChannels(channelsArray) {
             currentChannelsList = channelsArray;
+            buildCategoriesMenu(currentChannelsList);
             renderChannels(currentChannelsList);
         }
+
+        function buildCategoriesMenu(channels) {
+            const container = document.getElementById('categoryChipsContainer');
+            const groups = new Set();
+            channels.forEach(c => {
+                if (c.group && c.group.trim()) groups.add(c.group.trim());
+            });
+
+            container.innerHTML = `<div class="chip active" onclick="setCategoryFilter('الكل', this)">🌟 الكل (${channels.length})</div>`;
+            groups.forEach(g => {
+                const count = channels.filter(c => c.group === g).length;
+                const div = document.createElement('div');
+                div.className = 'chip';
+                div.innerText = `${g} (${count})`;
+                div.onclick = () => setCategoryFilter(g, div);
+                container.appendChild(div);
+            });
+        }
+
+        window.setCategoryFilter = function(category, element) {
+            AudioEngine.playTap();
+            activeCategory = category;
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            if (element) element.classList.add('active');
+            window.filterChannels();
+        };
 
         function renderChannels(channels) {
             const container = document.getElementById('channelsContainer');
             container.innerHTML = '';
 
             if (channels.length === 0) {
-                container.innerHTML = `<p style="color:var(--text-muted); text-align:center; grid-column:1/-1;">لا توجد قنوات متاحة في حسابك حالياً.</p>`;
+                container.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                        <div style="font-size: 2.5rem; margin-bottom: 10px;">📡</div>
+                        <p>لا توجد قنوات تطابق بحثك حالياً.</p>
+                    </div>`;
                 return;
             }
 
             channels.forEach((ch, idx) => {
                 const li = document.createElement('li');
                 li.className = 'channel-card';
+                
+                const logoHtml = ch.logo 
+                    ? `<img src="${ch.logo}" alt="logo" onerror="this.parentElement.innerHTML='📺'">` 
+                    : `📺`;
+
                 li.innerHTML = `
+                    <div class="ch-logo-wrap">${logoHtml}</div>
                     <div class="ch-info">
                         <span class="ch-name">${ch.name}</span>
                         <div class="ch-meta">
                             <span class="ch-badge">LIVE</span>
-                            <span>#${idx + 1}</span>
+                            <span class="ch-group">${ch.group || 'عامة'}</span>
                         </div>
                     </div>
                     <div class="play-btn-circle">▶</div>
@@ -613,16 +1202,16 @@
             });
         }
 
-        /* دالة التشغيل الذكية الشاملة لجميع الأنظمة والأجهزة */
+        /* التشغيل الذكي في مشغل VLC */
         window.launchVLCApp = function(channel) {
-            showToast(`🚀 جاري فتح تطبيق VLC لـ: ${channel.name}`);
+            AudioEngine.playLaunch();
+            showToast(`🚀 جاري فتح VLC لـ: ${channel.name}`, '📺');
             const rawUrl = channel.url.trim();
             const userAgent = navigator.userAgent || navigator.vendor || window.opera;
             const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
             const isAndroid = /android/i.test(userAgent);
 
             if (isIOS) {
-                // آيفون / آيباد
                 const iosVlcUrl = `vlc-x-callback://x-callback-url/stream?url=${encodeURIComponent(rawUrl)}`;
                 const appStoreUrl = "https://apps.apple.com/app/vlc-for-mobile/id650377963";
 
@@ -630,7 +1219,6 @@
                 window.location.href = iosVlcUrl;
 
                 setTimeout(() => {
-                    // إذا لم يخرج المتصفح للتطبيق خلال 2.5 ثانية (التطبيق غير مثبت)
                     if (Date.now() - startTime < 3000 && !document.hidden) {
                         if (confirm("تطبيق VLC غير مثبت لديك أو لم يتم فتحه. هل ترغب في تنزيله الآن من App Store؟")) {
                             window.location.href = appStoreUrl;
@@ -639,7 +1227,6 @@
                 }, 2500);
 
             } else if (isAndroid) {
-                // أندرويد / تلفزيونات أندرويد (Google TV / Android TV)
                 const scheme = rawUrl.startsWith('https') ? 'https' : 'http';
                 const cleanUrl = rawUrl.replace(/^https?:\/\//i, '');
                 const encodedTitle = encodeURIComponent(channel.name);
@@ -649,7 +1236,6 @@
                 window.location.href = vlcIntent;
 
             } else {
-                // كمبيوتر أو متصفح ذكي آخر
                 const isOpened = window.open(`vlc://${rawUrl}`, '_blank');
                 if (!isOpened) {
                     window.location.href = rawUrl;
@@ -659,7 +1245,11 @@
 
         window.filterChannels = function() {
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
-            const filtered = currentChannelsList.filter(c => c.name.toLowerCase().includes(query) || c.url.includes(query));
+            const filtered = currentChannelsList.filter(c => {
+                const matchQuery = c.name.toLowerCase().includes(query) || (c.group && c.group.toLowerCase().includes(query));
+                const matchCategory = (activeCategory === 'الكل') || (c.group === activeCategory);
+                return matchQuery && matchCategory;
+            });
             renderChannels(filtered);
         };
 
@@ -668,7 +1258,7 @@
             document.getElementById('toastIcon').innerText = icon;
             document.getElementById('toastText').innerText = text;
             toast.classList.add('show');
-            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+            setTimeout(() => { toast.classList.remove('show'); }, 3200);
         }
     </script>
 </body>
