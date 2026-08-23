@@ -42,7 +42,6 @@
             overflow-x: hidden;
         }
 
-        /* Ambient Glow Background */
         .ambient-glow {
             position: fixed;
             top: 0;
@@ -333,7 +332,6 @@
         .badge-banned { background: rgba(255, 51, 102, 0.15); color: var(--accent-red); border: 1px solid rgba(255, 51, 102, 0.3); }
         .badge-count { background: rgba(0, 242, 254, 0.12); color: var(--accent-cyan); border: 1px solid rgba(0, 242, 254, 0.3); }
 
-        /* User Header Banner */
         .user-welcome-banner {
             background: linear-gradient(135deg, rgba(255, 106, 0, 0.15) 0%, rgba(121, 40, 202, 0.15) 100%);
             border: 1px solid var(--border-glow);
@@ -352,7 +350,6 @@
             pointer-events: none;
         }
 
-        /* Categories Filter Chips */
         .category-chips {
             display: flex;
             gap: 8px;
@@ -383,7 +380,6 @@
             box-shadow: 0 0 15px var(--vlc-glow);
         }
 
-        /* Channels Grid */
         .channels-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -520,7 +516,6 @@
             box-shadow: 0 6px 20px rgba(255, 106, 0, 0.7);
         }
 
-        /* Toast Notifications */
         .toast {
             position: fixed;
             bottom: 25px;
@@ -547,7 +542,6 @@
             transform: translateX(-50%) translateY(0);
         }
 
-        /* Loading Spinner */
         .spinner {
             display: inline-block;
             width: 22px;
@@ -609,7 +603,6 @@
         <!-- 2. لوحة تحكم الأدمن (Aqeel) -->
         <div id="adminView" class="view-section">
             
-            <!-- إحصائيات سريعة -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon">👥</div>
@@ -693,17 +686,14 @@
                 <p style="font-size: 0.9rem; color: var(--text-muted);">هذه هي باقتك السحابية الخاصة. اضغط على أي قناة ليتم فتحها بشكل فوري ومباشر في **تطبيق VLC**.</p>
             </div>
 
-            <!-- شريط البحث والفلترة -->
             <div class="form-group" style="margin-bottom: 8px;">
                 <input type="text" id="searchInput" class="form-control" placeholder="🔍 ابحث عن اسم القناة أو الرابط..." oninput="filterChannels()">
             </div>
 
-            <!-- تصنيفات القنوات -->
             <div class="category-chips" id="categoryChipsContainer">
                 <div class="chip active" onclick="setCategoryFilter('الكل', this)">🌟 الكل</div>
             </div>
 
-            <!-- شبكة القنوات -->
             <ul class="channels-grid" id="channelsContainer">
                 <!-- قنوات المستخدم ديناميكياً -->
             </ul>
@@ -717,7 +707,7 @@
         <span id="toastText">رسالة...</span>
     </div>
 
-    <!-- المحرك الصوتي الداخلي التفاعلي (Web Audio API) -->
+    <!-- المحرك الصوتي الداخلي -->
     <script>
         const AudioEngine = {
             ctx: null,
@@ -802,7 +792,7 @@
         }
     </script>
 
-    <!-- Firebase السحابي والمنطق الأساسي -->
+    <!-- Firebase السحابي ونظام منع التكرار -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -823,6 +813,43 @@
         let currentChannelsList = [];
         let allAdminUsers = [];
         let activeCategory = 'الكل';
+
+        /* ----------------------------------------------------
+           دوال الفحص ومنع تكرار القنوات (Deduplication System)
+        ---------------------------------------------------- */
+        function deduplicateChannels(channelArray) {
+            const seenUrls = new Set();
+            return channelArray.filter(ch => {
+                const cleanUrl = ch.url ? ch.url.trim().toLowerCase() : '';
+                if (!cleanUrl || seenUrls.has(cleanUrl)) {
+                    return false;
+                }
+                seenUrls.add(cleanUrl);
+                return true;
+            });
+        }
+
+        function mergeWithoutDuplicates(existingChannels, incomingChannels) {
+            const seenUrls = new Set(existingChannels.map(c => (c.url || '').trim().toLowerCase()));
+            const uniqueNew = [];
+            let duplicatesCount = 0;
+
+            for (const ch of incomingChannels) {
+                const cleanUrl = (ch.url || '').trim().toLowerCase();
+                if (cleanUrl && !seenUrls.has(cleanUrl)) {
+                    seenUrls.add(cleanUrl);
+                    uniqueNew.push(ch);
+                } else {
+                    duplicatesCount++;
+                }
+            }
+
+            return {
+                mergedList: existingChannels.concat(uniqueNew),
+                addedCount: uniqueNew.length,
+                duplicatesCount: duplicatesCount
+            };
+        }
 
         window.handleLogin = async function() {
             const usernameInput = document.getElementById('loginUsername').value.trim();
@@ -965,7 +992,7 @@
                     <td>
                         <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                             <input type="file" id="file_input_${u.username}" accept=".m3u,.m3u8,.txt" style="display:none" onchange="window.appendFileToUser('${u.username}', event)">
-                            <button class="btn btn-info" style="padding: 6px 10px; font-size: 0.78rem;" onclick="document.getElementById('file_input_${u.username}').click()">➕ إضافة ملف</button>
+                            <button class="btn btn-info" style="padding: 6px 10px; font-size: 0.78rem;" onclick="document.getElementById('file_input_${u.username}').click()">➕ دمج ملف</button>
                             
                             <button class="btn ${u.status === 'active' ? 'btn-danger' : 'btn'}" style="padding: 6px 10px; font-size: 0.78rem;" onclick="window.toggleUserStatus('${u.username}', '${u.status}')">${u.status === 'active' ? 'حظر' : 'تفعيل'}</button>
                             
@@ -1009,14 +1036,18 @@
             const file = fileInput.files[0];
             const reader = new FileReader();
             reader.onload = async function(e) {
-                const newChannels = parseM3UContent(e.target.result);
+                // استخراج وتصفية التكرار الداخلي
+                const rawChannels = parseM3UContent(e.target.result);
+                const uniqueChannels = deduplicateChannels(rawChannels);
+                const dupesInside = rawChannels.length - uniqueChannels.length;
+
                 try {
-                    showToast('جاري الرفع للسحابة...', '⏳');
+                    showToast('جاري الحفظ بالسحابة ومنع التكرار...', '⏳');
                     await setDoc(doc(db, "users", username), {
                         username: username,
                         password: password,
                         status: 'active',
-                        channels: newChannels
+                        channels: uniqueChannels
                     });
 
                     document.getElementById('newUsername').value = '';
@@ -1025,7 +1056,12 @@
 
                     AudioEngine.playSuccess();
                     loadAdminDashboard();
-                    showToast(`تم حفظ المستخدم ${username} مع ${newChannels.length} قناة! ✅`, '🎉');
+                    
+                    const msg = dupesInside > 0 
+                        ? `تم حفظ ${username} مع ${uniqueChannels.length} قناة (تم استبعاد ${dupesInside} مكررة)! ✅`
+                        : `تم حفظ المستخدم ${username} مع ${uniqueChannels.length} قناة بنجاح! ✅`;
+                        
+                    showToast(msg, '🎉');
                 } catch (err) {
                     console.error(err);
                     AudioEngine.playError();
@@ -1041,21 +1077,29 @@
 
             const reader = new FileReader();
             reader.onload = async function(e) {
-                const additionalChannels = parseM3UContent(e.target.result);
+                const incomingChannels = parseM3UContent(e.target.result);
                 try {
-                    showToast('جاري تحديث القنوات سحابياً...', '⏳');
+                    showToast('جاري فحص القنوات ومنع التكرار...', '⏳');
                     const userRef = doc(db, "users", username);
                     const userSnap = await getDoc(userRef);
                     
                     if (userSnap.exists()) {
                         let existingChannels = userSnap.data().channels || [];
-                        let updatedChannels = existingChannels.concat(additionalChannels);
+                        
+                        // دمج بدون تكرار
+                        const { mergedList, addedCount, duplicatesCount } = mergeWithoutDuplicates(existingChannels, incomingChannels);
 
-                        await updateDoc(userRef, { channels: updatedChannels });
+                        if (addedCount === 0) {
+                            AudioEngine.playError();
+                            showToast(`لم تتم إضافة أي قناة! جميع القنوات (${duplicatesCount}) موجودة مسبقاً لدى المشترك ⚠️`, '⚠️');
+                            return;
+                        }
+
+                        await updateDoc(userRef, { channels: mergedList });
 
                         AudioEngine.playSuccess();
                         loadAdminDashboard();
-                        showToast(`تمت إضافة ${additionalChannels.length} قناة جديدة للمستخدم ${username}! 📈`, '🎉');
+                        showToast(`تمت إضافة ${addedCount} قناة جديدة (تم تجاهل ${duplicatesCount} قناة مكررة)! 📈`, '🎉');
                     }
                 } catch (err) {
                     console.error(err);
@@ -1093,7 +1137,6 @@
             }
         };
 
-        /* المحلل الذكي لملفات M3U مع استخراج الشعارات والتصنيفات */
         function parseM3UContent(content) {
             if (!content) return [];
             const lines = content.split('\n');
@@ -1107,15 +1150,12 @@
                 if (!line) continue;
 
                 if (line.startsWith('#EXTINF:')) {
-                    // استخراج الشعار
                     const logoMatch = line.match(/tvg-logo="([^"]+)"/i);
                     tempLogo = logoMatch ? logoMatch[1] : '';
 
-                    // استخراج المجموعة / التصنيف
                     const groupMatch = line.match(/group-title="([^"]+)"/i);
                     tempGroup = groupMatch ? groupMatch[1] : 'عامة';
 
-                    // استخراج اسم القناة
                     const parts = line.split(',');
                     tempName = parts.length > 1 ? parts.slice(1).join(',').trim() : 'قناة بث مباشر';
                 } else if (!line.startsWith('#') && (line.startsWith('http://') || line.startsWith('https://'))) {
@@ -1202,7 +1242,6 @@
             });
         }
 
-        /* التشغيل الذكي في مشغل VLC */
         window.launchVLCApp = function(channel) {
             AudioEngine.playLaunch();
             showToast(`🚀 جاري فتح VLC لـ: ${channel.name}`, '📺');
@@ -1258,7 +1297,7 @@
             document.getElementById('toastIcon').innerText = icon;
             document.getElementById('toastText').innerText = text;
             toast.classList.add('show');
-            setTimeout(() => { toast.classList.remove('show'); }, 3200);
+            setTimeout(() => { toast.classList.remove('show'); }, 3400);
         }
     </script>
 </body>
