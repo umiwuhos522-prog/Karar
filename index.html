@@ -20,7 +20,6 @@
             --accent-red: #ff3366;
             --accent-purple: #7928ca;
             --whatsapp-color: #25D366;
-            --whatsapp-glow: rgba(37, 211, 102, 0.4);
             --text-main: #ffffff;
             --text-muted: #94a3b8;
             --border-glass: rgba(255, 255, 255, 0.08);
@@ -133,132 +132,6 @@
             transition: border 0.3s ease;
         }
 
-        .card-box:hover {
-            border-color: rgba(255, 255, 255, 0.15);
-        }
-
-        /* بطاقة الملاحظة المتحركة */
-        .notice-card {
-            background: linear-gradient(135deg, rgba(255, 106, 0, 0.12) 0%, rgba(238, 9, 121, 0.08) 50%, rgba(121, 40, 202, 0.15) 100%);
-            border: 1.5px solid rgba(255, 106, 0, 0.4);
-            border-radius: 18px;
-            padding: 18px 20px;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 0 30px rgba(255, 106, 0, 0.15);
-            animation: borderGlow 4s ease-in-out infinite alternate;
-        }
-
-        @keyframes borderGlow {
-            0% { border-color: rgba(255, 106, 0, 0.4); box-shadow: 0 0 20px rgba(255, 106, 0, 0.15); }
-            50% { border-color: rgba(238, 9, 121, 0.6); box-shadow: 0 0 30px rgba(238, 9, 121, 0.25); }
-            100% { border-color: rgba(0, 242, 254, 0.5); box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); }
-        }
-
-        .notice-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .notice-badge {
-            background: linear-gradient(135deg, #ff7700, #ee0979);
-            color: #fff;
-            font-size: 0.78rem;
-            font-weight: 900;
-            padding: 4px 12px;
-            border-radius: 20px;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            animation: pulse 1.8s infinite;
-        }
-
-        .notice-text {
-            font-size: 0.88rem;
-            line-height: 1.65;
-            color: #f1f5f9;
-            margin-bottom: 14px;
-        }
-
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
-            margin-bottom: 16px;
-        }
-
-        .price-badge-box {
-            background: rgba(7, 10, 20, 0.75);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 10px 14px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            gap: 4px;
-            transition: all 0.25s;
-        }
-
-        .price-badge-box:hover {
-            transform: translateY(-2px);
-            border-color: var(--vlc-primary);
-            box-shadow: 0 4px 15px rgba(255, 106, 0, 0.3);
-        }
-
-        .price-period {
-            font-size: 0.78rem;
-            color: var(--text-muted);
-            font-weight: 700;
-        }
-
-        .price-value {
-            font-size: 1.1rem;
-            font-weight: 900;
-            background: linear-gradient(135deg, #00ff88, #00f2fe);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        /* زر الواتساب التفاعلي */
-        .btn-whatsapp {
-            background: linear-gradient(135deg, #25D366, #128C7E);
-            color: #fff;
-            padding: 13px 20px;
-            border-radius: 14px;
-            border: none;
-            cursor: pointer;
-            font-size: 0.95rem;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            text-decoration: none;
-            width: 100%;
-            box-shadow: 0 6px 20px rgba(37, 211, 102, 0.35);
-            transition: all 0.25s ease;
-        }
-
-        .btn-whatsapp:hover {
-            transform: translateY(-2px) scale(1.01);
-            box-shadow: 0 8px 25px rgba(37, 211, 102, 0.55);
-            filter: brightness(1.1);
-            color: #fff;
-        }
-
-        .btn-whatsapp:active {
-            transform: scale(0.97);
-        }
-
-        .whatsapp-icon {
-            font-size: 1.25rem;
-            animation: pulse 2s infinite;
-        }
-
         .form-group {
             display: flex;
             flex-direction: column;
@@ -294,20 +167,6 @@
             background: rgba(10, 15, 28, 0.9);
         }
 
-        input[type="file"]::file-selector-button {
-            background: linear-gradient(135deg, #ff7700, #ee0979);
-            color: white;
-            padding: 9px 16px;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 700;
-            font-size: 0.85rem;
-            margin-left: 12px;
-            box-shadow: 0 4px 12px rgba(255, 106, 0, 0.3);
-            transition: 0.2s;
-        }
-
         .btn {
             background: linear-gradient(135deg, #ff7700, #ff334b);
             color: #fff;
@@ -324,6 +183,7 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
+            text-decoration: none;
         }
 
         .btn:hover {
@@ -334,9 +194,27 @@
 
         .btn:active { transform: scale(0.96); }
 
-        .btn-danger {
-            background: linear-gradient(135deg, #ff3366, #b8002e);
-            box-shadow: 0 6px 20px rgba(255, 51, 102, 0.35);
+        .btn-trial {
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+            box-shadow: 0 6px 20px rgba(0, 114, 255, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-weight: 800;
+        }
+
+        .btn-trial:hover {
+            box-shadow: 0 8px 25px rgba(0, 114, 255, 0.55);
+        }
+
+        .btn-whatsapp {
+            background: linear-gradient(135deg, #25D366, #128C7E);
+            color: #fff;
+            box-shadow: 0 6px 20px rgba(37, 211, 102, 0.35);
+            font-weight: 800;
+        }
+
+        .btn-whatsapp:hover {
+            box-shadow: 0 8px 25px rgba(37, 211, 102, 0.55);
+            color: #fff;
         }
 
         .btn-secondary {
@@ -345,15 +223,76 @@
             border: 1px solid var(--border-glass);
             color: var(--text-muted);
         }
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.12);
-            color: #fff;
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff3366, #b8002e);
+            box-shadow: 0 6px 20px rgba(255, 51, 102, 0.35);
         }
 
         .btn-info {
             background: linear-gradient(135deg, #00f2fe, #4facfe);
             color: #050b14;
             box-shadow: 0 6px 20px rgba(0, 242, 254, 0.35);
+        }
+
+        /* شريط التنبيه للمشترك التجريبي */
+        .trial-timer-badge {
+            background: linear-gradient(135deg, rgba(0, 242, 254, 0.15), rgba(0, 114, 255, 0.25));
+            border: 1.5px solid var(--accent-cyan);
+            border-radius: 14px;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 800;
+            color: #fff;
+            animation: pulse 2s infinite;
+        }
+
+        .notice-card {
+            background: linear-gradient(135deg, rgba(255, 106, 0, 0.12) 0%, rgba(238, 9, 121, 0.08) 50%, rgba(121, 40, 202, 0.15) 100%);
+            border: 1.5px solid rgba(255, 106, 0, 0.4);
+            border-radius: 18px;
+            padding: 18px 20px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(255, 106, 0, 0.15);
+            animation: borderGlow 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes borderGlow {
+            0% { border-color: rgba(255, 106, 0, 0.4); box-shadow: 0 0 20px rgba(255, 106, 0, 0.15); }
+            50% { border-color: rgba(238, 9, 121, 0.6); box-shadow: 0 0 30px rgba(238, 9, 121, 0.25); }
+            100% { border-color: rgba(0, 242, 254, 0.5); box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); }
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+            margin-bottom: 16px;
+        }
+
+        .price-badge-box {
+            background: rgba(7, 10, 20, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 10px 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 4px;
+        }
+
+        .price-period { font-size: 0.78rem; color: var(--text-muted); font-weight: 700; }
+        .price-value {
+            font-size: 1.1rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #00ff88, #00f2fe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .stats-grid {
@@ -374,193 +313,58 @@
         }
 
         .stat-icon {
-            width: 46px;
-            height: 46px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.3rem;
-            background: rgba(255, 106, 0, 0.15);
-            color: var(--vlc-primary);
+            width: 46px; height: 46px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; background: rgba(255, 106, 0, 0.15); color: var(--vlc-primary);
         }
 
         .stat-info h4 { font-size: 0.8rem; color: var(--text-muted); }
         .stat-info span { font-size: 1.4rem; font-weight: 900; color: #fff; }
 
         .users-table-wrapper {
-            overflow-x: auto;
-            border-radius: 14px;
-            border: 1px solid var(--border-glass);
+            overflow-x: auto; border-radius: 14px; border: 1px solid var(--border-glass);
         }
-
-        .users-table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: right;
-        }
-
-        .users-table th, .users-table td {
-            padding: 14px 16px;
-            border-bottom: 1px solid var(--border-glass);
-            font-size: 0.9rem;
-        }
-
+        .users-table { width: 100%; border-collapse: collapse; text-align: right; }
+        .users-table th, .users-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-glass); font-size: 0.9rem; }
         .users-table th { background: rgba(7, 10, 20, 0.8); color: var(--text-muted); font-weight: 700; }
-        .users-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
 
-        .badge {
-            padding: 4px 10px;
-            border-radius: 8px;
-            font-size: 0.78rem;
-            font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-
+        .badge { padding: 4px 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
         .badge-active { background: rgba(0, 255, 136, 0.15); color: var(--accent-green); border: 1px solid rgba(0, 255, 136, 0.3); }
         .badge-banned { background: rgba(255, 51, 102, 0.15); color: var(--accent-red); border: 1px solid rgba(255, 51, 102, 0.3); }
         .badge-count { background: rgba(0, 242, 254, 0.12); color: var(--accent-cyan); border: 1px solid rgba(0, 242, 254, 0.3); }
+        .badge-trial { background: rgba(121, 40, 202, 0.2); color: #c084fc; border: 1px solid rgba(192, 132, 252, 0.4); }
 
-        .user-welcome-banner {
-            background: linear-gradient(135deg, rgba(255, 106, 0, 0.15) 0%, rgba(121, 40, 202, 0.15) 100%);
-            border: 1px solid var(--border-glow);
-        }
-
-        .category-chips {
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            padding: 4px 0 10px;
-            scrollbar-width: none;
-        }
+        .category-chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 10px; scrollbar-width: none; }
         .category-chips::-webkit-scrollbar { display: none; }
-
         .chip {
-            padding: 7px 16px;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-glass);
-            color: var(--text-muted);
-            font-size: 0.82rem;
-            font-weight: 700;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s;
+            padding: 7px 16px; border-radius: 20px; background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass); color: var(--text-muted); font-size: 0.82rem; font-weight: 700;
+            cursor: pointer; white-space: nowrap; transition: all 0.2s;
         }
+        .chip:hover, .chip.active { background: var(--vlc-primary); color: #fff; border-color: var(--vlc-primary); box-shadow: 0 0 15px var(--vlc-glow); }
 
-        .chip:hover, .chip.active {
-            background: var(--vlc-primary);
-            color: #fff;
-            border-color: var(--vlc-primary);
-            box-shadow: 0 0 15px var(--vlc-glow);
-        }
-
-        .channels-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 16px;
-            list-style: none;
-        }
-
+        .channels-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; list-style: none; }
         .channel-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-glass);
-            border-radius: 18px;
-            padding: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 14px;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            backdrop-filter: blur(15px);
-            position: relative;
-            overflow: hidden;
+            background: var(--card-bg); border: 1px solid var(--border-glass); border-radius: 18px;
+            padding: 16px; display: flex; align-items: center; justify-content: space-between; gap: 14px;
+            cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); backdrop-filter: blur(15px); position: relative; overflow: hidden;
         }
-
-        .channel-card:hover {
-            background: var(--card-hover);
-            border-color: var(--border-glow);
-            transform: translateY(-3px) scale(1.01);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 106, 0, 0.15);
-        }
-
-        .channel-card:active { transform: scale(0.98); }
-
-        .ch-logo-wrap {
-            width: 44px;
-            height: 44px;
-            min-width: 44px;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-glass);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            overflow: hidden;
-        }
+        .channel-card:hover { background: var(--card-hover); border-color: var(--border-glow); transform: translateY(-3px) scale(1.01); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 106, 0, 0.15); }
+        .ch-logo-wrap { width: 44px; height: 44px; min-width: 44px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-glass); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; overflow: hidden; }
         .ch-logo-wrap img { width: 100%; height: 100%; object-fit: cover; }
-
         .ch-info { display: flex; flex-direction: column; gap: 4px; overflow: hidden; flex: 1; }
         .ch-name { font-size: 0.98rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .ch-meta { font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
         .ch-badge { background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); padding: 2px 6px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; }
         .ch-group { background: rgba(255, 255, 255, 0.06); color: #d1d5db; padding: 2px 6px; border-radius: 6px; font-size: 0.7rem; max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        .play-btn-circle {
-            width: 42px;
-            height: 42px;
-            min-width: 42px;
-            background: linear-gradient(135deg, #ff7700, #ee0979);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-size: 1rem;
-            box-shadow: 0 4px 15px rgba(255, 106, 0, 0.4);
-            transition: all 0.25s;
-        }
-
-        .channel-card:hover .play-btn-circle { transform: scale(1.12) rotate(5deg); }
+        .play-btn-circle { width: 42px; height: 42px; min-width: 42px; background: linear-gradient(135deg, #ff7700, #ee0979); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1rem; box-shadow: 0 4px 15px rgba(255, 106, 0, 0.4); }
 
         .toast {
-            position: fixed;
-            bottom: 25px;
-            left: 50%;
-            transform: translateX(-50%) translateY(120px);
-            background: rgba(15, 20, 35, 0.95);
-            border: 1px solid var(--vlc-primary);
-            color: #fff;
-            padding: 12px 24px;
-            border-radius: 40px;
-            font-size: 0.9rem;
-            font-weight: 700;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8), 0 0 25px var(--vlc-glow);
-            backdrop-filter: blur(20px);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 1000;
-            max-width: 90%;
+            position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%) translateY(120px);
+            background: rgba(15, 20, 35, 0.95); border: 1px solid var(--vlc-primary); color: #fff; padding: 12px 24px; border-radius: 40px; font-size: 0.9rem; font-weight: 700; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8), 0 0 25px var(--vlc-glow); backdrop-filter: blur(20px); display: flex; align-items: center; gap: 12px; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1000; max-width: 90%;
         }
-
         .toast.show { transform: translateX(-50%) translateY(0); }
-
-        .spinner {
-            display: inline-block;
-            width: 22px;
-            height: 22px;
-            border: 3px solid rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            border-top-color: var(--vlc-primary);
-            animation: spin 0.8s linear infinite;
-        }
-
+        .spinner { display: inline-block; width: 22px; height: 22px; border: 3px solid rgba(255, 255, 255, 0.2); border-radius: 50%; border-top-color: var(--vlc-primary); animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
@@ -584,10 +388,10 @@
 
         <!-- 1. شاشة تسجيل الدخول -->
         <div id="loginView" class="view-section active">
-            <div class="card-box" style="max-width: 420px; margin: 40px auto; width: 100%;">
+            <div class="card-box" style="max-width: 440px; margin: 25px auto; width: 100%;">
                 <div style="text-align: center; margin-bottom: 24px;">
-                    <div style="font-size: 3rem; margin-bottom: 8px;">🚀</div>
-                    <h3 style="font-size: 1.4rem; font-weight: 900;">تسجيل الدخول إلى البث</h3>
+                    <div style="font-size: 3.2rem; margin-bottom: 6px;">🚀</div>
+                    <h3 style="font-size: 1.45rem; font-weight: 900;">تسجيل الدخول إلى البث</h3>
                     <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">أدخل بيانات حسابك للمشاهدة المباشرة</p>
                 </div>
 
@@ -601,15 +405,31 @@
                     <input type="password" id="loginPassword" class="form-control" placeholder="أدخل كلمة المرور..." autocomplete="current-password">
                 </div>
 
-                <button class="btn" onclick="triggerAction(handleLogin)" style="width: 100%; margin-top: 10px; font-size: 1rem;">
+                <button class="btn" onclick="triggerAction(handleLogin)" style="width: 100%; margin-top: 8px; font-size: 1rem;">
                     <span>⚡</span> دخول فوري
                 </button>
+
+                <!-- فاصل أنيق -->
+                <div style="display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; color: var(--text-muted); font-size: 0.8rem; font-weight: 700;">
+                    <span style="flex: 1; height: 1px; background: var(--border-glass);"></span>
+                    <span>أو ابدأ الآن مجاناً</span>
+                    <span style="flex: 1; height: 1px; background: var(--border-glass);"></span>
+                </div>
+
+                <!-- زر إنشاء حساب تجريبي لمدة ساعة -->
+                <button class="btn btn-trial" onclick="triggerAction(generateFreeTrial)" style="width: 100%; font-size: 0.95rem; margin-bottom: 12px;">
+                    <span>🎁</span> إنشاء بث تجريبي فوري (لمدة ساعة)
+                </button>
+
+                <!-- زر التواصل المباشر عبر واتساب للنسخة المدفوعة -->
+                <a href="https://wa.me/9647782228104" target="_blank" class="btn btn-whatsapp" onclick="AudioEngine.playSuccess()" style="width: 100%;">
+                    <span>💬</span> تواصل عبر واتساب للاشتراك الكامل
+                </a>
             </div>
         </div>
 
         <!-- 2. لوحة تحكم الأدمن (Aqeel) -->
         <div id="adminView" class="view-section">
-            
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon">👥</div>
@@ -662,7 +482,7 @@
             <div class="card-box">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
                     <h2 style="font-size: 1.2rem; color: var(--vlc-primary); display: flex; align-items: center; gap: 8px;">
-                        <span>⚙️</span> إدارة المشتركين وزيادة قنواتهم السحابية
+                        <span>⚙️</span> إدارة المشتركين والحسابات التجريبية
                     </h2>
                     <input type="text" id="adminSearchInput" class="form-control" placeholder="بحث عن مستخدم..." oninput="filterAdminUsers()" style="max-width: 220px; padding: 8px 14px; font-size: 0.85rem;">
                 </div>
@@ -674,7 +494,7 @@
                                 <th>المستخدم</th>
                                 <th>كلمة المرور</th>
                                 <th>القنوات</th>
-                                <th>الحالة</th>
+                                <th>النوع / الحالة</th>
                                 <th>الإجراءات</th>
                             </tr>
                         </thead>
@@ -691,6 +511,15 @@
             <div class="card-box user-welcome-banner">
                 <h2 style="font-size: 1.3rem; margin-bottom: 6px;">أهلاً بك، <span id="welcomeUser" style="color: var(--vlc-primary); font-weight: 900;"></span> 👋</h2>
                 <p style="font-size: 0.9rem; color: var(--text-muted);">هذه هي باقتك السحابية الخاصة. اضغط على أي قناة ليتم فتحها بشكل فوري ومباشر في **تطبيق VLC**.</p>
+            </div>
+
+            <!-- شريط عداد التجربة (يظهر فقط إذا كان الحساب تجريبياً) -->
+            <div id="trialCountdownBox" class="trial-timer-badge" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.3rem;">⏳</span>
+                    <span>فترة البث التجريبي:</span>
+                </div>
+                <span id="trialCountdownText" style="color: #fff; background: rgba(0,0,0,0.4); padding: 4px 12px; border-radius: 8px; font-family: monospace; font-size: 1.1rem;">60:00</span>
             </div>
 
             <!-- الملاحظة المتحركة وأسعار الاشتراكات + زر واتساب -->
@@ -721,10 +550,8 @@
                     </div>
                 </div>
 
-                <!-- زر طلب الاشتراك عبر واتساب -->
-                <a href="https://wa.me/9647782228104" target="_blank" class="btn-whatsapp" onclick="AudioEngine.playSuccess()">
-                    <span class="whatsapp-icon">💬</span>
-                    <span>تواصل عبر واتساب لطلب النسخة الكاملة الآن 🚀</span>
+                <a href="https://wa.me/9647782228104" target="_blank" class="btn btn-whatsapp" onclick="AudioEngine.playSuccess()" style="width: 100%;">
+                    <span>💬</span> تواصل عبر واتساب لطلب النسخة الكاملة الآن 🚀
                 </a>
             </div>
 
@@ -743,7 +570,6 @@
 
     </div>
 
-    <!-- الإشعار السريع -->
     <div id="toast" class="toast">
         <span id="toastIcon" style="font-size: 1.2rem;">🚀</span>
         <span id="toastText">رسالة...</span>
@@ -834,7 +660,7 @@
         }
     </script>
 
-    <!-- Firebase السحابي ونظام منع التكرار -->
+    <!-- Firebase السحابي والمنطق الكامل -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -855,14 +681,13 @@
         let currentChannelsList = [];
         let allAdminUsers = [];
         let activeCategory = 'الكل';
+        let countdownInterval = null;
 
         function deduplicateChannels(channelArray) {
             const seenUrls = new Set();
             return channelArray.filter(ch => {
                 const cleanUrl = ch.url ? ch.url.trim().toLowerCase() : '';
-                if (!cleanUrl || seenUrls.has(cleanUrl)) {
-                    return false;
-                }
+                if (!cleanUrl || seenUrls.has(cleanUrl)) return false;
                 seenUrls.add(cleanUrl);
                 return true;
             });
@@ -888,6 +713,95 @@
                 addedCount: uniqueNew.length,
                 duplicatesCount: duplicatesCount
             };
+        }
+
+        /* ----------------------------------------------------
+           نظام إنشاء الحساب التجريبي التلقائي (لمدة ساعة واحدة)
+        ---------------------------------------------------- */
+        window.generateFreeTrial = async function() {
+            try {
+                showToast('جاري تجهيز باقتك التجريبية...', '⏳');
+                
+                // جلب قنوات من أي حساب متاح لنسخها للحساب التجريبي
+                const querySnapshot = await getDocs(collection(db, "users"));
+                let poolChannels = [];
+                querySnapshot.forEach((docSnap) => {
+                    const u = docSnap.data();
+                    if (u.channels && u.channels.length > poolChannels.length) {
+                        poolChannels = u.channels;
+                    }
+                });
+
+                if (poolChannels.length === 0) {
+                    AudioEngine.playError();
+                    showToast('عذراً، لم يقم الأدمن برفع قنوات في السحابة بعد!', '⚠️');
+                    return;
+                }
+
+                const randomId = Math.floor(1000 + Math.random() * 9000);
+                const trialUsername = `تجريبي_${randomId}`;
+                const trialPassword = Math.floor(1000 + Math.random() * 9000).toString();
+                const now = Date.now();
+                const expiresAt = now + (60 * 60 * 1000); // ساعة واحدة بالضبط
+
+                const trialUserDoc = {
+                    username: trialUsername,
+                    password: trialPassword,
+                    isTrial: true,
+                    status: 'active',
+                    createdAt: now,
+                    expiresAt: expiresAt,
+                    channels: poolChannels
+                };
+
+                await setDoc(doc(db, "users", trialUsername), trialUserDoc);
+
+                AudioEngine.playSuccess();
+                localStorage.setItem('vlc_session', JSON.stringify({
+                    role: 'user',
+                    name: trialUsername,
+                    isTrial: true,
+                    expiresAt: expiresAt
+                }));
+
+                showView('userChannelsView');
+                loadUserChannels(poolChannels);
+                document.getElementById('welcomeUser').innerText = trialUsername;
+                startTrialCountdown(expiresAt);
+
+                showToast(`تم إنشاء حسابك التجريبي (${trialUsername}) بنجاح! متاح لمدة ساعة 🚀`, '🎉');
+
+            } catch (err) {
+                console.error(err);
+                AudioEngine.playError();
+                showToast('تعذر إنشاء الحساب التجريبي', '❌');
+            }
+        };
+
+        function startTrialCountdown(expiresAt) {
+            if (countdownInterval) clearInterval(countdownInterval);
+            const countdownBox = document.getElementById('trialCountdownBox');
+            const countdownText = document.getElementById('trialCountdownText');
+            countdownBox.style.display = 'flex';
+
+            function updateTime() {
+                const remaining = expiresAt - Date.now();
+                if (remaining <= 0) {
+                    clearInterval(countdownInterval);
+                    countdownText.innerText = '00:00 (انتهت التجربة)';
+                    AudioEngine.playError();
+                    alert('⏳ انتهت فترة البث التجريبي (ساعة واحدة). يمكنك طلب الاشتراك الكامل الآن عبر واتساب!');
+                    window.logout();
+                    return;
+                }
+
+                const minutes = Math.floor(remaining / 60000);
+                const seconds = Math.floor((remaining % 60000) / 1000);
+                countdownText.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+
+            updateTime();
+            countdownInterval = setInterval(updateTime, 1000);
         }
 
         window.handleLogin = async function() {
@@ -927,6 +841,13 @@
                     return;
                 }
 
+                // فحص انتهاء صلاحية الحساب التجريبي
+                if (userData.isTrial && userData.expiresAt && Date.now() > userData.expiresAt) {
+                    AudioEngine.playError();
+                    showToast('عذراً، لقد انتهت صلاحية هذا الحساب التجريبي (ساعة واحدة)!', '⏳');
+                    return;
+                }
+
                 if (userData.status === 'banned') {
                     AudioEngine.playError();
                     showToast('عذراً، هذا الحساب محظور من قِبل المسؤول!', '🚫');
@@ -934,10 +855,23 @@
                 }
 
                 AudioEngine.playSuccess();
-                localStorage.setItem('vlc_session', JSON.stringify({ role: 'user', name: usernameInput }));
+                localStorage.setItem('vlc_session', JSON.stringify({
+                    role: 'user',
+                    name: usernameInput,
+                    isTrial: userData.isTrial || false,
+                    expiresAt: userData.expiresAt || null
+                }));
+
                 showView('userChannelsView');
                 loadUserChannels(userData.channels || []);
                 document.getElementById('welcomeUser').innerText = usernameInput;
+
+                if (userData.isTrial && userData.expiresAt) {
+                    startTrialCountdown(userData.expiresAt);
+                } else {
+                    document.getElementById('trialCountdownBox').style.display = 'none';
+                }
+
                 showToast(`أهلاً بك مجدداً ${usernameInput}`, '🎉');
             } catch (err) {
                 console.error(err);
@@ -953,10 +887,12 @@
         }
 
         window.logout = function() {
+            if (countdownInterval) clearInterval(countdownInterval);
             AudioEngine.playTap();
             localStorage.removeItem('vlc_session');
             document.getElementById('loginUsername').value = '';
             document.getElementById('loginPassword').value = '';
+            document.getElementById('trialCountdownBox').style.display = 'none';
             showView('loginView');
             showToast('تم تسجيل الخروج بنجاح', '🔒');
         };
@@ -972,9 +908,17 @@
                         const docRef = doc(db, "users", session.name);
                         const docSnap = await getDoc(docRef);
                         if (docSnap.exists() && docSnap.data().status === 'active') {
+                            const userData = docSnap.data();
+                            if (userData.isTrial && userData.expiresAt && Date.now() > userData.expiresAt) {
+                                window.logout();
+                                return;
+                            }
                             showView('userChannelsView');
-                            loadUserChannels(docSnap.data().channels || []);
+                            loadUserChannels(userData.channels || []);
                             document.getElementById('welcomeUser').innerText = session.name;
+                            if (userData.isTrial && userData.expiresAt) {
+                                startTrialCountdown(userData.expiresAt);
+                            }
                         } else {
                             window.logout();
                         }
@@ -1022,12 +966,20 @@
 
             users.forEach((u) => {
                 const count = u.channels ? u.channels.length : 0;
+                const isTrial = u.isTrial;
+                const isExpired = isTrial && u.expiresAt && Date.now() > u.expiresAt;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><b style="color: #fff;">${u.username}</b></td>
                     <td><code style="background: rgba(255,255,255,0.06); padding: 4px 8px; border-radius: 6px; color: var(--accent-cyan);">${u.password}</code></td>
                     <td><span class="badge badge-count">📡 ${count} قناة</span></td>
-                    <td><span class="badge ${u.status === 'active' ? 'badge-active' : 'badge-banned'}">${u.status === 'active' ? '● نشط' : '✕ محظور'}</span></td>
+                    <td>
+                        ${isTrial ? `<span class="badge badge-trial">🎁 تجريبي</span> ` : ''}
+                        <span class="badge ${u.status === 'active' && !isExpired ? 'badge-active' : 'badge-banned'}">
+                            ${isExpired ? '✕ منتهي' : (u.status === 'active' ? '● نشط' : '✕ محظور')}
+                        </span>
+                    </td>
                     <td>
                         <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                             <input type="file" id="file_input_${u.username}" accept=".m3u,.m3u8,.txt" style="display:none" onchange="window.appendFileToUser('${u.username}', event)">
@@ -1085,6 +1037,7 @@
                         username: username,
                         password: password,
                         status: 'active',
+                        isTrial: false,
                         channels: uniqueChannels
                     });
 
