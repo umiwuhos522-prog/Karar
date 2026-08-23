@@ -235,7 +235,6 @@
             box-shadow: 0 6px 20px rgba(0, 242, 254, 0.35);
         }
 
-        /* شريط التنبيه للمشترك التجريبي */
         .trial-timer-badge {
             background: linear-gradient(135deg, rgba(0, 242, 254, 0.15), rgba(0, 114, 255, 0.25));
             border: 1.5px solid var(--accent-cyan);
@@ -409,19 +408,18 @@
                     <span>⚡</span> دخول فوري
                 </button>
 
-                <!-- فاصل أنيق -->
                 <div style="display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; color: var(--text-muted); font-size: 0.8rem; font-weight: 700;">
                     <span style="flex: 1; height: 1px; background: var(--border-glass);"></span>
                     <span>أو ابدأ الآن مجاناً</span>
                     <span style="flex: 1; height: 1px; background: var(--border-glass);"></span>
                 </div>
 
-                <!-- زر إنشاء حساب تجريبي لمدة ساعة -->
-                <button class="btn btn-trial" onclick="triggerAction(generateFreeTrial)" style="width: 100%; font-size: 0.95rem; margin-bottom: 12px;">
-                    <span>🎁</span> إنشاء بث تجريبي فوري (لمدة ساعة)
+                <!-- زر إنشاء حساب تجريبي لمدة ساعة (محمي بمانع التكرار) -->
+                <button id="btnTrialAction" class="btn btn-trial" onclick="triggerAction(generateFreeTrial)" style="width: 100%; font-size: 0.95rem; margin-bottom: 12px;">
+                    <span>🎁</span> إنشاء بث تجريبي فوري (لمرة واحدة)
                 </button>
 
-                <!-- زر التواصل المباشر عبر واتساب للنسخة المدفوعة -->
+                <!-- زر التواصل المباشر عبر واتساب -->
                 <a href="https://wa.me/9647782228104" target="_blank" class="btn btn-whatsapp" onclick="AudioEngine.playSuccess()" style="width: 100%;">
                     <span>💬</span> تواصل عبر واتساب للاشتراك الكامل
                 </a>
@@ -513,7 +511,7 @@
                 <p style="font-size: 0.9rem; color: var(--text-muted);">هذه هي باقتك السحابية الخاصة. اضغط على أي قناة ليتم فتحها بشكل فوري ومباشر في **تطبيق VLC**.</p>
             </div>
 
-            <!-- شريط عداد التجربة (يظهر فقط إذا كان الحساب تجريبياً) -->
+            <!-- شريط عداد التجربة -->
             <div id="trialCountdownBox" class="trial-timer-badge" style="display: none;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 1.3rem;">⏳</span>
@@ -660,7 +658,7 @@
         }
     </script>
 
-    <!-- Firebase السحابي والمنطق الكامل -->
+    <!-- Firebase السحابي ونظام الحظر الصارم للتجربة -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -716,13 +714,54 @@
         }
 
         /* ----------------------------------------------------
-           نظام إنشاء الحساب التجريبي التلقائي (لمدة ساعة واحدة)
+           نظام توليد التجربة مع حظر الـ IP والمتصفح نهائياً
         ---------------------------------------------------- */
         window.generateFreeTrial = async function() {
             try {
-                showToast('جاري تجهيز باقتك التجريبية...', '⏳');
-                
-                // جلب قنوات من أي حساب متاح لنسخها للحساب التجريبي
+                // 1. فحص التخزين المحلي للمتصفح
+                if (localStorage.getItem('vlc_trial_claimed') === 'true') {
+                    AudioEngine.playError();
+                    alert('🚫 لقد تم تفعيل البث التجريبي من هذا المتصفح مسبقاً! يمكنك الاشتراك في النسخة الكاملة عبر واتساب.');
+                    showToast('تم استهلاك التجربة المجانية مسبقاً لهذا المتصفح', '⚠️');
+                    return;
+                }
+
+                showToast('جاري التحقق من عنوان الشبكة (IP) وصلاحية التجربة...', '⏳');
+
+                // 2. جلب عنوان الـ IP الفعلي
+                let clientIp = 'unknown_ip';
+                try {
+                    const ipResponse = await fetch('https://api.ipify.org?format=json');
+                    const ipData = await ipResponse.json();
+                    if (ipData && ipData.ip) clientIp = ipData.ip.trim();
+                } catch (e) {
+                    console.warn('تعذر فحص الـ IP عبر API الخارجي');
+                }
+
+                // 3. توليد أو جلب بصمة الجهاز الفريدة
+                let deviceFingerprint = localStorage.getItem('vlc_dev_uid');
+                if (!deviceFingerprint) {
+                    deviceFingerprint = 'dev_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+                    localStorage.setItem('vlc_dev_uid', deviceFingerprint);
+                }
+
+                const sanitizedIpKey = clientIp.replace(/[\.\:\/]/g, '_');
+
+                // 4. فحص السحابة للتحقق من حظر الـ IP أو بصمة الجهاز
+                const ipCheckRef = doc(db, "banned_trials", `ip_${sanitizedIpKey}`);
+                const devCheckRef = doc(db, "banned_trials", `dev_${deviceFingerprint}`);
+
+                const [ipSnap, devSnap] = await Promise.all([getDoc(ipCheckRef), getDoc(devCheckRef)]);
+
+                if (ipSnap.exists() || devSnap.exists()) {
+                    localStorage.setItem('vlc_trial_claimed', 'true');
+                    AudioEngine.playError();
+                    alert('🚫 عذراً! تم استخدام البث التجريبي لمرة واحدة من هذا الجهاز أو الشبكة (IP) مسبقاً. يرجى طلب الاشتراك الكامل.');
+                    showToast('تم حظر التجربة: مستخدمة مسبقاً من نفس الشبكة أو الجهاز', '⚠️');
+                    return;
+                }
+
+                // 5. جلب قنوات البث من قاعدة البيانات
                 const querySnapshot = await getDocs(collection(db, "users"));
                 let poolChannels = [];
                 querySnapshot.forEach((docSnap) => {
@@ -734,27 +773,37 @@
 
                 if (poolChannels.length === 0) {
                     AudioEngine.playError();
-                    showToast('عذراً، لم يقم الأدمن برفع قنوات في السحابة بعد!', '⚠️');
+                    showToast('لم يقم الأدمن برفع قنوات في السحابة بعد!', '⚠️');
                     return;
                 }
 
+                // 6. إنشاء الحساب التجريبي المؤقت (لمدة ساعة واحدة = 60 دقيقة)
                 const randomId = Math.floor(1000 + Math.random() * 9000);
                 const trialUsername = `تجريبي_${randomId}`;
                 const trialPassword = Math.floor(1000 + Math.random() * 9000).toString();
                 const now = Date.now();
-                const expiresAt = now + (60 * 60 * 1000); // ساعة واحدة بالضبط
+                const expiresAt = now + (60 * 60 * 1000);
 
                 const trialUserDoc = {
                     username: trialUsername,
                     password: trialPassword,
                     isTrial: true,
                     status: 'active',
+                    ip: clientIp,
+                    deviceFingerprint: deviceFingerprint,
                     createdAt: now,
                     expiresAt: expiresAt,
                     channels: poolChannels
                 };
 
-                await setDoc(doc(db, "users", trialUsername), trialUserDoc);
+                // 7. حفظ المستخدم وحظر الـ IP والمتصفح سحابياً ومحلياً فوراً
+                await Promise.all([
+                    setDoc(doc(db, "users", trialUsername), trialUserDoc),
+                    setDoc(ipCheckRef, { ip: clientIp, username: trialUsername, date: now }),
+                    setDoc(devCheckRef, { device: deviceFingerprint, username: trialUsername, date: now })
+                ]);
+
+                localStorage.setItem('vlc_trial_claimed', 'true');
 
                 AudioEngine.playSuccess();
                 localStorage.setItem('vlc_session', JSON.stringify({
@@ -769,12 +818,12 @@
                 document.getElementById('welcomeUser').innerText = trialUsername;
                 startTrialCountdown(expiresAt);
 
-                showToast(`تم إنشاء حسابك التجريبي (${trialUsername}) بنجاح! متاح لمدة ساعة 🚀`, '🎉');
+                showToast(`تم تفعيل البث التجريبي لـ (${trialUsername}) بنجاح! متاح لمدة ساعة 🚀`, '🎉');
 
             } catch (err) {
                 console.error(err);
                 AudioEngine.playError();
-                showToast('تعذر إنشاء الحساب التجريبي', '❌');
+                showToast('تعذر إكمال طلب البث التجريبي', '❌');
             }
         };
 
@@ -790,7 +839,7 @@
                     clearInterval(countdownInterval);
                     countdownText.innerText = '00:00 (انتهت التجربة)';
                     AudioEngine.playError();
-                    alert('⏳ انتهت فترة البث التجريبي (ساعة واحدة). يمكنك طلب الاشتراك الكامل الآن عبر واتساب!');
+                    alert('⏳ انتهت فترة البث التجريبي المتاحة لك (ساعة واحدة). شكراً لتجربتك! يمكنك طلب الاشتراك الكامل الآن عبر واتساب.');
                     window.logout();
                     return;
                 }
@@ -841,7 +890,6 @@
                     return;
                 }
 
-                // فحص انتهاء صلاحية الحساب التجريبي
                 if (userData.isTrial && userData.expiresAt && Date.now() > userData.expiresAt) {
                     AudioEngine.playError();
                     showToast('عذراً، لقد انتهت صلاحية هذا الحساب التجريبي (ساعة واحدة)!', '⏳');
