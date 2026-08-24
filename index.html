@@ -187,34 +187,51 @@
             color: #fff;
         }
 
+        /* تنسيق الملاحظة الجديد والملفت للانتباه */
         .notice-card {
-            background: #131726;
-            border: 1px solid #2d2640;
-            border-radius: 16px;
-            padding: 16px 18px;
+            background: linear-gradient(145deg, #1a1528 0%, #0d1222 100%);
+            border: 2px solid #ff7700;
+            border-radius: 18px;
+            padding: 22px 20px;
+            box-shadow: 0 0 25px rgba(255, 119, 0, 0.22), inset 0 0 15px rgba(255, 119, 0, 0.05);
+            position: relative;
         }
 
         .notice-header {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
+            gap: 10px;
+            margin-bottom: 14px;
         }
 
         .notice-badge {
-            background: #ff5500;
+            background: linear-gradient(135deg, #ff7700, #ff2200);
             color: #fff;
-            font-size: 0.75rem;
-            font-weight: 800;
-            padding: 3px 10px;
-            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 900;
+            padding: 6px 16px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(255, 68, 0, 0.35);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .notice-text {
-            font-size: 0.88rem;
-            line-height: 1.6;
-            color: #cbd5e1;
-            margin-bottom: 12px;
+            font-size: 1.05rem;
+            line-height: 1.85;
+            color: #f1f5f9;
+            margin-bottom: 18px;
+            font-weight: 600;
+        }
+
+        .notice-text b {
+            color: #ffb703;
+            background: rgba(255, 183, 3, 0.12);
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 183, 3, 0.35);
+            font-weight: 900;
         }
 
         .pricing-grid {
@@ -437,7 +454,7 @@
             </div>
 
             <div class="card-box">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: ⭐ بين سبورت نت قوي دقة 1080 ⭐px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
                     <h2 style="font-size: 1.1rem; color: var(--vlc-primary);">⚙️ إدارة المشتركين والحسابات التجريبية</h2>
                     <input type="text" id="adminSearchInput" class="form-control" placeholder="بحث..." oninput="filterAdminUsers()" style="max-width: 180px; padding: 6px 10px; font-size: 0.8rem;">
                 </div>
@@ -476,15 +493,16 @@
                 <span id="trialCountdownText" style="color: #fff; background: #000; padding: 4px 10px; border-radius: 6px; font-family: monospace; font-size: 1rem;">60:00</span>
             </div>
 
+            <!-- بطاقة الملاحظة المكبرة والمميزة -->
             <div class="notice-card">
                 <div class="notice-header">
-                    <span class="notice-badge">⚡ فحص التجربة</span>
+                    <span class="notice-badge">⚡ تنبيه فحص التجربة</span>
                 </div>
                 <p class="notice-text">
                     هذا الاشتراك هو <b>تجريبي فقط</b> لفحص الجودة والتأكد من عدم وجود أي تقطيع لديك. إذا كانت التجربة ممتازة وترغب بالاشتراك الكامل بنفس الأداء، نوفر لك تطبيقاً متكاملاً وسلساً يعمل على <b>الأندرويد، الآيفون، الشاشات والتلفزيونات الذكية</b> بأداء فائق ويحتوي على أحدث المسلسلات، الأفلام، وبثوث قنوات بين سبورت والقنوات الرياضية والترفيهية.
                 </p>
                 
-                <div style="font-size: 0.82rem; font-weight: 800; color: var(--vlc-primary); margin-bottom: 4px;">
+                <div style="font-size: 0.88rem; font-weight: 800; color: var(--vlc-primary); margin-bottom: 6px;">
                     💰 باقات وأسعار الاشتراك الكامل:
                 </div>
                 
@@ -503,7 +521,7 @@
                     </div>
                 </div>
 
-                <a href="https://wa.me/9647782228104" target="_blank" class="btn btn-whatsapp" style="width: 100%; font-size: 0.9rem;">
+                <a href="https://wa.me/9647782228104" target="_blank" class="btn btn-whatsapp" style="width: 100%; font-size: 0.95rem; padding: 14px;">
                     <span>💬</span> تواصل عبر واتساب لطلب النسخة الكاملة
                 </a>
             </div>
