@@ -286,7 +286,7 @@
         .users-table-wrapper {
             overflow-x: auto; border-radius: 12px; border: 1px solid var(--border-card);
         }
-        .users-table { width: 100%; border-collapse: collapse; text-align: right; }
+        .users-table { width: 100%; border-collapse: collapse; text-align: right; white-space: nowrap; }
         .users-table th, .users-table td { padding: 12px 14px; border-bottom: 1px solid var(--border-card); font-size: 0.85rem; }
         .users-table th { background: #080c16; color: var(--text-muted); font-weight: 700; }
 
@@ -456,7 +456,12 @@
             <div class="card-box">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
                     <h2 style="font-size: 1.1rem; color: var(--vlc-primary);">⚙️ إدارة المشتركين والحسابات التجريبية</h2>
-                    <input type="text" id="adminSearchInput" class="form-control" placeholder="بحث..." oninput="filterAdminUsers()" style="max-width: 180px; padding: 6px 10px; font-size: 0.8rem;">
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="adminSearchInput" class="form-control" placeholder="بحث..." oninput="filterAdminUsers()" style="max-width: 140px; padding: 6px 10px; font-size: 0.8rem;">
+                        <button class="btn btn-danger" onclick="window.deleteAllUsers()" style="padding: 6px 12px; font-size: 0.8rem;">
+                            <span>🗑️</span> حذف الكل
+                        </button>
+                    </div>
                 </div>
 
                 <div class="users-table-wrapper">
@@ -465,13 +470,14 @@
                             <tr>
                                 <th>المستخدم</th>
                                 <th>كلمة المرور</th>
+                                <th>وقت وتاريخ الدخول</th>
                                 <th>القنوات</th>
                                 <th>الحالة</th>
                                 <th>الإجراءات</th>
                             </tr>
                         </thead>
                         <tbody id="usersTableBody">
-                            <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding: 18px;">جاري الاتصال بالسحابة...</td></tr>
+                            <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding: 18px;">جاري الاتصال بالسحابة...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -600,6 +606,31 @@
             };
         }
 
+        function formatDateTime(timestamp) {
+            if (!timestamp) return '<span style="color:var(--text-muted); font-size:0.75rem;">لم يسجل</span>';
+            const date = new Date(timestamp);
+            const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+            const dayName = days[date.getDay()];
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            
+            let hours = date.getHours();
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'م' : 'ص';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            const strTime = `${hours}:${minutes} ${ampm}`;
+
+            return `
+                <div style="font-size: 0.78rem; line-height: 1.35;">
+                    <span style="color: var(--accent-cyan); font-weight: 800;">📅 ${dayName}</span><br>
+                    <span style="color: var(--text-muted);">${yyyy}/${mm}/${dd}</span><br>
+                    <span style="color: #ffb703; font-weight: 800;">⏰ ${strTime}</span>
+                </div>
+            `;
+        }
+
         window.generateFreeTrial = async function() {
             try {
                 if (localStorage.getItem('vlc_trial_claimed') === 'true') {
@@ -664,6 +695,7 @@
                     ip: clientIp,
                     deviceFingerprint: deviceFingerprint,
                     createdAt: now,
+                    lastLogin: now,
                     expiresAt: expiresAt,
                     channels: poolChannels
                 };
@@ -762,6 +794,9 @@
                     showToast('عذراً، هذا الحساب محظور من قِبل المسؤول!', '🚫');
                     return;
                 }
+
+                // تحديث وقت وتاريخ الدخول في السحابة
+                await updateDoc(docRef, { lastLogin: Date.now() });
 
                 localStorage.setItem('vlc_session', JSON.stringify({
                     role: 'user',
@@ -863,7 +898,7 @@
             tbody.innerHTML = '';
 
             if (users.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding: 14px;">لا توجد حسابات مسجلة.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding: 14px;">لا توجد حسابات مسجلة.</td></tr>`;
                 return;
             }
 
@@ -871,11 +906,13 @@
                 const count = u.channels ? u.channels.length : 0;
                 const isTrial = u.isTrial;
                 const isExpired = isTrial && u.expiresAt && Date.now() > u.expiresAt;
+                const loginDateDisplay = formatDateTime(u.lastLogin || u.createdAt);
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><b style="color: #fff;">${u.username}</b></td>
                     <td><code>${u.password}</code></td>
+                    <td>${loginDateDisplay}</td>
                     <td><span class="badge badge-count">${count}</span></td>
                     <td>
                         ${isTrial ? `<span class="badge badge-trial">تجريبي</span> ` : ''}
@@ -927,6 +964,7 @@
             reader.onload = async function(e) {
                 const rawChannels = parseM3UContent(e.target.result);
                 const uniqueChannels = deduplicateChannels(rawChannels);
+                const now = Date.now();
 
                 try {
                     showToast('جاري الحفظ بالسحابة...', '⏳');
@@ -935,6 +973,8 @@
                         password: password,
                         status: 'active',
                         isTrial: false,
+                        createdAt: now,
+                        lastLogin: now,
                         channels: uniqueChannels
                     });
 
@@ -1002,6 +1042,32 @@
                 showToast('تم حذف المستخدم بنجاح', '🗑️');
             } catch (err) {
                 showToast('حدث خطأ أثناء الحذف', '❌');
+            }
+        };
+
+        window.deleteAllUsers = async function() {
+            if (allAdminUsers.length === 0) {
+                showToast('لا يوجد أعضاء لحذفهم!', '⚠️');
+                return;
+            }
+
+            if (!confirm(`⚠️ تحذير شديد: هل أنت متأكد من حذف جميع الأعضاء (${allAdminUsers.length}) بالكامل نهائياً؟`)) {
+                return;
+            }
+
+            try {
+                showToast('جاري حذف جميع الأعضاء...', '⏳');
+                const querySnapshot = await getDocs(collection(db, "users"));
+                const deletePromises = [];
+                querySnapshot.forEach((docSnap) => {
+                    deletePromises.push(deleteDoc(doc(db, "users", docSnap.id)));
+                });
+                await Promise.all(deletePromises);
+                loadAdminDashboard();
+                showToast('تم حذف جميع الأعضاء بنجاح 🗑️', '✅');
+            } catch (err) {
+                console.error(err);
+                showToast('حدث خطأ أثناء عملية الحذف الشامل', '❌');
             }
         };
 
