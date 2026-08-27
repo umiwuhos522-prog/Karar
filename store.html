@@ -58,7 +58,7 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
-      margin-bottom: 20px;
+      margin-bottom: 12px;
     }
     .btn-backup {
       padding: 13px;
@@ -76,6 +76,34 @@
     }
     .btn-export { border-color: rgba(16,185,129,0.55); color: #34d399; }
     .btn-import { border-color: rgba(229,9,20,0.55); color: #ffa39e; }
+
+    .store-setting-box {
+      background: var(--card);
+      border: 1px solid rgba(229,9,20,0.3);
+      border-radius: 12px;
+      padding: 12px 15px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .store-setting-box label {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #ddd;
+      white-space: nowrap;
+    }
+    .store-setting-box input {
+      width: auto;
+      flex: 1;
+      max-width: 220px;
+      padding: 8px 12px;
+      font-size: 0.95rem;
+      direction: ltr;
+      text-align: center;
+    }
 
     .stats-bar {
       display: grid;
@@ -330,6 +358,12 @@
       <input type="file" id="file-input" style="display:none" accept=".json" onchange="importData(event)" />
     </div>
 
+    <!-- صندوق إعداد رقم الدعم الفني للإيصالات -->
+    <div class="store-setting-box">
+      <label>📞 رقم الدعم الفني (للإيصال):</label>
+      <input type="text" id="store-phone-input" placeholder="07xxxxxxxxx" oninput="saveStorePhone()" />
+    </div>
+
     <div class="stats-bar">
       <!-- إحصائيات حركة الزبائن الجدد -->
       <div class="stat-item" style="border-color: #a855f7;">
@@ -468,7 +502,7 @@
       <div class="receipt-footer">
         <div style="font-size:1.5rem; color:#fff; font-weight:900; margin-bottom:5px;">شكراً لاختياركم متجرنا 🎬</div>
         <div style="font-size:1.2rem; color:#aaa;">للتواصل والدعم الفني:</div>
-        <div style="font-size:2rem; color:var(--primary); font-weight:900; direction:ltr;">07782228104</div>
+        <div id="r-store-phone" style="font-size:2rem; color:var(--primary); font-weight:900; direction:ltr;">07782228104</div>
         <div id="r-date" style="font-size:1rem; color:#666; margin-top:10px;"></div>
       </div>
     </div>
@@ -590,6 +624,19 @@
     let db = JSON.parse(localStorage.getItem('netflix_store_db')) || [];
     let currentFilter = 'all';
     let editingId = null;
+
+    // تحميل رقم المتجر المحفوظ أو وضع الرقم الافتراضي
+    let storePhone = localStorage.getItem('netflix_store_phone') || '07782228104';
+    const storePhoneInput = document.getElementById('store-phone-input');
+    if (storePhoneInput) {
+      storePhoneInput.value = storePhone;
+    }
+
+    function saveStorePhone() {
+      const val = document.getElementById('store-phone-input').value.trim();
+      storePhone = val || '07782228104';
+      localStorage.setItem('netflix_store_phone', storePhone);
+    }
 
     function toggleFormType() {
       const type = document.getElementById('f-type').value;
@@ -760,7 +807,6 @@
       );
 
       if (existingIndex !== -1) {
-        // الزبون موجود مسبقاً -> نقوم بتجديد اشتراكه وتحديث البيانات بدلاً من إنشاء كرت جديد
         let existingUser = db[existingIndex];
         
         let newStart = new Date(startDate || new Date());
@@ -786,7 +832,6 @@
 
         alert(`تم التعرف على الزبون (${name}) مسبقاً وتجديد اشتراكه بنجاح بدون تكرار! 🔄 (الاشتراك رقم ${existingUser.renewCount})`);
       } else {
-        // زبون جديد تماماً -> إضافة كرت جديد
         const item = {
           id: crypto.randomUUID(),
           type, platform, name, contact, email,
@@ -997,6 +1042,9 @@
       let c = db.find(x => x.id === id);
       if (!c) return;
       document.getElementById('r-date').innerText = "تاريخ الإيصال: " + new Date().toLocaleDateString('ar-EG');
+      
+      // تحديث رقم الدعم بالرقم الديناميكي المحفوظ
+      document.getElementById('r-store-phone').innerText = storePhone;
 
       const totalDays = calculateTotalDays(c.start, c.end);
 
@@ -1157,7 +1205,6 @@
       db.forEach(c => {
         const price = parseInt(c.price) || 0;
 
-        // لا يحسب ضمن الزبائن الجدد إلا إذا كان دافعاً (c.paid)
         if (c.createdAt && c.paid) {
           const createDate = new Date(c.createdAt);
           const createDayStart = new Date(createDate.getFullYear(), createDate.getMonth(), createDate.getDate());
