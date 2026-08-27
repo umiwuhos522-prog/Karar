@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>إدارة اشتراكات نتفلكس - Netflix Store</title>
+  <title id="page-title">إدارة اشتراكات نتفلكس - Netflix Store</title>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
@@ -25,7 +25,7 @@
       box-sizing: border-box;
       font-family: 'Tajawal', sans-serif;
       -webkit-tap-highlight-color: transparent;
-      font-size: 16.5px;
+      font-size: 16px;
     }
 
     body {
@@ -36,12 +36,13 @@
       display: flex;
       flex-direction: column;
       min-height: 100vh;
+      transition: background-color 0.3s;
     }
 
     .app-header {
-      background: #141414;
+      background: var(--card);
       color: white;
-      padding: 24px 20px;
+      padding: 20px 15px;
       text-align: center;
       position: sticky;
       top: 0;
@@ -49,24 +50,48 @@
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);
       border-bottom: 2px solid var(--primary);
     }
-    .app-header h1 { margin: 0; font-size: 1.8rem; font-weight: 900; color: var(--primary); }
-    .app-header p { margin: 4px 0 0; font-size: 0.95rem; opacity: 0.85; color: #fff; }
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .header-text { flex: 1; text-align: center; }
+    .header-text h1 { margin: 0; font-size: 1.7rem; font-weight: 900; color: var(--primary); }
+    .header-text p { margin: 4px 0 0; font-size: 0.92rem; opacity: 0.85; color: #fff; }
 
-    .container { padding: 15px; flex: 1; padding-bottom: 90px; }
+    .btn-settings-toggle {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--primary);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 900;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: 0.2s;
+    }
+    .btn-settings-toggle:active { transform: scale(0.95); }
+
+    .container { padding: 15px; flex: 1; padding-bottom: 90px; max-width: 900px; margin: 0 auto; width: 100%; }
 
     .backup-controls {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
     .btn-backup {
-      padding: 13px;
+      padding: 12px;
       border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.1);
-      background: #141414;
+      background: var(--card);
       color: white;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       font-weight: 800;
       cursor: pointer;
       display: flex;
@@ -76,51 +101,6 @@
     }
     .btn-export { border-color: rgba(16,185,129,0.55); color: #34d399; }
     .btn-import { border-color: rgba(229,9,20,0.55); color: #ffa39e; }
-
-    /* صندوق إعداد رقم الدعم الفني بشكل عمودي ومرتب */
-    .store-setting-box {
-      background: var(--card);
-      border: 1px solid rgba(229,9,20,0.3);
-      border-radius: 14px;
-      padding: 14px;
-      margin-bottom: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    }
-    .store-setting-box label {
-      display: block;
-      margin-bottom: 8px;
-      font-size: 0.95rem;
-      font-weight: 900;
-      color: #fff;
-    }
-    .store-phone-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .store-phone-row input {
-      flex: 1;
-      padding: 12px;
-      font-size: 1rem;
-      direction: ltr;
-      text-align: right;
-      border-radius: 10px;
-    }
-    .btn-save-phone {
-      padding: 12px 20px;
-      background: var(--primary);
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      font-weight: 900;
-      font-size: 0.95rem;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: 0.2s;
-    }
-    .btn-save-phone:active {
-      transform: scale(0.96);
-    }
 
     .stats-bar {
       display: grid;
@@ -136,7 +116,7 @@
       border: 1px solid rgba(255,255,255,0.08);
     }
     .stat-item b { display: block; font-size: 1.2rem; color: #fff; margin-bottom: 4px; font-weight: 900; }
-    .stat-item span { font-size: 0.88rem; color: rgba(255,255,255,0.7); font-weight: 800; }
+    .stat-item span { font-size: 0.85rem; color: rgba(255,255,255,0.7); font-weight: 800; }
 
     .form-card {
       background: var(--card);
@@ -144,7 +124,7 @@
       border-radius: 15px;
       margin-bottom: 18px;
       box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6);
-      border: 1px solid rgba(229,9,20,0.2);
+      border: 1px solid rgba(255,255,255,0.08);
     }
     .form-card h2 {
       font-size: 1.25rem;
@@ -156,14 +136,14 @@
       font-weight: 900;
     }
 
-    .field { margin-bottom: 15px; }
-    label { display: block; font-size: 0.95rem; font-weight: 900; margin-bottom: 7px; color: rgba(255,255,255,0.9); }
+    .field { margin-bottom: 14px; }
+    label { display: block; font-size: 0.92rem; font-weight: 900; margin-bottom: 6px; color: rgba(255,255,255,0.9); }
     input, select {
       width: 100%;
-      padding: 13px;
+      padding: 12px;
       border: 1px solid rgba(255,255,255,0.15);
       border-radius: 12px;
-      font-size: 1rem;
+      font-size: 0.95rem;
       background: var(--input-bg);
       color: white;
       transition: 0.3s;
@@ -172,15 +152,15 @@
 
     .btn-main {
       width: 100%;
-      padding: 16px;
+      padding: 15px;
       background: var(--primary);
       color: #fff;
       border: none;
       border-radius: 12px;
       font-weight: 900;
-      font-size: 1.15rem;
+      font-size: 1.1rem;
       margin-top: 10px;
-      box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
       cursor: pointer;
     }
 
@@ -202,7 +182,7 @@
     .cust-name { font-weight: 900; font-size: 1.2rem; color: #fff; }
     .cust-type { font-size: 0.85rem; color: #fff; background: var(--primary); padding: 4px 10px; border-radius: 8px; font-weight: 900; }
 
-    .card-info { font-size: 1.02rem; margin-bottom: 15px; line-height: 1.7; color: rgba(255,255,255,0.88); }
+    .card-info { font-size: 1rem; margin-bottom: 15px; line-height: 1.7; color: rgba(255,255,255,0.88); }
     .card-info b { color: #fff; }
 
     .card-actions {
@@ -230,7 +210,7 @@
     .bg-messenger { background: #0084ff; }
     .bg-instagram { background: #e1306c; }
     .bg-pay { background: var(--success); }
-    .bg-img { background: #e50914; }
+    .bg-img { background: var(--primary); }
     .bg-del { background: var(--danger); }
     .bg-edit { background: #2563eb; }
     .bg-renew { background: #b91c1c; color: #fff; }
@@ -251,7 +231,7 @@
     .secret-box {
       grid-column: span 4;
       background: #000000;
-      border: 1px solid rgba(229,9,20,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 10px;
       padding: 10px;
       margin-bottom: 5px;
@@ -270,6 +250,7 @@
 
     #hidden-area { position: fixed; left: 0; top: 0; opacity: 0; pointer-events: none; }
 
+    /* تنسيق الإيصال الديناميكي */
     .receipt {
       width: 650px;
       background: #000000;
@@ -302,14 +283,15 @@
       text-align: center;
       margin-top: 30px;
       padding: 20px;
-      background: rgba(229,9,20,0.05);
+      background: rgba(255,255,255,0.05);
       border-radius: 15px;
     }
 
+    /* المودالات */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.75);
+      background: rgba(0,0,0,0.8);
       display: none;
       align-items: center;
       justify-content: center;
@@ -317,24 +299,55 @@
       padding: 14px;
     }
     .modal {
-      width: min(720px, 100%);
-      max-height: 88vh;
-      overflow: auto;
+      width: min(760px, 100%);
+      max-height: 90vh;
+      overflow-y: auto;
       background: #141414;
       border: 1px solid var(--primary);
       border-radius: 18px;
-      padding: 16px;
+      padding: 18px;
     }
     .modal-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
       padding-bottom: 10px;
       border-bottom: 1px solid rgba(255,255,255,0.1);
     }
-    .modal-title { font-weight: 900; color: #ffffff; font-size: 1.1rem; }
+    .modal-title { font-weight: 900; color: #ffffff; font-size: 1.15rem; }
     .modal-close { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+    
+    .settings-section {
+      background: #0a0a0a;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .settings-section-title {
+      color: var(--primary);
+      font-weight: 900;
+      font-size: 1rem;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding-bottom: 6px;
+    }
+
+    .color-picker-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .color-picker-row input[type="color"] {
+      width: 50px;
+      height: 44px;
+      padding: 2px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
     .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     @media (max-width: 560px) { .modal-grid { grid-template-columns: 1fr; } }
     
@@ -364,8 +377,13 @@
 
 <body>
   <header class="app-header">
-    <h1>NETFLIX STORE 🎬</h1>
-    <p>نظام إدارة اشتراكات الحسابات والبروفايلات</p>
+    <div class="header-content">
+      <div class="header-text">
+        <h1 id="header-title">NETFLIX STORE 🎬</h1>
+        <p id="header-subtitle">نظام إدارة اشتراكات الحسابات والبروفايلات</p>
+      </div>
+      <button class="btn-settings-toggle" onclick="openSettings()">⚙️ إعدادات التصميم</button>
+    </div>
   </header>
 
   <div class="container">
@@ -375,17 +393,7 @@
       <input type="file" id="file-input" style="display:none" accept=".json" onchange="importData(event)" />
     </div>
 
-    <!-- صندوق إعداد رقم الدعم الفني للإيصال مع زر حفظ مستقل -->
-    <div class="store-setting-box">
-      <label>📞 رقم الدعم الفني (الظاهر في صورة الإيصال):</label>
-      <div class="store-phone-row">
-        <input type="text" id="store-phone-input" placeholder="مثال: 07782228104" />
-        <button type="button" class="btn-save-phone" onclick="saveStorePhoneBtn()">💾 حفظ الرقم</button>
-      </div>
-    </div>
-
     <div class="stats-bar">
-      <!-- إحصائيات حركة الزبائن الجدد -->
       <div class="stat-item" style="border-color: #a855f7;">
         <b id="stat-new-today" style="color:#c084fc">0</b>
         <span>زبائن جدد (اليوم)</span>
@@ -399,7 +407,6 @@
         <span>زبائن جدد (الشهر الحالي)</span>
       </div>
 
-      <!-- إحصائيات الإجماليات والمالية -->
       <div class="stat-item">
         <b id="stat-count">0</b>
         <span>إجمالي المشتركين</span>
@@ -466,7 +473,6 @@
         <input type="email" id="f-email" placeholder="netflix@example.com" style="direction:ltr; text-align:right;" />
       </div>
 
-      <!-- حقول البروفايل -->
       <div id="profile-fields-box">
         <div class="field">
           <label>اسم البروفايل الخاص بالزبون</label>
@@ -515,20 +521,192 @@
     <div id="list"></div>
   </div>
 
+  <!-- منطقة توليد صورة الإيصال -->
   <div id="hidden-area">
     <div id="receipt-box" class="receipt">
-      <h2>NETFLIX STORE</h2>
+      <h2 id="r-title">NETFLIX STORE</h2>
       <div id="receipt-data"></div>
       <div class="receipt-footer">
-        <div style="font-size:1.5rem; color:#fff; font-weight:900; margin-bottom:5px;">شكراً لاختياركم متجرنا 🎬</div>
-        <div style="font-size:1.2rem; color:#aaa;">للتواصل والدعم الفني:</div>
-        <div id="r-store-phone" style="font-size:2rem; color:var(--primary); font-weight:900; direction:ltr;">07782228104</div>
-        <div id="r-date" style="font-size:1rem; color:#666; margin-top:10px;"></div>
+        <div id="r-thankyou" style="font-size:1.5rem; font-weight:900; margin-bottom:5px;">شكراً لاختياركم متجرنا 🎬</div>
+        <div id="r-support-text" style="font-size:1.2rem; opacity:0.8;">للتواصل والدعم الفني:</div>
+        <div id="r-store-phone" style="font-size:2rem; font-weight:900; direction:ltr;">07782228104</div>
+        <div id="r-date" style="font-size:1rem; opacity:0.6; margin-top:10px;"></div>
       </div>
     </div>
   </div>
 
-  <!-- مودال التعديل -->
+  <!-- مودال إعدادات التصميم وهوية المتجر بالكامل -->
+  <div id="settings-overlay" class="modal-overlay" onclick="closeSettingsIfOutside(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title">⚙️ إعدادات وتخصيص المتجر والإيصال</div>
+        <button class="modal-close" onclick="closeSettings()">إغلاق</button>
+      </div>
+
+      <!-- 1. هوية التطبيق والألوان -->
+      <div class="settings-section">
+        <div class="settings-section-title">🎨 هوية التطبيق وألوان النظام</div>
+        <div class="modal-grid">
+          <div class="field">
+            <label>اسم المتجر (الرئيسي)</label>
+            <input type="text" id="s-app-title" />
+          </div>
+          <div class="field">
+            <label>وصف المتجر</label>
+            <input type="text" id="s-app-subtitle" />
+          </div>
+          <div class="field">
+            <label>لون الثيم الأساسي (الأزرار والتحديد)</label>
+            <div class="color-picker-row">
+              <input type="color" id="s-color-primary" oninput="syncColorHex('s-color-primary', 's-hex-primary')" />
+              <input type="text" id="s-hex-primary" oninput="syncHexColor('s-hex-primary', 's-color-primary')" />
+            </div>
+          </div>
+          <div class="field">
+            <label>لون خلفية التطبيق</label>
+            <div class="color-picker-row">
+              <input type="color" id="s-color-bg" oninput="syncColorHex('s-color-bg', 's-hex-bg')" />
+              <input type="text" id="s-hex-bg" oninput="syncHexColor('s-hex-bg', 's-color-bg')" />
+            </div>
+          </div>
+          <div class="field" style="grid-column: span 2;">
+            <label>لون الكروت والصناديق</label>
+            <div class="color-picker-row">
+              <input type="color" id="s-color-card" oninput="syncColorHex('s-color-card', 's-hex-card')" />
+              <input type="text" id="s-hex-card" oninput="syncHexColor('s-hex-card', 's-color-card')" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. معلومات الدعم الفني -->
+      <div class="settings-section">
+        <div class="settings-section-title">📞 معلومات الدعم والتواصل</div>
+        <div class="field">
+          <label>رقم هاتف الدعم الفني الخاص بك</label>
+          <input type="text" id="s-store-phone" placeholder="07xxxxxxxxx" style="direction:ltr; text-align:right;" />
+        </div>
+      </div>
+
+      <!-- 3. تصميم صورة الزبون (الإيصال) -->
+      <div class="settings-section">
+        <div class="settings-section-title">🖼️ تصميم صورة الإيصال (صورة الزبون)</div>
+        <div class="modal-grid">
+          <div class="field">
+            <label>عنوان الإيصال بالأعلى</label>
+            <input type="text" id="s-receipt-title" />
+          </div>
+          <div class="field">
+            <label>رسالة الشكر أسفل الإيصال</label>
+            <input type="text" id="s-receipt-thankyou" />
+          </div>
+          <div class="field">
+            <label>لون خلفية الإيصال</label>
+            <div class="color-picker-row">
+              <input type="color" id="s-receipt-bg" oninput="syncColorHex('s-receipt-bg', 's-hex-receipt-bg')" />
+              <input type="text" id="s-hex-receipt-bg" oninput="syncHexColor('s-hex-receipt-bg', 's-receipt-bg')" />
+            </div>
+          </div>
+          <div class="field">
+            <label>لون إطار وتفاصيل الإيصال</label>
+            <div class="color-picker-row">
+              <input type="color" id="s-receipt-border" oninput="syncColorHex('s-receipt-border', 's-hex-receipt-border')" />
+              <input type="text" id="s-hex-receipt-border" oninput="syncHexColor('s-hex-receipt-border', 's-receipt-border')" />
+            </div>
+          </div>
+          <div class="field" style="grid-column: span 2;">
+            <label>لون الخط والنصوص في الإيصال</label>
+            <div class="color-picker-row">
+              <input type="color" id="s-receipt-text" oninput="syncColorHex('s-receipt-text', 's-hex-receipt-text')" />
+              <input type="text" id="s-hex-receipt-text" oninput="syncHexColor('s-hex-receipt-text', 's-receipt-text')" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. تخصيص كتابات ونصوص الإيصال وحالات الدفع -->
+      <div class="settings-section">
+        <div class="settings-section-title">✍️ نصوص وتسميات الإيصال وحالات الدفع</div>
+        <div class="modal-grid">
+          <div class="field">
+            <label>تسمية "الزبون"</label>
+            <input type="text" id="s-lbl-name" />
+          </div>
+          <div class="field">
+            <label>تسمية "المنصة"</label>
+            <input type="text" id="s-lbl-platform" />
+          </div>
+          <div class="field">
+            <label>تسمية "نوع الاشتراك"</label>
+            <input type="text" id="s-lbl-type" />
+          </div>
+          <div class="field">
+            <label>تسمية "البريد الإلكتروني"</label>
+            <input type="text" id="s-lbl-email" />
+          </div>
+          <div class="field">
+            <label>تسمية "البروفايل"</label>
+            <input type="text" id="s-lbl-profile" />
+          </div>
+          <div class="field">
+            <label>تسمية "رمز PIN"</label>
+            <input type="text" id="s-lbl-pin" />
+          </div>
+          <div class="field">
+            <label>تسمية "كلمة مرور الحساب"</label>
+            <input type="text" id="s-lbl-pass" />
+          </div>
+          <div class="field">
+            <label>تسمية "مدة الاشتراك"</label>
+            <input type="text" id="s-lbl-duration" />
+          </div>
+          <div class="field">
+            <label>تسمية "تاريخ الانتهاء"</label>
+            <input type="text" id="s-lbl-end" />
+          </div>
+          <div class="field">
+            <label>تسمية "المبلغ"</label>
+            <input type="text" id="s-lbl-price" />
+          </div>
+          <div class="field" style="grid-column: span 2;">
+            <label>تسمية "حالة الدفع"</label>
+            <input type="text" id="s-lbl-status" />
+          </div>
+
+          <div class="field">
+            <label>نص "تم الدفع"</label>
+            <input type="text" id="s-paid-text" />
+          </div>
+          <div class="field">
+            <label>لون عبارة "تم الدفع"</label>
+            <div class="color-picker-row">
+              <input type="color" id="s-paid-color" oninput="syncColorHex('s-paid-color', 's-hex-paid-color')" />
+              <input type="text" id="s-hex-paid-color" oninput="syncHexColor('s-hex-paid-color', 's-paid-color')" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>نص "لم يدفع بعد"</label>
+            <input type="text" id="s-unpaid-text" />
+          </div>
+          <div class="field">
+            <label>لون عبارة "لم يدفع بعد"</label>
+            <div class="color-picker-row">
+              <input type="color" id="s-unpaid-color" oninput="syncColorHex('s-unpaid-color', 's-hex-unpaid-color')" />
+              <input type="text" id="s-hex-unpaid-color" oninput="syncHexColor('s-hex-unpaid-color', 's-unpaid-color')" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="resetToDefaults()">🔄 استعادة الافتراضي</button>
+        <button class="btn-save" onclick="saveAllSettings()">💾 حفظ وتثبيت كافة الإعدادات</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- مودال تعديل اشتراك الزبون -->
   <div id="edit-overlay" class="modal-overlay" onclick="closeEditIfOutside(event)">
     <div class="modal" onclick="event.stopPropagation()">
       <div class="modal-header">
@@ -641,27 +819,177 @@
   </div>
 
   <script>
+    // الإعدادات الافتراضية
+    const defaultSettings = {
+      appTitle: "NETFLIX STORE 🎬",
+      appSubtitle: "نظام إدارة اشتراكات الحسابات والبروفايلات",
+      colorPrimary: "#e50914",
+      colorBg: "#080808",
+      colorCard: "#141414",
+      storePhone: "07782228104",
+      receiptTitle: "NETFLIX STORE",
+      receiptThankYou: "شكراً لاختياركم متجرنا 🎬",
+      receiptSupportLabel: "للتواصل والدعم الفني:",
+      receiptBg: "#000000",
+      receiptBorder: "#e50914",
+      receiptText: "#ffffff",
+      lblName: "👤 الزبون:",
+      lblPlatform: "💬 المنصة:",
+      lblType: "🎬 نوع الاشتراك:",
+      lblEmail: "📧 البريد:",
+      lblProfile: "👤 البروفايل:",
+      lblPin: "🔑 رمز PIN:",
+      lblPass: "🔑 كلمة مرور الحساب:",
+      lblDuration: "⏳ مدة الاشتراك:",
+      lblEnd: "📅 الانتهاء:",
+      lblPrice: "💰 المبلغ:",
+      lblStatus: "💳 حالة الدفع:",
+      paidText: "تم الدفع ✅",
+      paidColor: "#10b981",
+      unpaidText: "لم يدفع بعد ⏳",
+      unpaidColor: "#ef4444"
+    };
+
+    // تحميل الإعدادات من الذاكرة المحلية
+    let appSettings = JSON.parse(localStorage.getItem('netflix_store_custom_settings')) || { ...defaultSettings };
     let db = JSON.parse(localStorage.getItem('netflix_store_db')) || [];
     let currentFilter = 'all';
     let editingId = null;
 
-    // تحميل وتثبيت رقم المتجر من الذاكرة المحلية
-    let storePhone = localStorage.getItem('netflix_store_phone') || '07782228104';
-    const storePhoneInput = document.getElementById('store-phone-input');
-    if (storePhoneInput) {
-      storePhoneInput.value = storePhone;
+    // تطبيق الإعدادات الحالية على واجهة الموقع والإيصال
+    function applySettings() {
+      document.documentElement.style.setProperty('--primary', appSettings.colorPrimary);
+      document.documentElement.style.setProperty('--bg', appSettings.colorBg);
+      document.documentElement.style.setProperty('--card', appSettings.colorCard);
+
+      document.getElementById('header-title').innerText = appSettings.appTitle;
+      document.getElementById('header-subtitle').innerText = appSettings.appSubtitle;
+      document.getElementById('page-title').innerText = appSettings.appTitle;
+
+      document.getElementById('r-title').innerText = appSettings.receiptTitle;
+      document.getElementById('r-thankyou').innerText = appSettings.receiptThankYou;
+      document.getElementById('r-support-text').innerText = appSettings.receiptSupportLabel;
+      document.getElementById('r-store-phone').innerText = appSettings.storePhone;
+
+      const receiptBox = document.getElementById('receipt-box');
+      receiptBox.style.backgroundColor = appSettings.receiptBg;
+      receiptBox.style.borderColor = appSettings.receiptBorder;
+      receiptBox.style.color = appSettings.receiptText;
+      document.getElementById('r-title').style.color = appSettings.receiptBorder;
+      document.getElementById('r-store-phone').style.color = appSettings.receiptBorder;
     }
 
-    // دالة حفظ وتثبيت الرقم في الذاكرة
-    function saveStorePhoneBtn() {
-      const val = document.getElementById('store-phone-input').value.trim();
-      if (!val) {
-        alert("يرجى كتابة رقم الدعم الفني أولاً!");
-        return;
+    applySettings();
+
+    // إدارة مودال الإعدادات
+    function openSettings() {
+      document.getElementById('s-app-title').value = appSettings.appTitle;
+      document.getElementById('s-app-subtitle').value = appSettings.appSubtitle;
+      
+      document.getElementById('s-color-primary').value = appSettings.colorPrimary;
+      document.getElementById('s-hex-primary').value = appSettings.colorPrimary;
+      
+      document.getElementById('s-color-bg').value = appSettings.colorBg;
+      document.getElementById('s-hex-bg').value = appSettings.colorBg;
+      
+      document.getElementById('s-color-card').value = appSettings.colorCard;
+      document.getElementById('s-hex-card').value = appSettings.colorCard;
+
+      document.getElementById('s-store-phone').value = appSettings.storePhone;
+
+      document.getElementById('s-receipt-title').value = appSettings.receiptTitle;
+      document.getElementById('s-receipt-thankyou').value = appSettings.receiptThankYou;
+      
+      document.getElementById('s-receipt-bg').value = appSettings.receiptBg;
+      document.getElementById('s-hex-receipt-bg').value = appSettings.receiptBg;
+
+      document.getElementById('s-receipt-border').value = appSettings.receiptBorder;
+      document.getElementById('s-hex-receipt-border').value = appSettings.receiptBorder;
+
+      document.getElementById('s-receipt-text').value = appSettings.receiptText;
+      document.getElementById('s-hex-receipt-text').value = appSettings.receiptText;
+
+      document.getElementById('s-lbl-name').value = appSettings.lblName;
+      document.getElementById('s-lbl-platform').value = appSettings.lblPlatform;
+      document.getElementById('s-lbl-type').value = appSettings.lblType;
+      document.getElementById('s-lbl-email').value = appSettings.lblEmail;
+      document.getElementById('s-lbl-profile').value = appSettings.lblProfile;
+      document.getElementById('s-lbl-pin').value = appSettings.lblPin;
+      document.getElementById('s-lbl-pass').value = appSettings.lblPass;
+      document.getElementById('s-lbl-duration').value = appSettings.lblDuration;
+      document.getElementById('s-lbl-end').value = appSettings.lblEnd;
+      document.getElementById('s-lbl-price').value = appSettings.lblPrice;
+      document.getElementById('s-lbl-status').value = appSettings.lblStatus;
+
+      document.getElementById('s-paid-text').value = appSettings.paidText;
+      document.getElementById('s-paid-color').value = appSettings.paidColor;
+      document.getElementById('s-hex-paid-color').value = appSettings.paidColor;
+
+      document.getElementById('s-unpaid-text').value = appSettings.unpaidText;
+      document.getElementById('s-unpaid-color').value = appSettings.unpaidColor;
+      document.getElementById('s-hex-unpaid-color').value = appSettings.unpaidColor;
+
+      document.getElementById('settings-overlay').style.display = 'flex';
+    }
+
+    function closeSettings() { document.getElementById('settings-overlay').style.display = 'none'; }
+    function closeSettingsIfOutside(e) { if (e.target.id === 'settings-overlay') closeSettings(); }
+
+    function syncColorHex(colorId, hexId) { document.getElementById(hexId).value = document.getElementById(colorId).value; }
+    function syncHexColor(hexId, colorId) {
+      let val = document.getElementById(hexId).value;
+      if (/^#[0-9A-F]{6}$/i.test(val)) {
+        document.getElementById(colorId).value = val;
       }
-      storePhone = val;
-      localStorage.setItem('netflix_store_phone', storePhone);
-      alert("تم حفظ وتثبيت رقم الدعم الفني بنجاح ✅");
+    }
+
+    function saveAllSettings() {
+      appSettings = {
+        appTitle: document.getElementById('s-app-title').value.trim() || defaultSettings.appTitle,
+        appSubtitle: document.getElementById('s-app-subtitle').value.trim() || defaultSettings.appSubtitle,
+        colorPrimary: document.getElementById('s-hex-primary').value.trim() || defaultSettings.colorPrimary,
+        colorBg: document.getElementById('s-hex-bg').value.trim() || defaultSettings.colorBg,
+        colorCard: document.getElementById('s-hex-card').value.trim() || defaultSettings.colorCard,
+        storePhone: document.getElementById('s-store-phone').value.trim() || defaultSettings.storePhone,
+        receiptTitle: document.getElementById('s-receipt-title').value.trim() || defaultSettings.receiptTitle,
+        receiptThankYou: document.getElementById('s-receipt-thankyou').value.trim() || defaultSettings.receiptThankYou,
+        receiptSupportLabel: defaultSettings.receiptSupportLabel,
+        receiptBg: document.getElementById('s-hex-receipt-bg').value.trim() || defaultSettings.receiptBg,
+        receiptBorder: document.getElementById('s-hex-receipt-border').value.trim() || defaultSettings.receiptBorder,
+        receiptText: document.getElementById('s-hex-receipt-text').value.trim() || defaultSettings.receiptText,
+        lblName: document.getElementById('s-lbl-name').value.trim() || defaultSettings.lblName,
+        lblPlatform: document.getElementById('s-lbl-platform').value.trim() || defaultSettings.lblPlatform,
+        lblType: document.getElementById('s-lbl-type').value.trim() || defaultSettings.lblType,
+        lblEmail: document.getElementById('s-lbl-email').value.trim() || defaultSettings.lblEmail,
+        lblProfile: document.getElementById('s-lbl-profile').value.trim() || defaultSettings.lblProfile,
+        lblPin: document.getElementById('s-lbl-pin').value.trim() || defaultSettings.lblPin,
+        lblPass: document.getElementById('s-lbl-pass').value.trim() || defaultSettings.lblPass,
+        lblDuration: document.getElementById('s-lbl-duration').value.trim() || defaultSettings.lblDuration,
+        lblEnd: document.getElementById('s-lbl-end').value.trim() || defaultSettings.lblEnd,
+        lblPrice: document.getElementById('s-lbl-price').value.trim() || defaultSettings.lblPrice,
+        lblStatus: document.getElementById('s-lbl-status').value.trim() || defaultSettings.lblStatus,
+        paidText: document.getElementById('s-paid-text').value.trim() || defaultSettings.paidText,
+        paidColor: document.getElementById('s-hex-paid-color').value.trim() || defaultSettings.paidColor,
+        unpaidText: document.getElementById('s-unpaid-text').value.trim() || defaultSettings.unpaidText,
+        unpaidColor: document.getElementById('s-hex-unpaid-color').value.trim() || defaultSettings.unpaidColor
+      };
+
+      localStorage.setItem('netflix_store_custom_settings', JSON.stringify(appSettings));
+      applySettings();
+      render();
+      closeSettings();
+      alert("تم حفظ وتطبيق كافة إعدادات التصميم بنجاح ✅");
+    }
+
+    function resetToDefaults() {
+      if (confirm("هل أنت متأكد من استعادة كافة الألوان والتسميات الافتراضية؟")) {
+        appSettings = { ...defaultSettings };
+        localStorage.setItem('netflix_store_custom_settings', JSON.stringify(appSettings));
+        applySettings();
+        openSettings();
+        render();
+        alert("تمت استعادة الإعدادات الافتراضية بنجاح 🔄");
+      }
     }
 
     function toggleFormType() {
@@ -711,7 +1039,7 @@
 
     function exportData() {
       if (db.length === 0) return alert("لا توجد بيانات لتصديرها");
-      const dataStr = JSON.stringify(db, null, 2);
+      const dataStr = JSON.stringify({ db, settings: appSettings }, null, 2);
       const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
       const exportFileDefaultName = 'Netflix_Backup_' + new Date().toLocaleDateString() + '.json';
       let linkElement = document.createElement('a');
@@ -726,13 +1054,25 @@
       const reader = new FileReader();
       reader.onload = function (e) {
         try {
-          const importedDb = JSON.parse(e.target.result);
-          if (Array.isArray(importedDb)) {
-            if (confirm("استبدال البيانات بالحالية؟")) {
-              db = importedDb;
+          const imported = JSON.parse(e.target.result);
+          if (Array.isArray(imported)) {
+            if (confirm("استبدال المشتركين بالملف؟")) {
+              db = imported;
               localStorage.setItem('netflix_store_db', JSON.stringify(db));
               render();
               alert("تمت الاستعادة بنجاح ✅");
+            }
+          } else if (imported && imported.db && Array.isArray(imported.db)) {
+            if (confirm("استبدال المشتركين والإعدادات بالملف؟")) {
+              db = imported.db;
+              if (imported.settings) {
+                appSettings = { ...defaultSettings, ...imported.settings };
+                localStorage.setItem('netflix_store_custom_settings', JSON.stringify(appSettings));
+                applySettings();
+              }
+              localStorage.setItem('netflix_store_db', JSON.stringify(db));
+              render();
+              alert("تمت استعادة البيانات والإعدادات بنجاح ✅");
             }
           } else alert("تنسيق الملف غير صحيح!");
         } catch (err) { alert("خطأ في قراءة الملف!"); }
@@ -1062,21 +1402,21 @@
       }
     }
 
+    // توليد صورة الإيصال باستخدام كافة الألوان والنصوص المخصصة
     function snap(id) {
       let c = db.find(x => x.id === id);
       if (!c) return;
       document.getElementById('r-date').innerText = "تاريخ الإيصال: " + new Date().toLocaleDateString('ar-EG');
       
-      // وضع الرقم المحفوظ في الإيصال
-      document.getElementById('r-store-phone').innerText = storePhone;
+      applySettings();
 
       const totalDays = calculateTotalDays(c.start, c.end);
 
       let profileDetailsHtml = c.type === 'profile' ? `
-        <div class="receipt-row"><span>👤 البروفايل:</span> <b>${c.profileName}</b></div>
-        <div class="receipt-row"><span>🔑 رمز PIN:</span> <b>${c.profilePin}</b></div>
+        <div class="receipt-row"><span>${appSettings.lblProfile}</span> <b>${c.profileName}</b></div>
+        <div class="receipt-row"><span>${appSettings.lblPin}</span> <b>${c.profilePin}</b></div>
       ` : `
-        <div class="receipt-row"><span>🔑 كلمة مرور الحساب:</span> <b>${c.accountPass}</b></div>
+        <div class="receipt-row"><span>${appSettings.lblPass}</span> <b>${c.accountPass}</b></div>
       `;
 
       let platformTitle = "واتساب الأعمال";
@@ -1084,19 +1424,22 @@
       if(c.platform === 'instagram') platformTitle = "إنستغرام";
       if(c.platform === 'messenger') platformTitle = "ماسنجر";
 
+      const statusText = c.paid ? appSettings.paidText : appSettings.unpaidText;
+      const statusColor = c.paid ? appSettings.paidColor : appSettings.unpaidColor;
+
       document.getElementById('receipt-data').innerHTML = `
-        <div class="receipt-row"><span>👤 الزبون:</span> <b>${c.name}</b></div>
-        <div class="receipt-row"><span>💬 المنصة:</span> <b>${platformTitle} (${c.contact || c.phone})</b></div>
-        <div class="receipt-row"><span>🎬 نوع الاشتراك:</span> <b>${c.type === 'profile' ? 'بروفايل خاص' : 'حساب كامل خاص'}</b></div>
-        <div class="receipt-row"><span>📧 البريد:</span> <b>${c.email}</b></div>
+        <div class="receipt-row"><span>${appSettings.lblName}</span> <b>${c.name}</b></div>
+        <div class="receipt-row"><span>${appSettings.lblPlatform}</span> <b>${platformTitle} (${c.contact || c.phone})</b></div>
+        <div class="receipt-row"><span>${appSettings.lblType}</span> <b>${c.type === 'profile' ? 'بروفايل خاص' : 'حساب كامل خاص'}</b></div>
+        <div class="receipt-row"><span>${appSettings.lblEmail}</span> <b>${c.email}</b></div>
         ${profileDetailsHtml}
-        <div class="receipt-row"><span>⏳ مدة الاشتراك:</span> <b>${totalDays} يوم</b></div>
-        <div class="receipt-row"><span>📅 الانتهاء:</span> <b>${c.end}</b></div>
-        <div class="receipt-row"><span>💰 المبلغ:</span> <b style="color:var(--primary);">${parseInt(c.price).toLocaleString()} د.ع</b></div>
-        <div class="receipt-row"><span>💳 حالة الدفع:</span> <b style="color:${c.paid ? '#10b981' : '#ef4444'};">${c.paid ? 'تم الدفع ✅' : 'لم يدفع بعد ⏳'}</b></div>
+        <div class="receipt-row"><span>${appSettings.lblDuration}</span> <b>${totalDays} يوم</b></div>
+        <div class="receipt-row"><span>${appSettings.lblEnd}</span> <b>${c.end}</b></div>
+        <div class="receipt-row"><span>${appSettings.lblPrice}</span> <b style="color:${appSettings.receiptBorder};">${parseInt(c.price).toLocaleString()} د.ع</b></div>
+        <div class="receipt-row"><span>${appSettings.lblStatus}</span> <b style="color:${statusColor};">${statusText}</b></div>
       `;
 
-      html2canvas(document.getElementById('receipt-box'), { backgroundColor: '#000' }).then(canvas => {
+      html2canvas(document.getElementById('receipt-box'), { backgroundColor: appSettings.receiptBg }).then(canvas => {
         let a = document.createElement('a');
         a.download = `Netflix-${c.name}.png`;
         a.href = canvas.toDataURL();
