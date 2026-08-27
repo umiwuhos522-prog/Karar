@@ -10,13 +10,16 @@
   <style>
     :root {
       --primary: #e50914;     /* أحمر نتفلكس */
+      --primary-text: #ffffff;/* لون نص الأزرار والثيم ذكي ديناميكي */
       --secondary: #f5222d;
       --success: #10b981;
       --danger: #ef4444;
       --warning: #f59e0b;
 
       --bg: #080808;          /* أسود غامق */
+      --bg-text: #ffffff;
       --card: #141414;        /* كرت غامق */
+      --card-text: #ffffff;
       --text: #ffffff;
       --input-bg: #1f1f1f;
     }
@@ -41,7 +44,7 @@
 
     .app-header {
       background: var(--card);
-      color: white;
+      color: var(--card-text);
       padding: 20px 15px;
       text-align: center;
       position: sticky;
@@ -59,12 +62,12 @@
     }
     .header-text { flex: 1; text-align: center; }
     .header-text h1 { margin: 0; font-size: 1.7rem; font-weight: 900; color: var(--primary); }
-    .header-text p { margin: 4px 0 0; font-size: 0.92rem; opacity: 0.85; color: #fff; }
+    .header-text p { margin: 4px 0 0; font-size: 0.92rem; opacity: 0.85; color: var(--card-text); }
 
     .btn-settings-toggle {
       background: rgba(255, 255, 255, 0.08);
       border: 1px solid var(--primary);
-      color: #fff;
+      color: var(--card-text);
       padding: 10px 14px;
       border-radius: 12px;
       cursor: pointer;
@@ -90,7 +93,7 @@
       border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.1);
       background: var(--card);
-      color: white;
+      color: var(--card-text);
       font-size: 0.92rem;
       font-weight: 800;
       cursor: pointer;
@@ -115,8 +118,8 @@
       text-align: center;
       border: 1px solid rgba(255,255,255,0.08);
     }
-    .stat-item b { display: block; font-size: 1.2rem; color: #fff; margin-bottom: 4px; font-weight: 900; }
-    .stat-item span { font-size: 0.85rem; color: rgba(255,255,255,0.7); font-weight: 800; }
+    .stat-item b { display: block; font-size: 1.2rem; color: var(--card-text); margin-bottom: 4px; font-weight: 900; }
+    .stat-item span { font-size: 0.85rem; color: var(--card-text); opacity: 0.75; font-weight: 800; }
 
     .form-card {
       background: var(--card);
@@ -125,6 +128,7 @@
       margin-bottom: 18px;
       box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6);
       border: 1px solid rgba(255,255,255,0.08);
+      color: var(--card-text);
     }
     .form-card h2 {
       font-size: 1.25rem;
@@ -137,7 +141,7 @@
     }
 
     .field { margin-bottom: 14px; }
-    label { display: block; font-size: 0.92rem; font-weight: 900; margin-bottom: 6px; color: rgba(255,255,255,0.9); }
+    label { display: block; font-size: 0.92rem; font-weight: 900; margin-bottom: 6px; color: var(--card-text); opacity: 0.9; }
     input, select {
       width: 100%;
       padding: 12px;
@@ -145,7 +149,7 @@
       border-radius: 12px;
       font-size: 0.95rem;
       background: var(--input-bg);
-      color: white;
+      color: #ffffff;
       transition: 0.3s;
     }
     input:focus, select:focus { border-color: var(--primary); outline: none; }
@@ -154,7 +158,7 @@
       width: 100%;
       padding: 15px;
       background: var(--primary);
-      color: #fff;
+      color: var(--primary-text) !important;
       border: none;
       border-radius: 12px;
       font-weight: 900;
@@ -166,11 +170,12 @@
 
     .customer-card {
       background: var(--card);
+      color: var(--card-text);
       border-radius: 15px;
       padding: 18px;
       margin-bottom: 15px;
       position: relative;
-      border-right: 5px solid var(--primary);
+      border-right: 6px solid var(--primary);
       border-top: 1px solid rgba(255,255,255,0.08);
       border-bottom: 1px solid rgba(255,255,255,0.08);
       border-left: 1px solid rgba(255,255,255,0.08);
@@ -179,11 +184,18 @@
     .customer-card.warning-near { border-right-color: var(--warning); border-right-width: 8px; }
 
     .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .cust-name { font-weight: 900; font-size: 1.2rem; color: #fff; }
-    .cust-type { font-size: 0.85rem; color: #fff; background: var(--primary); padding: 4px 10px; border-radius: 8px; font-weight: 900; }
+    .cust-name { font-weight: 900; font-size: 1.2rem; color: var(--card-text); }
+    .cust-type { 
+      font-size: 0.85rem; 
+      color: var(--primary-text) !important; 
+      background: var(--primary); 
+      padding: 4px 10px; 
+      border-radius: 8px; 
+      font-weight: 900; 
+    }
 
-    .card-info { font-size: 1rem; margin-bottom: 15px; line-height: 1.7; color: rgba(255,255,255,0.88); }
-    .card-info b { color: #fff; }
+    .card-info { font-size: 1rem; margin-bottom: 15px; line-height: 1.7; color: var(--card-text); opacity: 0.92; }
+    .card-info b { color: var(--card-text); font-weight: 900; }
 
     .card-actions {
       display: grid;
@@ -205,14 +217,14 @@
       user-select: none;
     }
 
-    .bg-whatsapp-biz { background: #075e54; }
+    .bg-whatsapp-biz { background: #075e54; color: #fff; }
     .bg-whatsapp-reg { background: #25D366; color: #000; }
-    .bg-messenger { background: #0084ff; }
-    .bg-instagram { background: #e1306c; }
-    .bg-pay { background: var(--success); }
-    .bg-img { background: var(--primary); }
-    .bg-del { background: var(--danger); }
-    .bg-edit { background: #2563eb; }
+    .bg-messenger { background: #0084ff; color: #fff; }
+    .bg-instagram { background: #e1306c; color: #fff; }
+    .bg-pay { background: var(--success); color: #fff; }
+    .bg-img { background: var(--primary); color: var(--primary-text) !important; }
+    .bg-del { background: var(--danger); color: #fff; }
+    .bg-edit { background: #2563eb; color: #fff; }
     .bg-renew { background: #b91c1c; color: #fff; }
     .bg-warning { background: var(--warning); color: #000; }
     .bg-reminded { background: #10b981; color: #fff; }
@@ -250,7 +262,7 @@
 
     #hidden-area { position: fixed; left: 0; top: 0; opacity: 0; pointer-events: none; }
 
-    /* تنسيق الإيصال الديناميكي */
+    /* الإيصال */
     .receipt {
       width: 650px;
       background: #000000;
@@ -285,6 +297,21 @@
       padding: 20px;
       background: rgba(255,255,255,0.05);
       border-radius: 15px;
+    }
+    .receipt-support-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 10px;
+    }
+    .receipt-avatar-img {
+      width: 65px;
+      height: 65px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid var(--primary);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
 
     /* المودالات */
@@ -353,7 +380,7 @@
     
     .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
     .btn-secondary { padding: 14px; border-radius: 12px; border: 1px solid #333; background: #000; color: #fff; font-weight: 900; cursor: pointer; }
-    .btn-save { padding: 14px; border-radius: 12px; border: 0; background: var(--primary); color: #fff; font-weight: 900; cursor: pointer; }
+    .btn-save { padding: 14px; border-radius: 12px; border: 0; background: var(--primary); color: var(--primary-text) !important; font-weight: 900; cursor: pointer; }
 
     .tabs-bar {
       position: fixed; left: 0; right: 0; bottom: 0;
@@ -368,7 +395,7 @@
       border-radius: 12px; color: rgba(255,255,255,0.7); padding: 8px; cursor: pointer;
       text-align: center; font-weight: 900; display: flex; flex-direction: column; align-items: center;
     }
-    .tab-btn.active { border-color: var(--primary); color: #fff; background: rgba(229,9,20,0.2); }
+    .tab-btn.active { border-color: var(--primary); color: var(--primary-text); background: var(--primary); }
     .tab-badge { position: absolute; top: -6px; left: 8px; background: #000; border: 1px solid #333; color: #fff; border-radius: 999px; font-size: 0.75rem; padding: 2px 6px; }
 
     .empty { background: rgba(255,255,255,0.02); border: 1px dashed #333; border-radius: 16px; padding: 20px; color: #888; text-align: center; margin-top: 10px; }
@@ -529,13 +556,18 @@
       <div class="receipt-footer">
         <div id="r-thankyou" style="font-size:1.5rem; font-weight:900; margin-bottom:5px;">شكراً لاختياركم متجرنا 🎬</div>
         <div id="r-support-text" style="font-size:1.2rem; opacity:0.8;">للتواصل والدعم الفني:</div>
-        <div id="r-store-phone" style="font-size:2rem; font-weight:900; direction:ltr;">07782228104</div>
+        
+        <div class="receipt-support-row">
+          <img id="r-avatar" class="receipt-avatar-img" src="" alt="Avatar" style="display:none;" />
+          <div id="r-store-phone" style="font-size:2.1rem; font-weight:900; direction:ltr;">07782228104</div>
+        </div>
+
         <div id="r-date" style="font-size:1rem; opacity:0.6; margin-top:10px;"></div>
       </div>
     </div>
   </div>
 
-  <!-- مودال إعدادات التصميم وهوية المتجر بالكامل -->
+  <!-- مودال إعدادات التصميم -->
   <div id="settings-overlay" class="modal-overlay" onclick="closeSettingsIfOutside(event)">
     <div class="modal" onclick="event.stopPropagation()">
       <div class="modal-header">
@@ -579,12 +611,21 @@
         </div>
       </div>
 
-      <!-- 2. معلومات الدعم الفني -->
+      <!-- 2. معلومات الدعم الفني والصورة المصغرة -->
       <div class="settings-section">
-        <div class="settings-section-title">📞 معلومات الدعم والتواصل</div>
+        <div class="settings-section-title">📞 معلومات الدعم والصورة المصغرة</div>
         <div class="field">
           <label>رقم هاتف الدعم الفني الخاص بك</label>
           <input type="text" id="s-store-phone" placeholder="07xxxxxxxxx" style="direction:ltr; text-align:right;" />
+        </div>
+
+        <div class="field">
+          <label>الصورة المصغرة (صورة الواتساب / الشعار بجانب الرقم في الوصل):</label>
+          <div style="display:flex; gap:12px; align-items:center; background:#000; padding:10px; border-radius:12px; border:1px solid #333;">
+            <img id="s-avatar-preview" src="" style="width:55px; height:55px; border-radius:50%; object-fit:cover; border:2px solid var(--primary); display:none;" />
+            <input type="file" id="s-avatar-file" accept="image/*" onchange="handleAvatarUpload(event)" style="flex:1; border:none; padding:4px;" />
+            <button type="button" class="btn-secondary" style="padding:8px 12px; font-size:0.85rem;" onclick="removeAvatar()">حذف 🗑️</button>
+          </div>
         </div>
       </div>
 
@@ -819,7 +860,6 @@
   </div>
 
   <script>
-    // الإعدادات الافتراضية
     const defaultSettings = {
       appTitle: "NETFLIX STORE 🎬",
       appSubtitle: "نظام إدارة اشتراكات الحسابات والبروفايلات",
@@ -827,6 +867,7 @@
       colorBg: "#080808",
       colorCard: "#141414",
       storePhone: "07782228104",
+      storeAvatar: "",
       receiptTitle: "NETFLIX STORE",
       receiptThankYou: "شكراً لاختياركم متجرنا 🎬",
       receiptSupportLabel: "للتواصل والدعم الفني:",
@@ -850,17 +891,42 @@
       unpaidColor: "#ef4444"
     };
 
-    // تحميل الإعدادات من الذاكرة المحلية
     let appSettings = JSON.parse(localStorage.getItem('netflix_store_custom_settings')) || { ...defaultSettings };
+    let tempAvatarBase64 = appSettings.storeAvatar || "";
+
     let db = JSON.parse(localStorage.getItem('netflix_store_db')) || [];
     let currentFilter = 'all';
     let editingId = null;
 
-    // تطبيق الإعدادات الحالية على واجهة الموقع والإيصال
+    // دالة لحساب درجة سطوع اللون واختيار لون الخط المقروء تلقائياً (أبيض أو أسود)
+    function getContrastColor(hex) {
+      if (!hex) return '#ffffff';
+      let cleanHex = hex.replace('#', '');
+      if (cleanHex.length === 3) {
+        cleanHex = cleanHex.split('').map(c => c + c).join('');
+      }
+      if (cleanHex.length !== 6) return '#ffffff';
+
+      const r = parseInt(cleanHex.substring(0, 2), 16);
+      const g = parseInt(cleanHex.substring(2, 4), 16);
+      const b = parseInt(cleanHex.substring(4, 6), 16);
+
+      // معادلة السطوع البصري القياسية YIQ
+      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+      return (yiq >= 140) ? '#000000' : '#ffffff';
+    }
+
     function applySettings() {
+      const primaryTextColor = getContrastColor(appSettings.colorPrimary);
+      const cardTextColor = getContrastColor(appSettings.colorCard);
+      const bgTextColor = getContrastColor(appSettings.colorBg);
+
       document.documentElement.style.setProperty('--primary', appSettings.colorPrimary);
+      document.documentElement.style.setProperty('--primary-text', primaryTextColor);
       document.documentElement.style.setProperty('--bg', appSettings.colorBg);
+      document.documentElement.style.setProperty('--bg-text', bgTextColor);
       document.documentElement.style.setProperty('--card', appSettings.colorCard);
+      document.documentElement.style.setProperty('--card-text', cardTextColor);
 
       document.getElementById('header-title').innerText = appSettings.appTitle;
       document.getElementById('header-subtitle').innerText = appSettings.appSubtitle;
@@ -877,12 +943,44 @@
       receiptBox.style.color = appSettings.receiptText;
       document.getElementById('r-title').style.color = appSettings.receiptBorder;
       document.getElementById('r-store-phone').style.color = appSettings.receiptBorder;
+
+      const rAvatar = document.getElementById('r-avatar');
+      if (appSettings.storeAvatar) {
+        rAvatar.src = appSettings.storeAvatar;
+        rAvatar.style.display = 'block';
+        rAvatar.style.borderColor = appSettings.receiptBorder;
+      } else {
+        rAvatar.src = '';
+        rAvatar.style.display = 'none';
+      }
     }
 
     applySettings();
 
-    // إدارة مودال الإعدادات
+    function handleAvatarUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        tempAvatarBase64 = e.target.result;
+        const prev = document.getElementById('s-avatar-preview');
+        prev.src = tempAvatarBase64;
+        prev.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeAvatar() {
+      tempAvatarBase64 = "";
+      const prev = document.getElementById('s-avatar-preview');
+      prev.src = "";
+      prev.style.display = 'none';
+      document.getElementById('s-avatar-file').value = "";
+    }
+
     function openSettings() {
+      tempAvatarBase64 = appSettings.storeAvatar || "";
+
       document.getElementById('s-app-title').value = appSettings.appTitle;
       document.getElementById('s-app-subtitle').value = appSettings.appSubtitle;
       
@@ -896,6 +994,16 @@
       document.getElementById('s-hex-card').value = appSettings.colorCard;
 
       document.getElementById('s-store-phone').value = appSettings.storePhone;
+
+      const prev = document.getElementById('s-avatar-preview');
+      if (tempAvatarBase64) {
+        prev.src = tempAvatarBase64;
+        prev.style.display = 'block';
+      } else {
+        prev.src = "";
+        prev.style.display = 'none';
+      }
+      document.getElementById('s-avatar-file').value = "";
 
       document.getElementById('s-receipt-title').value = appSettings.receiptTitle;
       document.getElementById('s-receipt-thankyou').value = appSettings.receiptThankYou;
@@ -951,6 +1059,7 @@
         colorBg: document.getElementById('s-hex-bg').value.trim() || defaultSettings.colorBg,
         colorCard: document.getElementById('s-hex-card').value.trim() || defaultSettings.colorCard,
         storePhone: document.getElementById('s-store-phone').value.trim() || defaultSettings.storePhone,
+        storeAvatar: tempAvatarBase64 || "",
         receiptTitle: document.getElementById('s-receipt-title').value.trim() || defaultSettings.receiptTitle,
         receiptThankYou: document.getElementById('s-receipt-thankyou').value.trim() || defaultSettings.receiptThankYou,
         receiptSupportLabel: defaultSettings.receiptSupportLabel,
@@ -984,6 +1093,7 @@
     function resetToDefaults() {
       if (confirm("هل أنت متأكد من استعادة كافة الألوان والتسميات الافتراضية؟")) {
         appSettings = { ...defaultSettings };
+        tempAvatarBase64 = "";
         localStorage.setItem('netflix_store_custom_settings', JSON.stringify(appSettings));
         applySettings();
         openSettings();
@@ -1067,6 +1177,7 @@
               db = imported.db;
               if (imported.settings) {
                 appSettings = { ...defaultSettings, ...imported.settings };
+                tempAvatarBase64 = appSettings.storeAvatar || "";
                 localStorage.setItem('netflix_store_custom_settings', JSON.stringify(appSettings));
                 applySettings();
               }
@@ -1402,7 +1513,6 @@
       }
     }
 
-    // توليد صورة الإيصال باستخدام كافة الألوان والنصوص المخصصة
     function snap(id) {
       let c = db.find(x => x.id === id);
       if (!c) return;
