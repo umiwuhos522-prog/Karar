@@ -3,22 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title id="page-title">إدارة اشتراكات نتفلكس - Netflix Store</title>
+  <title id="page-title">متجر الاشتراكات الرقمية</title>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <style>
     :root {
-      --primary: #e50914;     /* أحمر نتفلكس */
-      --primary-text: #ffffff;/* لون نص الأزرار والثيم ذكي ديناميكي */
+      --primary: #e50914;
+      --primary-text: #ffffff;
       --secondary: #f5222d;
       --success: #10b981;
       --danger: #ef4444;
       --warning: #f59e0b;
 
-      --bg: #080808;          /* أسود غامق */
+      --bg: #080808;
       --bg-text: #ffffff;
-      --card: #141414;        /* كرت غامق */
+      --card: #141414;
       --card-text: #ffffff;
       --text: #ffffff;
       --input-bg: #1f1f1f;
@@ -185,6 +185,15 @@
 
     .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .cust-name { font-weight: 900; font-size: 1.2rem; color: var(--card-text); }
+    .cust-badges { display: flex; gap: 6px; }
+    .cust-service {
+      font-size: 0.85rem;
+      color: #fff;
+      background: #333;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-weight: 900;
+    }
     .cust-type { 
       font-size: 0.85rem; 
       color: var(--primary-text) !important; 
@@ -405,8 +414,8 @@
   <header class="app-header">
     <div class="header-content">
       <div class="header-text">
-        <h1 id="header-title">NETFLIX STORE 🎬</h1>
-        <p id="header-subtitle">نظام إدارة اشتراكات الحسابات والبروفايلات</p>
+        <h1 id="header-title">متجر الاشتراكات الرقمية 🎬</h1>
+        <p id="header-subtitle">نظام إدارة اشتراكات الحسابات والخدمات</p>
       </div>
       <button class="btn-settings-toggle" onclick="openSettings()">⚙️ إعدادات التصميم</button>
     </div>
@@ -464,14 +473,23 @@
     </div>
 
     <div class="form-card">
-      <h2>➕ إضافة اشتراك نتفلكس جديد</h2>
+      <h2 id="form-header-title">➕ إضافة اشتراك جديد</h2>
 
+      <!-- 1. اختيار الخدمة / التطبيق -->
       <div class="field">
-        <label>نوع الاشتراك</label>
-        <select id="f-type" onchange="toggleFormType()">
-          <option value="profile">بروفايل خاص</option>
-          <option value="full">حساب كامل (خاص)</option>
+        <label>الخدمة / التطبيق</label>
+        <select id="f-service" onchange="onServiceChange()">
+          <option value="netflix" selected>نتفلكس 🎬</option>
+          <option value="capcut">كاب كات ✂️</option>
+          <option value="gemini">جيمناي برو 🤖</option>
+          <option value="youtube">يوتيوب بريميوم ▶️</option>
         </select>
+      </div>
+
+      <!-- 2. خطة ونوع الاشتراك -->
+      <div class="field">
+        <label>نوع / خطة الاشتراك</label>
+        <select id="f-type" onchange="onPlanChange()"></select>
       </div>
 
       <div class="field">
@@ -494,25 +512,32 @@
       </div>
 
       <div class="field">
-        <label>البريد الإلكتروني الحساب</label>
-        <input type="email" id="f-email" placeholder="netflix@example.com" style="direction:ltr; text-align:right;" />
+        <label id="f-email-label">البريد الإلكتروني / الحساب</label>
+        <input type="email" id="f-email" placeholder="example@email.com" style="direction:ltr; text-align:right;" />
       </div>
 
+      <!-- حقول خاصة بنتفلكس -->
       <div id="profile-fields-box">
         <div class="field">
           <label>اسم البروفايل الخاص بالزبون</label>
           <input type="text" id="f-profile-name" placeholder="مثال: User 1" />
         </div>
-
         <div class="field">
-          <label>كلمة المرور الخاصة بالبروفايل (رمز PIN)</label>
+          <label>رمز البروفايل (رمز PIN)</label>
           <input type="text" id="f-profile-pin" placeholder="مثال: 1234" style="direction:ltr; text-align:right;" />
         </div>
       </div>
 
-      <div class="field">
-        <label>كلمة مرور الحساب (خاطفة - أنت فقط تراها)</label>
+      <!-- كلمة مرور الحساب -->
+      <div class="field" id="account-pass-box">
+        <label>كلمة مرور الحساب (خاطفة - سرية لك)</label>
         <input type="text" id="f-account-pass" placeholder="Password123" style="direction:ltr; text-align:right;" />
+      </div>
+
+      <!-- حساب العائلة المضيف (خاص بجيمناي برو) -->
+      <div class="field" id="gemini-family-box" style="display:none;">
+        <label>حساب العائلة المضيف (مخفي وسري لك)</label>
+        <input type="text" id="f-family-host" placeholder="الحساب الذي تمت إضافة الزبون منه" style="direction:ltr; text-align:right;" />
       </div>
 
       <div class="field">
@@ -535,7 +560,7 @@
     </div>
 
     <div class="search-area" style="display:flex; gap:8px; margin-bottom:14px;">
-      <input type="text" id="q" placeholder="ابحث باسم الزبون أو الإيميل أو البروفايل..." oninput="render()" style="padding:12px; flex:1" />
+      <input type="text" id="q" placeholder="ابحث باسم الزبون أو الإيميل أو الخدمة..." oninput="render()" style="padding:12px; flex:1" />
     </div>
 
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding:0 5px;">
@@ -573,7 +598,6 @@
         <button class="modal-close" onclick="closeSettings()">إغلاق</button>
       </div>
 
-      <!-- 1. هوية التطبيق والألوان -->
       <div class="settings-section">
         <div class="settings-section-title">🎨 هوية التطبيق وألوان النظام</div>
         <div class="modal-grid">
@@ -609,7 +633,6 @@
         </div>
       </div>
 
-      <!-- 2. معلومات الدعم الفني والصورة المصغرة -->
       <div class="settings-section">
         <div class="settings-section-title">📞 معلومات الدعم والصورة المصغرة</div>
         <div class="field">
@@ -627,7 +650,6 @@
         </div>
       </div>
 
-      <!-- 3. تصميم صورة الزبون (الإيصال) -->
       <div class="settings-section">
         <div class="settings-section-title">🖼️ تصميم صورة الإيصال (صورة الزبون)</div>
         <div class="modal-grid">
@@ -663,10 +685,13 @@
         </div>
       </div>
 
-      <!-- 4. تخصيص كتابات ونصوص الإيصال وحالات الدفع -->
       <div class="settings-section">
         <div class="settings-section-title">✍️ نصوص وتسميات الإيصال وحالات الدفع</div>
         <div class="modal-grid">
+          <div class="field">
+            <label>تسمية "الخدمة"</label>
+            <input type="text" id="s-lbl-service" />
+          </div>
           <div class="field">
             <label>تسمية "الزبون"</label>
             <input type="text" id="s-lbl-name" />
@@ -755,11 +780,18 @@
 
       <div class="modal-grid">
         <div class="field">
-          <label>نوع الاشتراك</label>
-          <select id="e-type" onchange="toggleEditFormType()">
-            <option value="profile">بروفايل خاص</option>
-            <option value="full">حساب كامل (خاص)</option>
+          <label>الخدمة / التطبيق</label>
+          <select id="e-service" onchange="onEditServiceChange()">
+            <option value="netflix">نتفلكس 🎬</option>
+            <option value="capcut">كاب كات ✂️</option>
+            <option value="gemini">جيمناي برو 🤖</option>
+            <option value="youtube">يوتيوب بريميوم ▶️</option>
           </select>
+        </div>
+
+        <div class="field">
+          <label>نوع / خطة الاشتراك</label>
+          <select id="e-type" onchange="onEditPlanChange()"></select>
         </div>
 
         <div class="field">
@@ -782,7 +814,7 @@
         </div>
 
         <div class="field">
-          <label>البريد الإلكتروني</label>
+          <label>البريد الإلكتروني / الحساب</label>
           <input type="email" id="e-email" style="direction:ltr; text-align:right;" />
         </div>
 
@@ -797,9 +829,14 @@
           </div>
         </div>
 
-        <div class="field" style="grid-column: span 2;">
+        <div class="field" id="e-account-pass-box" style="grid-column: span 2;">
           <label>كلمة مرور الحساب (خاصة بك)</label>
           <input type="text" id="e-account-pass" style="direction:ltr; text-align:right;" />
+        </div>
+
+        <div class="field" id="e-gemini-family-box" style="grid-column: span 2; display:none;">
+          <label>حساب العائلة المضيف (مخفي وسري لك)</label>
+          <input type="text" id="e-family-host" style="direction:ltr; text-align:right;" />
         </div>
 
         <div class="field">
@@ -814,7 +851,7 @@
 
         <div class="field">
           <label>تاريخ البدء</label>
-          <input type="date" id="e-start" />
+          <input type="date" id="e-start" onchange="updateEditDate()" />
         </div>
 
         <div class="field" style="grid-column: span 2;">
@@ -857,24 +894,56 @@
   </div>
 
   <script>
+    // إعدادات الخدمات والخطط والأسعار والمدد
+    const servicePlansConfig = {
+      netflix: {
+        name: "نتفلكس 🎬",
+        plans: [
+          { id: "profile", name: "بروفايل خاص (شهر)", price: 5000, days: 30 },
+          { id: "full", name: "حساب كامل خاص (شهر)", price: 10000, days: 30 }
+        ]
+      },
+      capcut: {
+        name: "كاب كات ✂️",
+        plans: [
+          { id: "month", name: "اشتراك شهري (شهر)", price: 10000, days: 30 },
+          { id: "year", name: "اشتراك سنوي (سنة)", price: 25000, days: 365 }
+        ]
+      },
+      gemini: {
+        name: "جيمناي برو 🤖",
+        plans: [
+          { id: "month", name: "اشتراك شهري (شهر)", price: 10000, days: 30 },
+          { id: "year", name: "اشتراك سنوي (سنة)", price: 25000, days: 365 }
+        ]
+      },
+      youtube: {
+        name: "يوتيوب بريميوم ▶️",
+        plans: [
+          { id: "3months", name: "اشتراك 3 شهور", price: 12000, days: 90 }
+        ]
+      }
+    };
+
     const defaultSettings = {
-      appTitle: "NETFLIX STORE 🎬",
-      appSubtitle: "نظام إدارة اشتراكات الحسابات والبروفايلات",
+      appTitle: "متجر الاشتراكات الرقمية 🎬",
+      appSubtitle: "نظام إدارة اشتراكات الحسابات والخدمات",
       colorPrimary: "#e50914",
       colorBg: "#080808",
       colorCard: "#141414",
       storePhone: "07782228104",
       storeAvatar: "",
-      receiptTitle: "NETFLIX STORE",
-      receiptThankYou: "شكراً لاختياركم متجرنا 🎬",
+      receiptTitle: "STORE INVOICE",
+      receiptThankYou: "شكراً لاختياركم متجرنا ✨",
       receiptSupportLabel: "للتواصل والدعم الفني:",
       receiptBg: "#000000",
       receiptBorder: "#e50914",
       receiptText: "#ffffff",
+      lblService: "📌 الخدمة:",
       lblName: "👤 الزبون:",
       lblPlatform: "💬 المنصة:",
       lblType: "🎬 نوع الاشتراك:",
-      lblEmail: "📧 البريد:",
+      lblEmail: "📧 البريد / الحساب:",
       lblProfile: "👤 البروفايل:",
       lblPin: "🔑 رمز PIN:",
       lblPass: "🔑 كلمة مرور الحساب:",
@@ -952,6 +1021,111 @@
 
     applySettings();
 
+    // التحكم بالخدمات وحقول الإدخال
+    function populatePlans(selectId, serviceKey, selectedPlanId = null) {
+      const select = document.getElementById(selectId);
+      select.innerHTML = '';
+      const conf = servicePlansConfig[serviceKey] || servicePlansConfig.netflix;
+      conf.plans.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.innerText = `${p.name} - ${p.price.toLocaleString()} د.ع`;
+        if (selectedPlanId && p.id === selectedPlanId) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function onServiceChange() {
+      const service = document.getElementById('f-service').value;
+      populatePlans('f-type', service);
+      onPlanChange();
+    }
+
+    function onPlanChange() {
+      const service = document.getElementById('f-service').value;
+      const planId = document.getElementById('f-type').value;
+      const conf = servicePlansConfig[service] || servicePlansConfig.netflix;
+      const plan = conf.plans.find(p => p.id === planId) || conf.plans[0];
+
+      document.getElementById('f-price').value = plan ? plan.price : 5000;
+
+      // إظهار/إخفاء الحقول حسب الخدمة
+      document.getElementById('profile-fields-box').style.display = (service === 'netflix' && planId === 'profile') ? 'block' : 'none';
+      document.getElementById('gemini-family-box').style.display = (service === 'gemini') ? 'block' : 'none';
+      document.getElementById('account-pass-box').style.display = (service === 'gemini') ? 'none' : 'block';
+
+      updateDate();
+    }
+
+    function onEditServiceChange() {
+      const service = document.getElementById('e-service').value;
+      populatePlans('e-type', service);
+      onEditPlanChange();
+    }
+
+    function onEditPlanChange() {
+      const service = document.getElementById('e-service').value;
+      const planId = document.getElementById('e-type').value;
+      const conf = servicePlansConfig[service] || servicePlansConfig.netflix;
+      const plan = conf.plans.find(p => p.id === planId) || conf.plans[0];
+
+      document.getElementById('e-price').value = plan ? plan.price : 5000;
+
+      document.getElementById('e-profile-box').style.display = (service === 'netflix' && planId === 'profile') ? 'grid' : 'none';
+      document.getElementById('e-gemini-family-box').style.display = (service === 'gemini') ? 'block' : 'none';
+      document.getElementById('e-account-pass-box').style.display = (service === 'gemini') ? 'none' : 'block';
+
+      updateEditDate();
+    }
+
+    function getPlanDurationDays(serviceKey, planId) {
+      const conf = servicePlansConfig[serviceKey] || servicePlansConfig.netflix;
+      const plan = conf.plans.find(p => p.id === planId);
+      return plan ? plan.days : 30;
+    }
+
+    function updateDate() {
+      let startInput = document.getElementById('f-start').value;
+      if (!startInput) return;
+      const service = document.getElementById('f-service').value;
+      const planId = document.getElementById('f-type').value;
+      const days = getPlanDurationDays(service, planId);
+
+      let start = new Date(startInput);
+      start.setDate(start.getDate() + days);
+      const year = start.getFullYear();
+      const month = String(start.getMonth() + 1).padStart(2, '0');
+      const day = String(start.getDate()).padStart(2, '0');
+      document.getElementById('f-end').value = `${year}-${month}-${day}`;
+    }
+
+    function updateEditDate() {
+      let startInput = document.getElementById('e-start').value;
+      if (!startInput) return;
+      const service = document.getElementById('e-service').value;
+      const planId = document.getElementById('e-type').value;
+      const days = getPlanDurationDays(service, planId);
+
+      let start = new Date(startInput);
+      start.setDate(start.getDate() + days);
+      const year = start.getFullYear();
+      const month = String(start.getMonth() + 1).padStart(2, '0');
+      const day = String(start.getDate()).padStart(2, '0');
+      document.getElementById('e-end').value = `${year}-${month}-${day}`;
+    }
+
+    function setInitialDates() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      document.getElementById('f-start').value = `${year}-${month}-${day}`;
+      populatePlans('f-type', 'netflix');
+      onPlanChange();
+    }
+
+    setInitialDates();
+
     function handleAvatarUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -1012,6 +1186,7 @@
       document.getElementById('s-receipt-text').value = appSettings.receiptText;
       document.getElementById('s-hex-receipt-text').value = appSettings.receiptText;
 
+      document.getElementById('s-lbl-service').value = appSettings.lblService || "📌 الخدمة:";
       document.getElementById('s-lbl-name').value = appSettings.lblName;
       document.getElementById('s-lbl-platform').value = appSettings.lblPlatform;
       document.getElementById('s-lbl-type').value = appSettings.lblType;
@@ -1061,6 +1236,7 @@
         receiptBg: document.getElementById('s-hex-receipt-bg').value.trim() || defaultSettings.receiptBg,
         receiptBorder: document.getElementById('s-hex-receipt-border').value.trim() || defaultSettings.receiptBorder,
         receiptText: document.getElementById('s-hex-receipt-text').value.trim() || defaultSettings.receiptText,
+        lblService: document.getElementById('s-lbl-service').value.trim() || "📌 الخدمة:",
         lblName: document.getElementById('s-lbl-name').value.trim() || defaultSettings.lblName,
         lblPlatform: document.getElementById('s-lbl-platform').value.trim() || defaultSettings.lblPlatform,
         lblType: document.getElementById('s-lbl-type').value.trim() || defaultSettings.lblType,
@@ -1082,7 +1258,7 @@
       applySettings();
       render();
       closeSettings();
-      alert("تم حفظ وتطبيق كافة إعدادات التصميم بنجاح ✅");
+      alert("تم حفظ وتطبيق كافة الإعدادات بنجاح ✅");
     }
 
     function resetToDefaults() {
@@ -1097,18 +1273,12 @@
       }
     }
 
-    function toggleFormType() {
-      const type = document.getElementById('f-type').value;
-      document.getElementById('profile-fields-box').style.display = (type === 'profile') ? 'block' : 'none';
-      document.getElementById('f-price').value = (type === 'full') ? "10000" : "5000";
-    }
-
     function togglePlatformInput() {
       const platform = document.getElementById('f-platform').value;
       const label = document.getElementById('platform-label');
       const input = document.getElementById('f-contact');
 
-      if (platform === 'whatsapp' || platform === 'whatsapp_biz' || platform === 'whatsapp_reg') {
+      if (platform === 'whatsapp') {
         label.innerText = 'رقم الواتساب أو المعرّف';
         input.placeholder = '07xxxxxxxxx أو Musti7@';
       } else if (platform === 'messenger') {
@@ -1125,7 +1295,7 @@
       const label = document.getElementById('e-platform-label');
       const input = document.getElementById('e-contact');
 
-      if (platform === 'whatsapp' || platform === 'whatsapp_biz' || platform === 'whatsapp_reg') {
+      if (platform === 'whatsapp') {
         label.innerText = 'رقم الواتساب أو المعرّف';
         input.placeholder = '07xxxxxxxxx أو Musti7@';
       } else if (platform === 'messenger') {
@@ -1137,16 +1307,11 @@
       }
     }
 
-    function toggleEditFormType() {
-      const type = document.getElementById('e-type').value;
-      document.getElementById('e-profile-box').style.display = (type === 'profile') ? 'grid' : 'none';
-    }
-
     function exportData() {
       if (db.length === 0) return alert("لا توجد بيانات لتصديرها");
       const dataStr = JSON.stringify({ db, settings: appSettings }, null, 2);
       const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-      const exportFileDefaultName = 'Netflix_Backup_' + new Date().toLocaleDateString() + '.json';
+      const exportFileDefaultName = 'Subscriptions_Backup_' + new Date().toLocaleDateString() + '.json';
       let linkElement = document.createElement('a');
       linkElement.setAttribute('href', dataUri);
       linkElement.setAttribute('download', exportFileDefaultName);
@@ -1186,28 +1351,6 @@
       reader.readAsText(file);
     }
 
-    function setInitialDates() {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      document.getElementById('f-start').value = `${year}-${month}-${day}`;
-      updateDate();
-    }
-
-    function updateDate() {
-      let startInput = document.getElementById('f-start').value;
-      if (!startInput) return;
-      let start = new Date(startInput);
-      start.setDate(start.getDate() + 30);
-      const year = start.getFullYear();
-      const month = String(start.getMonth() + 1).padStart(2, '0');
-      const day = String(start.getDate()).padStart(2, '0');
-      document.getElementById('f-end').value = `${year}-${month}-${day}`;
-    }
-
-    setInitialDates();
-
     function isUsernameInput(str) {
       return /[a-zA-Z]/.test(str) || (str || "").trim().startsWith('@') || (str || "").includes('wa.me');
     }
@@ -1230,13 +1373,12 @@
       return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     }
 
-    function openWhatsAppBusiness(targetPhoneOrUser, textMsg = "") {
+    function openWhatsAppDirect(targetPhoneOrUser, textMsg = "") {
       const cleanTarget = cleanUsername(targetPhoneOrUser);
       const encodedMsg = encodeURIComponent(textMsg);
       const isUser = isUsernameInput(targetPhoneOrUser);
 
       let intentUrl = "";
-
       if (isUser) {
         intentUrl = `intent://send?text=${encodedMsg}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;S.browser_fallback_url=${encodeURIComponent(`https://wa.me/${cleanTarget}?text=${encodedMsg}`)};end`;
         window.location.href = intentUrl;
@@ -1247,6 +1389,7 @@
     }
 
     function save() {
+      const service = document.getElementById('f-service').value;
       const type = document.getElementById('f-type').value;
       const platform = document.getElementById('f-platform').value;
       const name = document.getElementById('f-name').value.trim();
@@ -1255,6 +1398,7 @@
       const profileName = document.getElementById('f-profile-name').value.trim();
       const profilePin = document.getElementById('f-profile-pin').value.trim();
       const accountPass = document.getElementById('f-account-pass').value.trim();
+      const familyHost = document.getElementById('f-family-host').value.trim();
       const price = document.getElementById('f-price').value;
       const startDate = document.getElementById('f-start').value;
       const endDate = document.getElementById('f-end').value;
@@ -1273,24 +1417,28 @@
 
       const existingIndex = db.findIndex(x => 
         (x.name || "").trim().toLowerCase() === name.toLowerCase() && 
-        (x.contact || x.phone || "").trim().toLowerCase() === contact.toLowerCase()
+        (x.contact || x.phone || "").trim().toLowerCase() === contact.toLowerCase() &&
+        (x.service || 'netflix') === service
       );
 
       if (existingIndex !== -1) {
         let existingUser = db[existingIndex];
+        const days = getPlanDurationDays(service, type);
         
         let newStart = new Date(startDate || new Date());
         let newEnd = new Date(newStart);
-        newEnd.setDate(newEnd.getDate() + 30);
+        newEnd.setDate(newEnd.getDate() + days);
 
         const fmt = d => d.toISOString().split('T')[0];
 
+        existingUser.service = service;
         existingUser.type = type;
         existingUser.platform = platform;
         existingUser.email = email;
-        existingUser.profileName = type === 'profile' ? profileName : '';
-        existingUser.profilePin = type === 'profile' ? profilePin : '';
+        existingUser.profileName = (service === 'netflix' && type === 'profile') ? profileName : '';
+        existingUser.profilePin = (service === 'netflix' && type === 'profile') ? profilePin : '';
         existingUser.accountPass = accountPass || existingUser.accountPass;
+        existingUser.familyHost = (service === 'gemini') ? familyHost : '';
         existingUser.price = price;
         existingUser.start = fmt(newStart);
         existingUser.end = fmt(newEnd);
@@ -1300,14 +1448,17 @@
         db[existingIndex] = existingUser;
         localStorage.setItem('netflix_store_db', JSON.stringify(db));
 
-        alert(`تم التعرف على الزبون (${name}) مسبقاً وتجديد اشتراكه بنجاح بدون تكرار! 🔄 (الاشتراك رقم ${existingUser.renewCount})`);
+        alert(`تم التعرف على الزبون (${name}) وتجديد اشتراكه بنجاح بدون تكرار! 🔄 (الاشتراك رقم ${existingUser.renewCount})`);
       } else {
         const item = {
           id: crypto.randomUUID(),
+          service,
           type, platform, name, contact, email,
-          profileName: type === 'profile' ? profileName : '',
-          profilePin: type === 'profile' ? profilePin : '',
-          accountPass, price,
+          profileName: (service === 'netflix' && type === 'profile') ? profileName : '',
+          profilePin: (service === 'netflix' && type === 'profile') ? profilePin : '',
+          accountPass,
+          familyHost: (service === 'gemini') ? familyHost : '',
+          price,
           start: startDate, end: endDate,
           renewCount: 1,
           paid: false, paymentDate: "", reminded: false,
@@ -1324,6 +1475,7 @@
       document.getElementById('f-profile-name').value = '';
       document.getElementById('f-profile-pin').value = '';
       document.getElementById('f-account-pass').value = '';
+      document.getElementById('f-family-host').value = '';
 
       setInitialDates();
       render();
@@ -1334,7 +1486,10 @@
       if (!c) return;
       editingId = id;
 
-      document.getElementById('e-type').value = c.type || 'profile';
+      const service = c.service || 'netflix';
+      document.getElementById('e-service').value = service;
+      populatePlans('e-type', service, c.type || 'profile');
+
       let currentPlatform = c.platform || 'whatsapp';
       if (currentPlatform === 'whatsapp_biz' || currentPlatform === 'whatsapp_reg') {
         currentPlatform = 'whatsapp';
@@ -1347,6 +1502,7 @@
       document.getElementById('e-profile-name').value = c.profileName || '';
       document.getElementById('e-profile-pin').value = c.profilePin || '';
       document.getElementById('e-account-pass').value = c.accountPass || '';
+      document.getElementById('e-family-host').value = c.familyHost || '';
       document.getElementById('e-price').value = c.price || 0;
       document.getElementById('e-renew-count').value = c.renewCount || 1;
       document.getElementById('e-start').value = c.start || '';
@@ -1354,7 +1510,7 @@
       document.getElementById('e-paid').checked = !!c.paid;
       document.getElementById('e-reminded').checked = !!c.reminded;
 
-      toggleEditFormType();
+      onEditPlanChange();
       toggleEditPlatformInput();
       document.getElementById('edit-overlay').style.display = 'flex';
     }
@@ -1366,6 +1522,7 @@
       const i = db.findIndex(x => x.id === editingId);
       if (i === -1) return;
 
+      const service = document.getElementById('e-service').value;
       const type = document.getElementById('e-type').value;
       const platform = document.getElementById('e-platform').value;
       let contact = document.getElementById('e-contact').value.trim();
@@ -1380,14 +1537,16 @@
         contact = cleanUsername(contact);
       }
 
+      db[i].service = service;
       db[i].type = type;
       db[i].platform = platform;
       db[i].name = document.getElementById('e-name').value.trim();
       db[i].contact = contact;
       db[i].email = document.getElementById('e-email').value.trim();
-      db[i].profileName = type === 'profile' ? document.getElementById('e-profile-name').value.trim() : '';
-      db[i].profilePin = type === 'profile' ? document.getElementById('e-profile-pin').value.trim() : '';
+      db[i].profileName = (service === 'netflix' && type === 'profile') ? document.getElementById('e-profile-name').value.trim() : '';
+      db[i].profilePin = (service === 'netflix' && type === 'profile') ? document.getElementById('e-profile-pin').value.trim() : '';
       db[i].accountPass = document.getElementById('e-account-pass').value.trim();
+      db[i].familyHost = (service === 'gemini') ? document.getElementById('e-family-host').value.trim() : '';
       db[i].price = document.getElementById('e-price').value;
       db[i].renewCount = parseInt(document.getElementById('e-renew-count').value) || 1;
       db[i].start = document.getElementById('e-start').value;
@@ -1408,11 +1567,15 @@
       let i = db.findIndex(x => x.id === id);
       if (i === -1) return;
 
-      if (!confirm("تجديد الاشتراك لمدة 30 يوم من اليوم؟")) return;
+      const service = db[i].service || 'netflix';
+      const planId = db[i].type || 'profile';
+      const days = getPlanDurationDays(service, planId);
+
+      if (!confirm(`تجديد الاشتراك لمدة ${days} يوم من اليوم؟`)) return;
 
       let newStart = new Date();
       let newEnd = new Date();
-      newEnd.setDate(newEnd.getDate() + 30);
+      newEnd.setDate(newEnd.getDate() + days);
 
       const fmt = d => d.toISOString().split('T')[0];
       db[i].start = fmt(newStart);
@@ -1460,7 +1623,7 @@
           target = p;
         }
 
-        openWhatsAppBusiness(target, "");
+        openWhatsAppDirect(target, "");
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
         window.open(`https://ig.me/m/${cleanUser}`, '_blank');
@@ -1475,12 +1638,13 @@
       if (i === -1) return;
       let c = db[i];
 
+      const conf = servicePlansConfig[c.service || 'netflix'] || servicePlansConfig.netflix;
       const platform = c.platform || 'whatsapp';
       const contactVal = c.contact || c.phone || '';
 
-      const reminderMessage = `السلام عليكم عزيزي ${c.name} 🎬\n` +
-        `تذكير: باقي ${daysLeft > 0 ? daysLeft : 0} يوم على انتهاء اشتراكك في Netflix بتاريخ (${c.end}).\n` +
-        `إذا تحب تجدد اشتراكك وياك يرجى مراسلتنا والتأكيد. شكراً لاختيارك متجرنا ✨`;
+      const reminderMessage = `السلام عليكم عزيزي ${c.name} ✨\n` +
+        `تذكير: باقي ${daysLeft > 0 ? daysLeft : 0} يوم على انتهاء اشتراكك في (${conf.name}) بتاريخ (${c.end}).\n` +
+        `إذا تحب تجدد اشتراكك يرجى مراسلتنا والتأكيد. شكراً لاختيارك متجرنا 🎬`;
 
       db[i].reminded = true;
       localStorage.setItem('netflix_store_db', JSON.stringify(db));
@@ -1495,17 +1659,17 @@
           target = p;
         }
 
-        openWhatsAppBusiness(target, reminderMessage);
+        openWhatsAppDirect(target, reminderMessage);
       } else if (platform === 'instagram') {
         let cleanUser = cleanUsername(contactVal);
         navigator.clipboard.writeText(reminderMessage).then(() => {
-          alert("تم نسخ نص التذكير تلقائياً! جاري تحويلك لمحادثة الإنستغرام للصق الرسالة.");
+          alert("تم نسخ نص التذكير تلقائياً! جاري تحويلك لمحادثة الإنستغرام.");
           window.open(`https://ig.me/m/${cleanUser}`, '_blank');
         });
       } else if (platform === 'messenger') {
         let cleanUser = cleanUsername(contactVal);
         navigator.clipboard.writeText(reminderMessage).then(() => {
-          alert("تم نسخ نص التذكير تلقائياً! جاري تحويلك لمحادثة الماسنجر للصق الرسالة.");
+          alert("تم نسخ نص التذكير تلقائياً! جاري تحويلك لمحادثة الماسنجر.");
           window.open(`https://m.me/${cleanUser}`, '_blank');
         });
       }
@@ -1519,13 +1683,21 @@
       applySettings();
 
       const totalDays = calculateTotalDays(c.start, c.end);
+      const conf = servicePlansConfig[c.service || 'netflix'] || servicePlansConfig.netflix;
+      const planObj = conf.plans.find(p => p.id === c.type) || conf.plans[0];
 
-      let profileDetailsHtml = c.type === 'profile' ? `
-        <div class="receipt-row"><span>${appSettings.lblProfile}</span> <b>${c.profileName}</b></div>
-        <div class="receipt-row"><span>${appSettings.lblPin}</span> <b>${c.profilePin}</b></div>
-      ` : `
-        <div class="receipt-row"><span>${appSettings.lblPass}</span> <b>${c.accountPass}</b></div>
-      `;
+      let specificDetailsHtml = '';
+      if (c.service === 'netflix' && c.type === 'profile') {
+        specificDetailsHtml += `
+          <div class="receipt-row"><span>${appSettings.lblProfile}</span> <b>${c.profileName || 'User'}</b></div>
+          <div class="receipt-row"><span>${appSettings.lblPin}</span> <b>${c.profilePin || 'لا يوجد'}</b></div>
+        `;
+      }
+      if (c.service !== 'gemini' && c.accountPass) {
+        specificDetailsHtml += `
+          <div class="receipt-row"><span>${appSettings.lblPass}</span> <b>${c.accountPass}</b></div>
+        `;
+      }
 
       let platformTitle = "واتساب";
       if(c.platform === 'instagram') platformTitle = "إنستغرام";
@@ -1535,11 +1707,12 @@
       const statusColor = c.paid ? appSettings.paidColor : appSettings.unpaidColor;
 
       document.getElementById('receipt-data').innerHTML = `
+        <div class="receipt-row"><span>${appSettings.lblService || '📌 الخدمة:'}</span> <b>${conf.name}</b></div>
         <div class="receipt-row"><span>${appSettings.lblName}</span> <b>${c.name}</b></div>
         <div class="receipt-row"><span>${appSettings.lblPlatform}</span> <b>${platformTitle} (${c.contact || c.phone})</b></div>
-        <div class="receipt-row"><span>${appSettings.lblType}</span> <b>${c.type === 'profile' ? 'بروفايل خاص' : 'حساب كامل خاص'}</b></div>
+        <div class="receipt-row"><span>${appSettings.lblType}</span> <b>${planObj ? planObj.name : c.type}</b></div>
         <div class="receipt-row"><span>${appSettings.lblEmail}</span> <b>${c.email}</b></div>
-        ${profileDetailsHtml}
+        ${specificDetailsHtml}
         <div class="receipt-row"><span>${appSettings.lblDuration}</span> <b>${totalDays} يوم</b></div>
         <div class="receipt-row"><span>${appSettings.lblEnd}</span> <b>${c.end}</b></div>
         <div class="receipt-row"><span>${appSettings.lblPrice}</span> <b style="color:${appSettings.receiptBorder};">${parseInt(c.price).toLocaleString()} د.ع</b></div>
@@ -1548,7 +1721,7 @@
 
       html2canvas(document.getElementById('receipt-box'), { backgroundColor: appSettings.receiptBg }).then(canvas => {
         let a = document.createElement('a');
-        a.download = `Netflix-${c.name}.png`;
+        a.download = `${conf.name.split(' ')[0]}-${c.name}.png`;
         a.href = canvas.toDataURL();
         a.click();
       });
@@ -1558,6 +1731,10 @@
       const { isExpired, isSoon, daysLeft } = flags;
       const totalDays = calculateTotalDays(c.start, c.end);
       const renewCount = c.renewCount || 1;
+
+      const conf = servicePlansConfig[c.service || 'netflix'] || servicePlansConfig.netflix;
+      const planObj = conf.plans.find(p => p.id === c.type) || conf.plans[0];
+      const planName = planObj ? planObj.name : (c.type === 'profile' ? 'بروفايل خاص' : 'حساب كامل');
 
       let countdownText = isExpired ? 
         `<div class="countdown-box" style="color:var(--danger); border-color:var(--danger);">⛔ الاشتراك انتهى منذ ${Math.abs(daysLeft)} يوم</div>` :
@@ -1572,15 +1749,25 @@
         }
       }
 
-      let secretAccountHtml = `
-        <div class="secret-box">
-          <div class="secret-title">🔒 كلمة مرور الحساب (خاطفة سرية لك):</div>
-          <div style="font-family:monospace; direction:ltr; text-align:right; font-weight:900; color:#fff;">${c.accountPass || 'غير مضافة'}</div>
-        </div>
-      `;
+      let secretHtml = '';
+      if (c.service === 'gemini') {
+        secretHtml = `
+          <div class="secret-box">
+            <div class="secret-title">🔒 حساب العائلة المضيف (سري لك):</div>
+            <div style="font-family:monospace; direction:ltr; text-align:right; font-weight:900; color:#fff;">${c.familyHost || 'غير مضاف'}</div>
+          </div>
+        `;
+      } else {
+        secretHtml = `
+          <div class="secret-box">
+            <div class="secret-title">🔒 كلمة مرور الحساب (خاطفة سرية لك):</div>
+            <div style="font-family:monospace; direction:ltr; text-align:right; font-weight:900; color:#fff;">${c.accountPass || 'غير مضافة'}</div>
+          </div>
+        `;
+      }
 
       let profileHtml = '';
-      if (c.type === 'profile') {
+      if (c.service === 'netflix' && c.type === 'profile') {
         profileHtml = `
           <div>👤 البروفايل: <b>${c.profileName || 'عام'}</b></div>
           <div>🔑 رمز البروفايل (PIN): <b>${c.profilePin || 'بدون رمز'}</b></div>
@@ -1616,11 +1803,14 @@
       card.innerHTML = `
         <div class="card-top">
           <div class="cust-name">${c.name}</div>
-          <div class="cust-type">${c.type === 'profile' ? 'بروفايل خاص' : 'حساب كامل خاص'}</div>
+          <div class="cust-badges">
+            <span class="cust-service">${conf.name}</span>
+            <span class="cust-type">${planName}</span>
+          </div>
         </div>
         ${countdownText}
         <div class="card-info">
-          <div>📧 الإيميل: <b>${c.email}</b></div>
+          <div>📧 الحساب: <b>${c.email}</b></div>
           ${profileHtml}
           <div>${platformDisplay}</div>
           <div>🔄 عدد مرات الاشتراك: <b style="color:var(--warning);">${renewCount} مرّة/مرّات</b></div>
@@ -1632,9 +1822,9 @@
         </div>
         
         <div class="card-actions">
-          ${secretAccountHtml}
+          ${secretHtml}
           ${reminderBtnHtml}
-          <div class="action-btn bg-renew" style="grid-column: span 4;" onclick="renewSubscription('${c.id}')">تجديد الاشتراك (30 يوم) 🔄</div>
+          <div class="action-btn bg-renew" style="grid-column: span 4;" onclick="renewSubscription('${c.id}')">تجديد الاشتراك 🔄</div>
           <div class="action-btn bg-edit" onclick="openEdit('${c.id}')">تعديل ✏️</div>
           <div class="action-btn bg-pay" onclick="togglePay('${c.id}')">${c.paid ? 'إلغاء الدفع' : 'تأكيد الدفع'}</div>
           <div class="action-btn ${actionBtnClass}" onclick="contactUser('${c.id}')">${actionBtnText}</div>
@@ -1743,10 +1933,12 @@
       let shown = 0;
       db.forEach(c => {
         const flags = computeFlags(c, todayStart);
+        const serviceName = (servicePlansConfig[c.service || 'netflix']?.name || "").toLowerCase();
         const match = (c.name || "").toLowerCase().includes(q) ||
                       (c.email || "").toLowerCase().includes(q) ||
                       (c.contact || c.phone || "").toLowerCase().includes(q) ||
-                      (c.profileName || "").toLowerCase().includes(q);
+                      (c.profileName || "").toLowerCase().includes(q) ||
+                      serviceName.includes(q);
         if (!match) return;
 
         let pass = true;
