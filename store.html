@@ -568,7 +568,7 @@
       </div>
 
       <div class="field" id="account-pass-box">
-        <label>كلمة مرور الحساب (خاطفة - سرية لك)</label>
+        <label id="account-pass-label">كلمة مرور الحساب</label>
         <input type="text" id="f-account-pass" placeholder="Password123" style="direction:ltr; text-align:right;" />
       </div>
 
@@ -638,7 +638,6 @@
         <button class="modal-close" onclick="closeSettings()">إغلاق</button>
       </div>
 
-      <!-- 1. هوية التطبيق والألوان -->
       <div class="settings-section">
         <div class="settings-section-title">🎨 هوية التطبيق وألوان النظام</div>
         <div class="modal-grid">
@@ -674,11 +673,9 @@
         </div>
       </div>
 
-      <!-- 2. شعارات الخدمات والتطبيقات -->
       <div class="settings-section">
         <div class="settings-section-title">🖼️ شعارات الخدمات والتطبيقات (تظهر في الوصل والأزرار)</div>
         
-        <!-- شعار نتفلكس -->
         <div class="service-logo-item">
           <div style="display:flex; align-items:center; gap:10px;">
             <img id="logo-prev-netflix" src="" alt="Netflix Logo" />
@@ -691,7 +688,6 @@
           </div>
         </div>
 
-        <!-- شعار كاب كات -->
         <div class="service-logo-item">
           <div style="display:flex; align-items:center; gap:10px;">
             <img id="logo-prev-capcut" src="" alt="CapCut Logo" />
@@ -704,7 +700,6 @@
           </div>
         </div>
 
-        <!-- شعار جيمناي برو -->
         <div class="service-logo-item">
           <div style="display:flex; align-items:center; gap:10px;">
             <img id="logo-prev-gemini" src="" alt="Gemini Logo" />
@@ -717,7 +712,6 @@
           </div>
         </div>
 
-        <!-- شعار يوتيوب بريميوم -->
         <div class="service-logo-item">
           <div style="display:flex; align-items:center; gap:10px;">
             <img id="logo-prev-youtube" src="" alt="YouTube Logo" />
@@ -731,7 +725,6 @@
         </div>
       </div>
 
-      <!-- 3. معلومات الدعم الفني والصورة المصغرة -->
       <div class="settings-section">
         <div class="settings-section-title">📞 معلومات الدعم والصورة المصغرة</div>
         <div class="field">
@@ -749,7 +742,6 @@
         </div>
       </div>
 
-      <!-- 4. تصميم صورة الزبون (الإيصال) -->
       <div class="settings-section">
         <div class="settings-section-title">🖼️ تصميم صورة الإيصال (صورة الزبون)</div>
         <div class="modal-grid">
@@ -785,7 +777,6 @@
         </div>
       </div>
 
-      <!-- 5. تخصيص كتابات ونصوص الإيصال وحالات الدفع -->
       <div class="settings-section">
         <div class="settings-section-title">✍️ نصوص وتسميات الإيصال وحالات الدفع</div>
         <div class="modal-grid">
@@ -931,7 +922,7 @@
         </div>
 
         <div class="field" id="e-account-pass-box" style="grid-column: span 2;">
-          <label>كلمة مرور الحساب (خاصة بك)</label>
+          <label id="e-account-pass-label">كلمة مرور الحساب</label>
           <input type="text" id="e-account-pass" style="direction:ltr; text-align:right;" />
         </div>
 
@@ -1161,6 +1152,13 @@
       document.getElementById('gemini-family-box').style.display = (service === 'gemini') ? 'block' : 'none';
       document.getElementById('account-pass-box').style.display = (service === 'gemini') ? 'none' : 'block';
 
+      const passLabel = document.getElementById('account-pass-label');
+      if (service === 'netflix' && planId === 'profile') {
+        passLabel.innerText = "كلمة مرور الحساب (خاطفة - سرية لك ولا تظهر بالوصل)";
+      } else {
+        passLabel.innerText = "كلمة مرور الحساب (تظهر للزبون في الوصل)";
+      }
+
       updateDate();
     }
 
@@ -1181,6 +1179,13 @@
       document.getElementById('e-profile-box').style.display = (service === 'netflix' && planId === 'profile') ? 'grid' : 'none';
       document.getElementById('e-gemini-family-box').style.display = (service === 'gemini') ? 'block' : 'none';
       document.getElementById('e-account-pass-box').style.display = (service === 'gemini') ? 'none' : 'block';
+
+      const editPassLabel = document.getElementById('e-account-pass-label');
+      if (service === 'netflix' && planId === 'profile') {
+        editPassLabel.innerText = "كلمة مرور الحساب (خاطفة - سرية لك ولا تظهر بالوصل)";
+      } else {
+        editPassLabel.innerText = "كلمة مرور الحساب (تظهر للزبون في الوصل)";
+      }
 
       updateEditDate();
     }
@@ -1254,7 +1259,6 @@
       document.getElementById('s-avatar-file').value = "";
     }
 
-    // دوال رفع وإلغاء شعارات الخدمات
     function handleServiceLogoUpload(event, serviceKey) {
       const file = event.target.files[0];
       if (!file) return;
@@ -1309,7 +1313,6 @@
       }
       document.getElementById('s-avatar-file').value = "";
 
-      // تحديث معاينات شعارات الخدمات
       ['netflix', 'capcut', 'gemini', 'youtube'].forEach(key => {
         const logoImg = document.getElementById(`logo-prev-${key}`);
         if (logoImg) {
@@ -1839,7 +1842,6 @@
       const conf = servicePlansConfig[serviceKey] || servicePlansConfig.netflix;
       const planObj = conf.plans.find(p => p.id === c.type) || conf.plans[0];
 
-      // إظهار شعار الخدمة في الإيصال إذا كان موجوداً
       const rServiceLogo = document.getElementById('r-service-logo');
       if (appSettings.serviceLogos && appSettings.serviceLogos[serviceKey]) {
         rServiceLogo.src = appSettings.serviceLogos[serviceKey];
@@ -1850,16 +1852,27 @@
       }
 
       let specificDetailsHtml = '';
-      if (c.service === 'netflix' && c.type === 'profile') {
-        specificDetailsHtml += `
-          <div class="receipt-row"><span>${appSettings.lblProfile}</span> <b>${c.profileName || 'User'}</b></div>
-          <div class="receipt-row"><span>${appSettings.lblPin}</span> <b>${c.profilePin || 'لا يوجد'}</b></div>
-        `;
-      }
-      if (c.service !== 'gemini' && c.accountPass) {
-        specificDetailsHtml += `
-          <div class="receipt-row"><span>${appSettings.lblPass}</span> <b>${c.accountPass}</b></div>
-        `;
+      if (c.service === 'netflix') {
+        if (c.type === 'profile') {
+          specificDetailsHtml += `
+            <div class="receipt-row"><span>${appSettings.lblProfile}</span> <b>${c.profileName || 'User'}</b></div>
+            <div class="receipt-row"><span>${appSettings.lblPin}</span> <b>${c.profilePin || 'لا يوجد'}</b></div>
+          `;
+        } else {
+          // حساب كامل نتفلكس تظهر فيه كلمة المرور
+          if (c.accountPass) {
+            specificDetailsHtml += `
+              <div class="receipt-row"><span>${appSettings.lblPass}</span> <b>${c.accountPass}</b></div>
+            `;
+          }
+        }
+      } else if (c.service === 'youtube' || c.service === 'capcut') {
+        // يوتيوب وكاب كات تظهر كلمة المرور
+        if (c.accountPass) {
+          specificDetailsHtml += `
+            <div class="receipt-row"><span>${appSettings.lblPass}</span> <b>${c.accountPass}</b></div>
+          `;
+        }
       }
 
       let platformTitle = "واتساب";
@@ -1927,9 +1940,10 @@
           </div>
         `;
       } else {
+        const isMasterSecret = (c.service === 'netflix' && c.type === 'profile');
         secretHtml = `
           <div class="secret-box">
-            <div class="secret-title">🔒 كلمة مرور الحساب (خاطفة سرية لك):</div>
+            <div class="secret-title">${isMasterSecret ? '🔒 كلمة مرور الحساب (خاطفة سرية لك):' : '🔑 كلمة مرور الحساب (تظهر للزبون):'}</div>
             <div style="font-family:monospace; direction:ltr; text-align:right; font-weight:900; color:#fff;">${c.accountPass || 'غير مضافة'}</div>
           </div>
         `;
