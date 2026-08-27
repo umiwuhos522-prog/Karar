@@ -185,14 +185,23 @@
 
     .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .cust-name { font-weight: 900; font-size: 1.2rem; color: var(--card-text); }
-    .cust-badges { display: flex; gap: 6px; }
+    .cust-badges { display: flex; gap: 6px; align-items: center; }
     .cust-service {
       font-size: 0.85rem;
       color: #fff;
-      background: #333;
+      background: #262626;
       padding: 4px 10px;
       border-radius: 8px;
       font-weight: 900;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .cust-service img {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      object-fit: cover;
     }
     .cust-type { 
       font-size: 0.85rem; 
@@ -280,14 +289,28 @@
       border: 4px solid var(--primary);
       border-radius: 25px;
     }
+    .receipt-header-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 2px solid rgba(255,255,255,0.1);
+      padding-bottom: 15px;
+      margin-bottom: 25px;
+    }
+    .receipt-service-logo {
+      max-height: 85px;
+      max-width: 220px;
+      object-fit: contain;
+      margin-bottom: 10px;
+      border-radius: 12px;
+    }
     .receipt h2 {
       color: var(--primary);
       text-align: center;
-      margin-bottom: 25px;
+      margin: 0;
       font-size: 2.5rem;
       font-weight: 900;
-      border-bottom: 2px solid rgba(255,255,255,0.1);
-      padding-bottom: 15px;
     }
     .receipt-row {
       display: flex;
@@ -383,6 +406,25 @@
       cursor: pointer;
     }
 
+    .service-logo-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #141414;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #333;
+      margin-bottom: 10px;
+    }
+    .service-logo-item img {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      object-fit: cover;
+      border: 1px solid var(--primary);
+      display: none;
+    }
+
     .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     @media (max-width: 560px) { .modal-grid { grid-template-columns: 1fr; } }
     
@@ -475,7 +517,6 @@
     <div class="form-card">
       <h2 id="form-header-title">➕ إضافة اشتراك جديد</h2>
 
-      <!-- 1. اختيار الخدمة / التطبيق -->
       <div class="field">
         <label>الخدمة / التطبيق</label>
         <select id="f-service" onchange="onServiceChange()">
@@ -486,7 +527,6 @@
         </select>
       </div>
 
-      <!-- 2. خطة ونوع الاشتراك -->
       <div class="field">
         <label>نوع / خطة الاشتراك</label>
         <select id="f-type" onchange="onPlanChange()"></select>
@@ -516,7 +556,6 @@
         <input type="email" id="f-email" placeholder="example@email.com" style="direction:ltr; text-align:right;" />
       </div>
 
-      <!-- حقول خاصة بنتفلكس -->
       <div id="profile-fields-box">
         <div class="field">
           <label>اسم البروفايل الخاص بالزبون</label>
@@ -528,13 +567,11 @@
         </div>
       </div>
 
-      <!-- كلمة مرور الحساب -->
       <div class="field" id="account-pass-box">
         <label>كلمة مرور الحساب (خاطفة - سرية لك)</label>
         <input type="text" id="f-account-pass" placeholder="Password123" style="direction:ltr; text-align:right;" />
       </div>
 
-      <!-- حساب العائلة المضيف (خاص بجيمناي برو) -->
       <div class="field" id="gemini-family-box" style="display:none;">
         <label>حساب العائلة المضيف (مخفي وسري لك)</label>
         <input type="text" id="f-family-host" placeholder="الحساب الذي تمت إضافة الزبون منه" style="direction:ltr; text-align:right;" />
@@ -574,7 +611,10 @@
   <!-- منطقة توليد صورة الإيصال -->
   <div id="hidden-area">
     <div id="receipt-box" class="receipt">
-      <h2 id="r-title">NETFLIX STORE</h2>
+      <div class="receipt-header-area">
+        <img id="r-service-logo" class="receipt-service-logo" src="" alt="Service Logo" style="display:none;" />
+        <h2 id="r-title">NETFLIX STORE</h2>
+      </div>
       <div id="receipt-data"></div>
       <div class="receipt-footer">
         <div id="r-thankyou" style="font-size:1.5rem; font-weight:900; margin-bottom:5px;">شكراً لاختياركم متجرنا 🎬</div>
@@ -594,10 +634,11 @@
   <div id="settings-overlay" class="modal-overlay" onclick="closeSettingsIfOutside(event)">
     <div class="modal" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <div class="modal-title">⚙️ إعدادات وتخصيص المتجر والإيصال</div>
+        <div class="modal-title">⚙️ إعدادات وتخصيص المتجر والشعارات</div>
         <button class="modal-close" onclick="closeSettings()">إغلاق</button>
       </div>
 
+      <!-- 1. هوية التطبيق والألوان -->
       <div class="settings-section">
         <div class="settings-section-title">🎨 هوية التطبيق وألوان النظام</div>
         <div class="modal-grid">
@@ -633,6 +674,64 @@
         </div>
       </div>
 
+      <!-- 2. شعارات الخدمات والتطبيقات -->
+      <div class="settings-section">
+        <div class="settings-section-title">🖼️ شعارات الخدمات والتطبيقات (تظهر في الوصل والأزرار)</div>
+        
+        <!-- شعار نتفلكس -->
+        <div class="service-logo-item">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <img id="logo-prev-netflix" src="" alt="Netflix Logo" />
+            <b>🎬 نتفلكس (Netflix)</b>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <input type="file" id="file-logo-netflix" accept="image/*" style="display:none" onchange="handleServiceLogoUpload(event, 'netflix')" />
+            <button type="button" class="btn-backup" style="padding:6px 12px; font-size:0.85rem;" onclick="document.getElementById('file-logo-netflix').click()">رفع شعار</button>
+            <button type="button" class="btn-secondary" style="padding:6px 10px; font-size:0.85rem;" onclick="removeServiceLogo('netflix')">حذف</button>
+          </div>
+        </div>
+
+        <!-- شعار كاب كات -->
+        <div class="service-logo-item">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <img id="logo-prev-capcut" src="" alt="CapCut Logo" />
+            <b>✂️ كاب كات (CapCut)</b>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <input type="file" id="file-logo-capcut" accept="image/*" style="display:none" onchange="handleServiceLogoUpload(event, 'capcut')" />
+            <button type="button" class="btn-backup" style="padding:6px 12px; font-size:0.85rem;" onclick="document.getElementById('file-logo-capcut').click()">رفع شعار</button>
+            <button type="button" class="btn-secondary" style="padding:6px 10px; font-size:0.85rem;" onclick="removeServiceLogo('capcut')">حذف</button>
+          </div>
+        </div>
+
+        <!-- شعار جيمناي برو -->
+        <div class="service-logo-item">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <img id="logo-prev-gemini" src="" alt="Gemini Logo" />
+            <b>🤖 جيمناي برو (Gemini Pro)</b>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <input type="file" id="file-logo-gemini" accept="image/*" style="display:none" onchange="handleServiceLogoUpload(event, 'gemini')" />
+            <button type="button" class="btn-backup" style="padding:6px 12px; font-size:0.85rem;" onclick="document.getElementById('file-logo-gemini').click()">رفع شعار</button>
+            <button type="button" class="btn-secondary" style="padding:6px 10px; font-size:0.85rem;" onclick="removeServiceLogo('gemini')">حذف</button>
+          </div>
+        </div>
+
+        <!-- شعار يوتيوب بريميوم -->
+        <div class="service-logo-item">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <img id="logo-prev-youtube" src="" alt="YouTube Logo" />
+            <b>▶️ يوتيوب بريميوم (YouTube)</b>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <input type="file" id="file-logo-youtube" accept="image/*" style="display:none" onchange="handleServiceLogoUpload(event, 'youtube')" />
+            <button type="button" class="btn-backup" style="padding:6px 12px; font-size:0.85rem;" onclick="document.getElementById('file-logo-youtube').click()">رفع شعار</button>
+            <button type="button" class="btn-secondary" style="padding:6px 10px; font-size:0.85rem;" onclick="removeServiceLogo('youtube')">حذف</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. معلومات الدعم الفني والصورة المصغرة -->
       <div class="settings-section">
         <div class="settings-section-title">📞 معلومات الدعم والصورة المصغرة</div>
         <div class="field">
@@ -650,6 +749,7 @@
         </div>
       </div>
 
+      <!-- 4. تصميم صورة الزبون (الإيصال) -->
       <div class="settings-section">
         <div class="settings-section-title">🖼️ تصميم صورة الإيصال (صورة الزبون)</div>
         <div class="modal-grid">
@@ -685,6 +785,7 @@
         </div>
       </div>
 
+      <!-- 5. تخصيص كتابات ونصوص الإيصال وحالات الدفع -->
       <div class="settings-section">
         <div class="settings-section-title">✍️ نصوص وتسميات الإيصال وحالات الدفع</div>
         <div class="modal-grid">
@@ -894,7 +995,6 @@
   </div>
 
   <script>
-    // إعدادات الخدمات والخطط والأسعار والمدد
     const servicePlansConfig = {
       netflix: {
         name: "نتفلكس 🎬",
@@ -933,6 +1033,12 @@
       colorCard: "#141414",
       storePhone: "07782228104",
       storeAvatar: "",
+      serviceLogos: {
+        netflix: "",
+        capcut: "",
+        gemini: "",
+        youtube: ""
+      },
       receiptTitle: "STORE INVOICE",
       receiptThankYou: "شكراً لاختياركم متجرنا ✨",
       receiptSupportLabel: "للتواصل والدعم الفني:",
@@ -958,7 +1064,10 @@
     };
 
     let appSettings = JSON.parse(localStorage.getItem('netflix_store_custom_settings')) || { ...defaultSettings };
+    if (!appSettings.serviceLogos) appSettings.serviceLogos = { ...defaultSettings.serviceLogos };
+
     let tempAvatarBase64 = appSettings.storeAvatar || "";
+    let tempServiceLogos = { ...appSettings.serviceLogos };
 
     let db = JSON.parse(localStorage.getItem('netflix_store_db')) || [];
     let currentFilter = 'all';
@@ -1021,7 +1130,6 @@
 
     applySettings();
 
-    // التحكم بالخدمات وحقول الإدخال
     function populatePlans(selectId, serviceKey, selectedPlanId = null) {
       const select = document.getElementById(selectId);
       select.innerHTML = '';
@@ -1049,7 +1157,6 @@
 
       document.getElementById('f-price').value = plan ? plan.price : 5000;
 
-      // إظهار/إخفاء الحقول حسب الخدمة
       document.getElementById('profile-fields-box').style.display = (service === 'netflix' && planId === 'profile') ? 'block' : 'none';
       document.getElementById('gemini-family-box').style.display = (service === 'gemini') ? 'block' : 'none';
       document.getElementById('account-pass-box').style.display = (service === 'gemini') ? 'none' : 'block';
@@ -1147,8 +1254,36 @@
       document.getElementById('s-avatar-file').value = "";
     }
 
+    // دوال رفع وإلغاء شعارات الخدمات
+    function handleServiceLogoUpload(event, serviceKey) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        tempServiceLogos[serviceKey] = e.target.result;
+        const prev = document.getElementById(`logo-prev-${serviceKey}`);
+        if (prev) {
+          prev.src = tempServiceLogos[serviceKey];
+          prev.style.display = 'block';
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeServiceLogo(serviceKey) {
+      tempServiceLogos[serviceKey] = "";
+      const prev = document.getElementById(`logo-prev-${serviceKey}`);
+      if (prev) {
+        prev.src = "";
+        prev.style.display = 'none';
+      }
+      const inp = document.getElementById(`file-logo-${serviceKey}`);
+      if (inp) inp.value = "";
+    }
+
     function openSettings() {
       tempAvatarBase64 = appSettings.storeAvatar || "";
+      tempServiceLogos = { ...(appSettings.serviceLogos || defaultSettings.serviceLogos) };
 
       document.getElementById('s-app-title').value = appSettings.appTitle;
       document.getElementById('s-app-subtitle').value = appSettings.appSubtitle;
@@ -1173,6 +1308,20 @@
         prev.style.display = 'none';
       }
       document.getElementById('s-avatar-file').value = "";
+
+      // تحديث معاينات شعارات الخدمات
+      ['netflix', 'capcut', 'gemini', 'youtube'].forEach(key => {
+        const logoImg = document.getElementById(`logo-prev-${key}`);
+        if (logoImg) {
+          if (tempServiceLogos[key]) {
+            logoImg.src = tempServiceLogos[key];
+            logoImg.style.display = 'block';
+          } else {
+            logoImg.src = '';
+            logoImg.style.display = 'none';
+          }
+        }
+      });
 
       document.getElementById('s-receipt-title').value = appSettings.receiptTitle;
       document.getElementById('s-receipt-thankyou').value = appSettings.receiptThankYou;
@@ -1230,6 +1379,7 @@
         colorCard: document.getElementById('s-hex-card').value.trim() || defaultSettings.colorCard,
         storePhone: document.getElementById('s-store-phone').value.trim() || defaultSettings.storePhone,
         storeAvatar: tempAvatarBase64 || "",
+        serviceLogos: { ...tempServiceLogos },
         receiptTitle: document.getElementById('s-receipt-title').value.trim() || defaultSettings.receiptTitle,
         receiptThankYou: document.getElementById('s-receipt-thankyou').value.trim() || defaultSettings.receiptThankYou,
         receiptSupportLabel: defaultSettings.receiptSupportLabel,
@@ -1258,13 +1408,14 @@
       applySettings();
       render();
       closeSettings();
-      alert("تم حفظ وتطبيق كافة الإعدادات بنجاح ✅");
+      alert("تم حفظ وتطبيق كافة الإعدادات والشعارات بنجاح ✅");
     }
 
     function resetToDefaults() {
-      if (confirm("هل أنت متأكد من استعادة كافة الألوان والتسميات الافتراضية؟")) {
+      if (confirm("هل أنت متأكد من استعادة كافة الألوان والتسميات والشعارات الافتراضية؟")) {
         appSettings = { ...defaultSettings };
         tempAvatarBase64 = "";
+        tempServiceLogos = { ...defaultSettings.serviceLogos };
         localStorage.setItem('netflix_store_custom_settings', JSON.stringify(appSettings));
         applySettings();
         openSettings();
@@ -1338,6 +1489,7 @@
               if (imported.settings) {
                 appSettings = { ...defaultSettings, ...imported.settings };
                 tempAvatarBase64 = appSettings.storeAvatar || "";
+                tempServiceLogos = { ...(appSettings.serviceLogos || defaultSettings.serviceLogos) };
                 localStorage.setItem('netflix_store_custom_settings', JSON.stringify(appSettings));
                 applySettings();
               }
@@ -1683,8 +1835,19 @@
       applySettings();
 
       const totalDays = calculateTotalDays(c.start, c.end);
-      const conf = servicePlansConfig[c.service || 'netflix'] || servicePlansConfig.netflix;
+      const serviceKey = c.service || 'netflix';
+      const conf = servicePlansConfig[serviceKey] || servicePlansConfig.netflix;
       const planObj = conf.plans.find(p => p.id === c.type) || conf.plans[0];
+
+      // إظهار شعار الخدمة في الإيصال إذا كان موجوداً
+      const rServiceLogo = document.getElementById('r-service-logo');
+      if (appSettings.serviceLogos && appSettings.serviceLogos[serviceKey]) {
+        rServiceLogo.src = appSettings.serviceLogos[serviceKey];
+        rServiceLogo.style.display = 'block';
+      } else {
+        rServiceLogo.src = '';
+        rServiceLogo.style.display = 'none';
+      }
 
       let specificDetailsHtml = '';
       if (c.service === 'netflix' && c.type === 'profile') {
@@ -1732,9 +1895,15 @@
       const totalDays = calculateTotalDays(c.start, c.end);
       const renewCount = c.renewCount || 1;
 
-      const conf = servicePlansConfig[c.service || 'netflix'] || servicePlansConfig.netflix;
+      const serviceKey = c.service || 'netflix';
+      const conf = servicePlansConfig[serviceKey] || servicePlansConfig.netflix;
       const planObj = conf.plans.find(p => p.id === c.type) || conf.plans[0];
       const planName = planObj ? planObj.name : (c.type === 'profile' ? 'بروفايل خاص' : 'حساب كامل');
+
+      let serviceLogoHtml = '';
+      if (appSettings.serviceLogos && appSettings.serviceLogos[serviceKey]) {
+        serviceLogoHtml = `<img src="${appSettings.serviceLogos[serviceKey]}" alt="Logo" />`;
+      }
 
       let countdownText = isExpired ? 
         `<div class="countdown-box" style="color:var(--danger); border-color:var(--danger);">⛔ الاشتراك انتهى منذ ${Math.abs(daysLeft)} يوم</div>` :
@@ -1804,7 +1973,7 @@
         <div class="card-top">
           <div class="cust-name">${c.name}</div>
           <div class="cust-badges">
-            <span class="cust-service">${conf.name}</span>
+            <span class="cust-service">${serviceLogoHtml} ${conf.name}</span>
             <span class="cust-type">${planName}</span>
           </div>
         </div>
