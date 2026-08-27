@@ -77,32 +77,49 @@
     .btn-export { border-color: rgba(16,185,129,0.55); color: #34d399; }
     .btn-import { border-color: rgba(229,9,20,0.55); color: #ffa39e; }
 
+    /* صندوق إعداد رقم الدعم الفني بشكل عمودي ومرتب */
     .store-setting-box {
       background: var(--card);
       border: 1px solid rgba(229,9,20,0.3);
-      border-radius: 12px;
-      padding: 12px 15px;
-      margin-bottom: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
     .store-setting-box label {
-      margin: 0;
+      display: block;
+      margin-bottom: 8px;
       font-size: 0.95rem;
-      font-weight: 800;
-      color: #ddd;
-      white-space: nowrap;
+      font-weight: 900;
+      color: #fff;
     }
-    .store-setting-box input {
-      width: auto;
+    .store-phone-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .store-phone-row input {
       flex: 1;
-      max-width: 220px;
-      padding: 8px 12px;
-      font-size: 0.95rem;
+      padding: 12px;
+      font-size: 1rem;
       direction: ltr;
-      text-align: center;
+      text-align: right;
+      border-radius: 10px;
+    }
+    .btn-save-phone {
+      padding: 12px 20px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-weight: 900;
+      font-size: 0.95rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: 0.2s;
+    }
+    .btn-save-phone:active {
+      transform: scale(0.96);
     }
 
     .stats-bar {
@@ -358,10 +375,13 @@
       <input type="file" id="file-input" style="display:none" accept=".json" onchange="importData(event)" />
     </div>
 
-    <!-- صندوق إعداد رقم الدعم الفني للإيصالات -->
+    <!-- صندوق إعداد رقم الدعم الفني للإيصال مع زر حفظ مستقل -->
     <div class="store-setting-box">
-      <label>📞 رقم الدعم الفني (للإيصال):</label>
-      <input type="text" id="store-phone-input" placeholder="07xxxxxxxxx" oninput="saveStorePhone()" />
+      <label>📞 رقم الدعم الفني (الظاهر في صورة الإيصال):</label>
+      <div class="store-phone-row">
+        <input type="text" id="store-phone-input" placeholder="مثال: 07782228104" />
+        <button type="button" class="btn-save-phone" onclick="saveStorePhoneBtn()">💾 حفظ الرقم</button>
+      </div>
     </div>
 
     <div class="stats-bar">
@@ -625,17 +645,23 @@
     let currentFilter = 'all';
     let editingId = null;
 
-    // تحميل رقم المتجر المحفوظ أو وضع الرقم الافتراضي
+    // تحميل وتثبيت رقم المتجر من الذاكرة المحلية
     let storePhone = localStorage.getItem('netflix_store_phone') || '07782228104';
     const storePhoneInput = document.getElementById('store-phone-input');
     if (storePhoneInput) {
       storePhoneInput.value = storePhone;
     }
 
-    function saveStorePhone() {
+    // دالة حفظ وتثبيت الرقم في الذاكرة
+    function saveStorePhoneBtn() {
       const val = document.getElementById('store-phone-input').value.trim();
-      storePhone = val || '07782228104';
+      if (!val) {
+        alert("يرجى كتابة رقم الدعم الفني أولاً!");
+        return;
+      }
+      storePhone = val;
       localStorage.setItem('netflix_store_phone', storePhone);
+      alert("تم حفظ وتثبيت رقم الدعم الفني بنجاح ✅");
     }
 
     function toggleFormType() {
@@ -758,7 +784,6 @@
       return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     }
 
-    // فتح تطبيق com.whatsapp.w4b المباشر حصراً دون التأثير على البيانات
     function openWhatsAppBusiness(targetPhoneOrUser, textMsg = "") {
       const cleanTarget = cleanUsername(targetPhoneOrUser);
       const encodedMsg = encodeURIComponent(textMsg);
@@ -800,7 +825,6 @@
         contact = cleanUsername(contact);
       }
 
-      // البحث عن زبون مطبق مسبقاً بنفس الاسم والتواصل لتجنب التكرار
       const existingIndex = db.findIndex(x => 
         (x.name || "").trim().toLowerCase() === name.toLowerCase() && 
         (x.contact || x.phone || "").trim().toLowerCase() === contact.toLowerCase()
@@ -1043,7 +1067,7 @@
       if (!c) return;
       document.getElementById('r-date').innerText = "تاريخ الإيصال: " + new Date().toLocaleDateString('ar-EG');
       
-      // تحديث رقم الدعم بالرقم الديناميكي المحفوظ
+      // وضع الرقم المحفوظ في الإيصال
       document.getElementById('r-store-phone').innerText = storePhone;
 
       const totalDays = calculateTotalDays(c.start, c.end);
